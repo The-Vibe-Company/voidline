@@ -1,0 +1,43 @@
+src/render/world.ts
+  b1becb58be1625c8 15,237
+src/systems/waves.ts
+  b1becb58be1625c8 18,73,115
+src/entities/enemies.ts
+  b1becb58be1625c8 4,104
+src/state.ts
+  b1becb58be1625c8 11,56-59,89
+src/entities/experience.ts
+  b1becb58be1625c8 40-42
+src/render/powerups.ts
+  b1becb58be1625c8 1-133
+styles.css
+  b1becb58be1625c8 180-228,632-644
+src/types.ts
+  b1becb58be1625c8 37-40,187-208
+index.html
+  b1becb58be1625c8 104-124
+src/entities/powerups.ts
+  b1becb58be1625c8 1-150
+src/render/hud.ts
+  b1becb58be1625c8 28-33,75-83,115
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "11e7873a7d2d2f8d54ae929aec52dd19bf453a0c",
+  "prompts": {
+    "b1becb58be1625c8": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a099ff38-d53b-419d-ab4b-27e476fd69cc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 957,
+      "total_deletions": 535,
+      "accepted_lines": 429,
+      "overriden_lines": 0
+    }
+  }
+}
