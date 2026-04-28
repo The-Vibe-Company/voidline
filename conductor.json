@@ -1,7 +1,7 @@
 {
   "scripts": {
-    "setup": "true",
-    "run": "python3 -m http.server ${CONDUCTOR_PORT:-4173} --bind 127.0.0.1",
+    "setup": "npm install",
+    "run": "npm run dev -- --port ${CONDUCTOR_PORT:-4173} --strictPort",
     "archive": "true"
   },
   "runScriptMode": "concurrent"
