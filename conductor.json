@@ -1,0 +1,8 @@
+{
+  "scripts": {
+    "setup": "true",
+    "run": "python3 -m http.server ${CONDUCTOR_PORT:-4173} --bind 127.0.0.1",
+    "archive": "true"
+  },
+  "runScriptMode": "concurrent"
+}
