@@ -13,6 +13,7 @@ Ouvre `index.html` dans un navigateur moderne.
 - Le vaisseau cible et tire automatiquement sur l'ennemi le plus proche.
 - Termine une vague pour choisir une amelioration avec le trackpad ou les touches 1/2/3.
 - Les ameliorations existent en tiers Standard, Rare, Prototype et Singularity.
+- Consulte les stats globales du vaisseau dans le panneau de gauche.
 - Mets en pause avec Esc ou P.
 - Survis le plus longtemps possible et maximise le score.
 

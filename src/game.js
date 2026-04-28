@@ -7,6 +7,16 @@ const hud = {
   target: document.querySelector("#targetValue"),
   score: document.querySelector("#scoreValue"),
   health: document.querySelector("#healthBar"),
+  stats: {
+    hull: document.querySelector("#statHull"),
+    damage: document.querySelector("#statDamage"),
+    fireRate: document.querySelector("#statFireRate"),
+    volley: document.querySelector("#statVolley"),
+    speed: document.querySelector("#statSpeed"),
+    pierce: document.querySelector("#statPierce"),
+    drones: document.querySelector("#statDrones"),
+    shield: document.querySelector("#statShield"),
+  },
   loadout: document.querySelector("#loadout"),
   startOverlay: document.querySelector("#startOverlay"),
   upgradeOverlay: document.querySelector("#upgradeOverlay"),
@@ -1173,6 +1183,21 @@ function updateHud() {
     hpPct > 0.38
       ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
       : "linear-gradient(90deg, #ff5a69, #ffbf47)";
+  updateStats();
+}
+
+function updateStats() {
+  hud.stats.hull.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
+  hud.stats.damage.textContent = Math.round(player.damage);
+  hud.stats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;
+  hud.stats.volley.textContent = player.projectileCount;
+  hud.stats.speed.textContent = Math.round(player.speed);
+  hud.stats.pierce.textContent = player.pierce;
+  hud.stats.drones.textContent = player.drones;
+  hud.stats.shield.textContent =
+    player.shieldMax > 0
+      ? `${Math.max(0, Math.ceil(player.shield))}/${Math.round(player.shieldMax)}`
+      : "0";
 }
 
 function updateLoadout() {
