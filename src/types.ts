@@ -34,6 +34,10 @@ export interface GameState {
   xp: number;
   xpTarget: number;
   pendingUpgrades: number;
+  magnetRadius: number;
+  heartsCarried: number;
+  magnetsCarried: number;
+  bombsCarried: number;
 }
 
 export interface Player {
@@ -179,4 +183,26 @@ export interface OwnedUpgrade {
   upgrade: Upgrade;
   tier: UpgradeTier;
   count: number;
+}
+
+export type PowerupKind = "heart" | "magnet" | "bomb";
+
+export interface PowerupVariant {
+  id: PowerupKind;
+  label: string;
+  description: string;
+  color: string;
+  accent: string;
+  rarity: number;
+}
+
+export interface PowerupOrb {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  kind: PowerupKind;
+  age: number;
+  life: number;
 }

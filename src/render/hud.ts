@@ -25,6 +25,12 @@ const hud = {
     shield: document.querySelector<HTMLElement>("#statShield")!,
   },
   loadout: document.querySelector<HTMLElement>("#loadout")!,
+  itemHeart: document.querySelector<HTMLElement>("#itemHeart")!,
+  itemMagnet: document.querySelector<HTMLElement>("#itemMagnet")!,
+  itemBomb: document.querySelector<HTMLElement>("#itemBomb")!,
+  itemHeartCell: document.querySelector<HTMLElement>(".item-cell[data-kind='heart']")!,
+  itemMagnetCell: document.querySelector<HTMLElement>(".item-cell[data-kind='magnet']")!,
+  itemBombCell: document.querySelector<HTMLElement>(".item-cell[data-kind='bomb']")!,
   startOverlay: document.querySelector<HTMLElement>("#startOverlay")!,
   upgradeOverlay: document.querySelector<HTMLElement>("#upgradeOverlay")!,
   pauseOverlay: document.querySelector<HTMLElement>("#pauseOverlay")!,
@@ -66,6 +72,15 @@ export function updateLoadout(): void {
   }
 }
 
+function updateItemBar(): void {
+  hud.itemHeart.textContent = String(state.heartsCarried);
+  hud.itemMagnet.textContent = String(state.magnetsCarried);
+  hud.itemBomb.textContent = String(state.bombsCarried);
+  hud.itemHeartCell.dataset.zero = state.heartsCarried === 0 ? "true" : "false";
+  hud.itemMagnetCell.dataset.zero = state.magnetsCarried === 0 ? "true" : "false";
+  hud.itemBombCell.dataset.zero = state.bombsCarried === 0 ? "true" : "false";
+}
+
 function updateStats(): void {
   hud.stats.level.textContent = String(state.level);
   hud.stats.xp.textContent = `${Math.floor(state.xp)}/${state.xpTarget}`;
@@ -97,6 +112,7 @@ export function updateHud(): void {
       ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
       : "linear-gradient(90deg, #ff5a69, #ffbf47)";
   updateStats();
+  updateItemBar();
 }
 
 export function showUpgrade(): void {
