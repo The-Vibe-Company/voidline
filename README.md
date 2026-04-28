@@ -4,7 +4,19 @@ Petit rogue-lite spatial jouable dans le navigateur.
 
 ## Lancer
 
-Ouvre `index.html` dans un navigateur moderne.
+```sh
+npm install
+npm run dev
+```
+
+Puis ouvre l'URL affichee par Vite (par defaut `http://127.0.0.1:5173`).
+
+## Build production
+
+```sh
+npm run build
+npm run preview
+```
 
 ## Boucle de jeu
 
@@ -23,4 +35,13 @@ Ouvre `index.html` dans un navigateur moderne.
 
 - `index.html` : structure de la page et overlays.
 - `styles.css` : interface, HUD et ecrans de menu.
-- `src/game.js` : moteur canvas, vagues, upgrades, collisions et rendu.
+- `src/main.ts` : point d'entree (resize, input, loop).
+- `src/state.ts` : singletons mutables (state, player, world, collections).
+- `src/types.ts` : interfaces TypeScript du jeu.
+- `src/utils.ts` : helpers (clamp, circleHit, xpToNextLevel, ...).
+- `src/game/` : input, loop, progression.
+- `src/entities/` : player, enemies, bullets, particles, experience.
+- `src/systems/` : waves, upgrades, camera.
+- `src/render/` : background, world (canvas), hud (DOM).
+
+`src/render/hud.ts` est le seul module qui touche le DOM. Tout le reste manipule du state typé.

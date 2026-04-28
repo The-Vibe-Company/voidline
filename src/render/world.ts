@@ -1,0 +1,243 @@
+import {
+  bullets,
+  ctx,
+  enemies,
+  experienceOrbs,
+  floaters,
+  particles,
+  player,
+  pointer,
+  state,
+  world,
+} from "../state";
+import { clamp, screenToWorld } from "../utils";
+import { drawArenaBounds, drawBackground, polygon } from "./background";
+import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
+
+function drawTrackpadGuide(): void {
+  if (state.mode !== "playing" || state.controlMode !== "trackpad" || !pointer.inside) {
+    return;
+  }
+
+  const target = screenToWorld(pointer.x, pointer.y);
+  const distance = Math.hypot(target.x - player.x, target.y - player.y);
+  if (distance < 18) return;
+
+  ctx.save();
+  ctx.globalAlpha = clamp(distance / 240, 0.16, 0.48);
+  ctx.strokeStyle = "#72ffb1";
+  ctx.lineWidth = 1;
+  ctx.setLineDash([6, 12]);
+  ctx.beginPath();
+  ctx.moveTo(player.x, player.y);
+  ctx.lineTo(target.x, target.y);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.72;
+  ctx.beginPath();
+  ctx.arc(target.x, target.y, 12 + Math.sin(world.time * 8) * 2, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawPlayer(): void {
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.aimAngle + Math.PI / 2);
+
+  if (player.shield > 1) {
+    ctx.save();
+    ctx.globalAlpha = 0.2 + (player.shield / Math.max(1, player.shieldMax)) * 0.24;
+    ctx.strokeStyle = "#72ffb1";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, player.radius + 15, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  const engine = Math.min(1, Math.hypot(player.vx, player.vy) / player.speed);
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  const flame = ctx.createLinearGradient(0, 12, 0, 36 + engine * 16);
+  flame.addColorStop(0, "rgba(57, 217, 255, 0.9)");
+  flame.addColorStop(1, "rgba(255, 191, 71, 0)");
+  ctx.fillStyle = flame;
+  ctx.beginPath();
+  ctx.moveTo(-6, 11);
+  ctx.lineTo(0, 34 + engine * 18 + Math.sin(world.time * 34) * 3);
+  ctx.lineTo(6, 11);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.fillStyle = player.invuln > 0 && Math.sin(world.time * 42) > 0 ? "#ffffff" : "#d9f6ff";
+  ctx.strokeStyle = "#39d9ff";
+  ctx.lineWidth = 2;
+  ctx.shadowColor = "#39d9ff";
+  ctx.shadowBlur = 18;
+  ctx.beginPath();
+  ctx.moveTo(0, -24);
+  ctx.lineTo(15, 17);
+  ctx.lineTo(5, 12);
+  ctx.lineTo(0, 23);
+  ctx.lineTo(-5, 12);
+  ctx.lineTo(-15, 17);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#05060b";
+  ctx.beginPath();
+  ctx.moveTo(0, -12);
+  ctx.lineTo(6, 7);
+  ctx.lineTo(-6, 7);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawDrones(): void {
+  if (player.drones <= 0) return;
+  for (let i = 0; i < player.drones; i += 1) {
+    const angle = world.time * 1.9 + (Math.PI * 2 * i) / player.drones;
+    const x = player.x + Math.cos(angle) * 48;
+    const y = player.y + Math.sin(angle) * 48;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-angle);
+    ctx.shadowColor = "#ffbf47";
+    ctx.shadowBlur = 12;
+    ctx.fillStyle = "#ffbf47";
+    ctx.strokeStyle = "#fff0b8";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.rect(-6, -6, 12, 12);
+    ctx.fill();
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+function drawEnemy(enemy: EnemyEntity): void {
+  ctx.save();
+  ctx.translate(enemy.x, enemy.y);
+  ctx.rotate(enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
+  ctx.shadowColor = enemy.color;
+  ctx.shadowBlur = enemy.hit > 0 ? 25 : 10;
+  ctx.fillStyle = enemy.hit > 0 ? enemy.accent : enemy.color;
+  ctx.strokeStyle = enemy.accent;
+  ctx.lineWidth = enemy.kind === "brute" ? 2.5 : 1.5;
+
+  polygon(0, 0, enemy.radius, enemy.sides);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.shadowBlur = 0;
+  const hpPct = clamp(enemy.hp / enemy.maxHp, 0, 1);
+  if (hpPct < 0.98) {
+    ctx.rotate(-enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
+    ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
+    ctx.fillRect(-enemy.radius, enemy.radius + 9, enemy.radius * 2, 4);
+    ctx.fillStyle = enemy.accent;
+    ctx.fillRect(-enemy.radius, enemy.radius + 9, enemy.radius * 2 * hpPct, 4);
+  }
+
+  ctx.restore();
+}
+
+function drawBullet(bullet: Bullet): void {
+  ctx.save();
+  ctx.strokeStyle = bullet.color;
+  ctx.fillStyle = bullet.color;
+  ctx.shadowColor = bullet.color;
+  ctx.shadowBlur = 14;
+  ctx.lineWidth = bullet.radius;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(bullet.x - bullet.vx * 0.022, bullet.y - bullet.vy * 0.022);
+  ctx.lineTo(bullet.x, bullet.y);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(bullet.x, bullet.y, bullet.radius * 0.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawExperienceOrb(orb: ExperienceOrb): void {
+  const pulse = 1 + Math.sin(world.time * 7 + orb.age * 4) * 0.12;
+  ctx.save();
+  ctx.translate(orb.x, orb.y);
+  ctx.rotate(world.time * 1.4 + orb.age);
+  ctx.shadowColor = "#72ffb1";
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "#72ffb1";
+  ctx.strokeStyle = "#eaffd8";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -orb.radius * pulse);
+  ctx.lineTo(orb.radius * 0.72 * pulse, 0);
+  ctx.lineTo(0, orb.radius * pulse);
+  ctx.lineTo(-orb.radius * 0.72 * pulse, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawParticles(behind: boolean): void {
+  for (const particle of particles) {
+    if (particle.behind !== behind) continue;
+    const alpha = clamp(particle.life / particle.maxLife, 0, 1);
+    ctx.save();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = particle.color;
+    ctx.shadowColor = particle.color;
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(particle.x, particle.y, particle.size * alpha, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
+function drawFloaters(): void {
+  ctx.save();
+  ctx.font = "700 13px Share Tech Mono, monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  for (const floater of floaters) {
+    const alpha = clamp(floater.life / floater.maxLife, 0, 1);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = floater.color;
+    ctx.shadowColor = floater.color;
+    ctx.shadowBlur = 8;
+    ctx.fillText(floater.text, floater.x, floater.y);
+  }
+  ctx.restore();
+}
+
+export function render(): void {
+  ctx.save();
+  ctx.clearRect(0, 0, world.width, world.height);
+  drawBackground();
+
+  const shakeX = (Math.random() - 0.5) * world.shake;
+  const shakeY = (Math.random() - 0.5) * world.shake;
+  ctx.translate(shakeX, shakeY);
+  ctx.translate(-world.cameraX, -world.cameraY);
+
+  drawArenaBounds();
+  drawParticles(true);
+  drawTrackpadGuide();
+  for (const orb of experienceOrbs) drawExperienceOrb(orb);
+  for (const bullet of bullets) drawBullet(bullet);
+  for (const enemy of enemies) drawEnemy(enemy);
+  drawDrones();
+  drawPlayer();
+  drawParticles(false);
+  drawFloaters();
+  ctx.restore();
+}
