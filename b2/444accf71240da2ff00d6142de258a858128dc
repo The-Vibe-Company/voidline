@@ -1,0 +1,69 @@
+src/types.ts
+  e13babe119ee4fd2 1-182
+conductor.json
+  e13babe119ee4fd2 3-4
+src/render/world.ts
+  e13babe119ee4fd2 1-17,43,102,124,151,169,190,206,222-225,227-230,232-242
+src/game/progression.ts
+  e13babe119ee4fd2 1-23
+package.json
+  e13babe119ee4fd2 1-16
+vite.config.ts
+  e13babe119ee4fd2 1-14
+src/render/hud.ts
+  e13babe119ee4fd2 1-210
+index.html
+  e13babe119ee4fd2 171
+src/systems/camera.ts
+  e13babe119ee4fd2 1-69
+src/entities/experience.ts
+  e13babe119ee4fd2 1-52
+src/main.ts
+  e13babe119ee4fd2 1-13
+README.md
+  e13babe119ee4fd2 7-19,38-47
+src/entities/player.ts
+  e13babe119ee4fd2 1-143
+src/systems/upgrades.ts
+  e13babe119ee4fd2 1-212
+src/game/loop.ts
+  e13babe119ee4fd2 1-17
+src/game/input.ts
+  e13babe119ee4fd2 1-141
+tsconfig.json
+  e13babe119ee4fd2 1-24
+src/state.ts
+  e13babe119ee4fd2 1-91
+src/entities/particles.ts
+  e13babe119ee4fd2 1-71
+src/utils.ts
+  e13babe119ee4fd2 1-51
+src/entities/enemies.ts
+  e13babe119ee4fd2 1-125
+src/entities/bullets.ts
+  e13babe119ee4fd2 1-48
+src/systems/waves.ts
+  e13babe119ee4fd2 1-133
+src/render/background.ts
+  e13babe119ee4fd2 1-104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b2444accf71240da2ff00d6142de258a858128dc",
+  "prompts": {
+    "e13babe119ee4fd2": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "194d7e41-b4fc-417f-a3eb-367393626cd1",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 2043,
+      "total_deletions": 1600,
+      "accepted_lines": 2008,
+      "overriden_lines": 0
+    }
+  }
+}
