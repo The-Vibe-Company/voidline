@@ -10,6 +10,7 @@ Ouvre `index.html` dans un navigateur moderne.
 
 - Deplace le vaisseau avec les fleches directionnelles ou WASD.
 - Passe en mode trackpad pour diriger le vaisseau vers le curseur.
+- Explore une arene plus grande que l'ecran avec une camera qui suit le vaisseau.
 - Le vaisseau cible et tire automatiquement sur l'ennemi le plus proche.
 - Les ennemis lachent des fragments d'XP a recuperer dans l'arene.
 - Monte de niveau en ramassant assez d'XP pour choisir une amelioration avec le trackpad ou les touches 1/2/3.

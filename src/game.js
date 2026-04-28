@@ -43,6 +43,10 @@ const pointer = {
 const world = {
   width: 0,
   height: 0,
+  arenaWidth: 3200,
+  arenaHeight: 2200,
+  cameraX: 0,
+  cameraY: 0,
   dpr: 1,
   time: 0,
   shake: 0,
@@ -279,6 +283,8 @@ function resize() {
   world.dpr = Math.min(window.devicePixelRatio || 1, 2);
   world.width = window.innerWidth;
   world.height = window.innerHeight;
+  world.arenaWidth = Math.max(3200, Math.round(world.width * 3.2));
+  world.arenaHeight = Math.max(2200, Math.round(world.height * 3.2));
   canvas.width = Math.floor(world.width * world.dpr);
   canvas.height = Math.floor(world.height * world.dpr);
   canvas.style.width = `${world.width}px`;
@@ -286,9 +292,12 @@ function resize() {
   ctx.setTransform(world.dpr, 0, 0, world.dpr, 0, 0);
 
   if (!player.x || !player.y) {
-    player.x = world.width / 2;
-    player.y = world.height / 2;
+    player.x = world.arenaWidth / 2;
+    player.y = world.arenaHeight / 2;
   }
+  player.x = clamp(player.x, player.radius + 8, world.arenaWidth - player.radius - 8);
+  player.y = clamp(player.y, player.radius + 8, world.arenaHeight - player.radius - 8);
+  updateCamera(0, true);
 
   rebuildStars();
 }
@@ -318,8 +327,8 @@ function resetGame() {
   state.xpTarget = xpToNextLevel(state.level);
   state.pendingUpgrades = 0;
 
-  player.x = world.width / 2;
-  player.y = world.height / 2;
+  player.x = world.arenaWidth / 2;
+  player.y = world.arenaHeight / 2;
   player.hp = 100;
   player.maxHp = 100;
   player.speed = 265;
@@ -346,6 +355,7 @@ function resetGame() {
   floaters.length = 0;
 
   hideOverlays();
+  updateCamera(0, true);
   startWave(1);
   updateLoadout();
   updateHud();
@@ -547,11 +557,13 @@ function update(dt) {
   if (state.mode !== "playing") {
     updateParticles(dt);
     updateStars(dt);
+    updateCamera(dt);
     return;
   }
 
   updateStars(dt);
   updatePlayer(dt);
+  updateCamera(dt);
   updateWave(dt);
   updateBullets(dt);
   updateEnemies(dt);
@@ -569,7 +581,6 @@ function update(dt) {
   if (
     state.spawnRemaining <= 0 &&
     enemies.length === 0 &&
-    experienceOrbs.length === 0 &&
     state.mode === "playing"
   ) {
     state.waveDelay += dt;
@@ -593,6 +604,14 @@ function updateStars(dt) {
   }
 }
 
+function updateCamera(dt, snap = false) {
+  const targetX = clamp(player.x - world.width / 2, 0, Math.max(0, world.arenaWidth - world.width));
+  const targetY = clamp(player.y - world.height / 2, 0, Math.max(0, world.arenaHeight - world.height));
+  const follow = snap ? 1 : 1 - Math.pow(0.0006, dt);
+  world.cameraX += (targetX - world.cameraX) * follow;
+  world.cameraY += (targetY - world.cameraY) * follow;
+}
+
 function updatePlayer(dt) {
   const keyX =
     Number(keys.has("ArrowRight") || keys.has("KeyD")) -
@@ -606,8 +625,9 @@ function updatePlayer(dt) {
   let speedScale = 1;
 
   if (!keyActive && state.controlMode === "trackpad" && pointer.inside) {
-    const dx = pointer.x - player.x;
-    const dy = pointer.y - player.y;
+    const target = screenToWorld(pointer.x, pointer.y);
+    const dx = target.x - player.x;
+    const dy = target.y - player.y;
     const dist = Math.hypot(dx, dy);
     if (dist > 14) {
       inputX = dx / dist;
@@ -625,12 +645,12 @@ function updatePlayer(dt) {
   player.x = clamp(
     player.x + player.vx * dt,
     player.radius + 8,
-    world.width - player.radius - 8,
+    world.arenaWidth - player.radius - 8,
   );
   player.y = clamp(
     player.y + player.vy * dt,
     player.radius + 8,
-    world.height - player.radius - 8,
+    world.arenaHeight - player.radius - 8,
   );
 
   player.invuln = Math.max(0, player.invuln - dt);
@@ -686,9 +706,9 @@ function updateBullets(dt) {
     if (
       bullet.life <= 0 ||
       bullet.x < -80 ||
-      bullet.x > world.width + 80 ||
+      bullet.x > world.arenaWidth + 80 ||
       bullet.y < -80 ||
-      bullet.y > world.height + 80
+      bullet.y > world.arenaHeight + 80
     ) {
       bullets.splice(i, 1);
       continue;
@@ -829,18 +849,23 @@ function spawnEnemy() {
   const type = chooseEnemyType();
   const side = Math.floor(Math.random() * 4);
   const pad = 70;
-  let x = Math.random() * world.width;
-  let y = Math.random() * world.height;
+  const viewLeft = world.cameraX;
+  const viewTop = world.cameraY;
+  let x = viewLeft + Math.random() * world.width;
+  let y = viewTop + Math.random() * world.height;
 
   if (side === 0) {
-    x = -pad;
+    x = viewLeft - pad;
   } else if (side === 1) {
-    x = world.width + pad;
+    x = viewLeft + world.width + pad;
   } else if (side === 2) {
-    y = -pad;
+    y = viewTop - pad;
   } else {
-    y = world.height + pad;
+    y = viewTop + world.height + pad;
   }
+
+  x = clamp(x, pad, world.arenaWidth - pad);
+  y = clamp(y, pad, world.arenaHeight - pad);
 
   const scale = 1 + state.wave * 0.055;
   enemies.push({
@@ -952,7 +977,9 @@ function render() {
   const shakeX = (Math.random() - 0.5) * world.shake;
   const shakeY = (Math.random() - 0.5) * world.shake;
   ctx.translate(shakeX, shakeY);
+  ctx.translate(-world.cameraX, -world.cameraY);
 
+  drawArenaBounds();
   drawParticles(true);
   drawTrackpadGuide();
   for (const orb of experienceOrbs) drawExperienceOrb(orb);
@@ -970,7 +997,8 @@ function drawTrackpadGuide() {
     return;
   }
 
-  const distance = Math.hypot(pointer.x - player.x, pointer.y - player.y);
+  const target = screenToWorld(pointer.x, pointer.y);
+  const distance = Math.hypot(target.x - player.x, target.y - player.y);
   if (distance < 18) return;
 
   ctx.save();
@@ -980,12 +1008,12 @@ function drawTrackpadGuide() {
   ctx.setLineDash([6, 12]);
   ctx.beginPath();
   ctx.moveTo(player.x, player.y);
-  ctx.lineTo(pointer.x, pointer.y);
+  ctx.lineTo(target.x, target.y);
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.globalAlpha = 0.72;
   ctx.beginPath();
-  ctx.arc(pointer.x, pointer.y, 12 + Math.sin(world.time * 8) * 2, 0, Math.PI * 2);
+  ctx.arc(target.x, target.y, 12 + Math.sin(world.time * 8) * 2, 0, Math.PI * 2);
   ctx.stroke();
   ctx.restore();
 }
@@ -1017,8 +1045,8 @@ function drawBackground() {
   ctx.strokeStyle = "#39d9ff";
   ctx.lineWidth = 1;
   const grid = 64;
-  const offsetX = ((world.time * 8) % grid) - grid;
-  const offsetY = ((world.time * 5) % grid) - grid;
+  const offsetX = -((world.cameraX - world.time * 8) % grid) - grid;
+  const offsetY = -((world.cameraY - world.time * 5) % grid) - grid;
   for (let x = offsetX; x < world.width + grid; x += grid) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
@@ -1029,6 +1057,33 @@ function drawBackground() {
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(world.width, y);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawArenaBounds() {
+  ctx.save();
+  ctx.strokeStyle = "rgba(255, 191, 71, 0.28)";
+  ctx.lineWidth = 2;
+  ctx.setLineDash([18, 16]);
+  ctx.strokeRect(0, 0, world.arenaWidth, world.arenaHeight);
+  ctx.setLineDash([]);
+
+  ctx.globalAlpha = 0.08;
+  ctx.strokeStyle = "#72ffb1";
+  ctx.lineWidth = 1;
+  const sector = 512;
+  for (let x = sector; x < world.arenaWidth; x += sector) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, world.arenaHeight);
+    ctx.stroke();
+  }
+  for (let y = sector; y < world.arenaHeight; y += sector) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(world.arenaWidth, y);
     ctx.stroke();
   }
   ctx.restore();
@@ -1350,6 +1405,13 @@ function distanceSq(ax, ay, bx, by) {
   const dx = ax - bx;
   const dy = ay - by;
   return dx * dx + dy * dy;
+}
+
+function screenToWorld(x, y) {
+  return {
+    x: world.cameraX + x,
+    y: world.cameraY + y,
+  };
 }
 
 function clamp(value, min, max) {
