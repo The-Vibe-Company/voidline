@@ -1,4 +1,4 @@
-import { bullets, enemies, world } from "../state";
+import { bullets, enemies, player, world } from "../state";
 import { circleHit } from "../utils";
 import { spark } from "./particles";
 import { killEnemy } from "./enemies";
@@ -36,6 +36,9 @@ export function updateBullets(dt: number): void {
         spark(bullet.x, bullet.y, bullet.color);
         if (enemy.hp <= 0) {
           killEnemy(e);
+          if (player.lifesteal > 0) {
+            player.hp = Math.min(player.maxHp, player.hp + player.lifesteal);
+          }
         }
         bullet.pierce -= 1;
         if (bullet.pierce < 0) {

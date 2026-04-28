@@ -159,6 +159,54 @@ export const upgradePool: Upgrade[] = [
       player.damage *= 1 + 0.07 * tier.power;
     },
   },
+  {
+    id: "crit-array",
+    icon: "X2",
+    name: "Reseau critique",
+    description: "Calibre les tirs pour des coups doubles aleatoires.",
+    effect(tier) {
+      return `+${percent(0.08 * tier.power)} chance critique (x2 degats)`;
+    },
+    apply(tier) {
+      player.critChance = Math.min(0.95, player.critChance + 0.08 * tier.power);
+    },
+  },
+  {
+    id: "vampire-coil",
+    icon: "VMP",
+    name: "Bobine vampire",
+    description: "Convertit chaque elimination en regeneration de coque.",
+    effect(tier) {
+      return `+${(2 * tier.power).toFixed(1)} PV par kill`;
+    },
+    apply(tier) {
+      player.lifesteal += 2 * tier.power;
+    },
+  },
+  {
+    id: "magnet-array",
+    icon: "MAG",
+    name: "Aimant orbital",
+    description: "Etend la portee d'attraction des fragments d'XP.",
+    effect(tier) {
+      return `+${percent(0.35 * tier.power)} portee de ramassage`;
+    },
+    apply(tier) {
+      player.pickupRadius *= 1 + 0.35 * tier.power;
+    },
+  },
+  {
+    id: "heavy-caliber",
+    icon: "CAL",
+    name: "Calibre lourd",
+    description: "Elargit les projectiles pour mieux toucher.",
+    effect(tier) {
+      return `+${percent(0.18 * tier.power)} taille de projectile`;
+    },
+    apply(tier) {
+      player.bulletRadius *= 1 + 0.18 * tier.power;
+    },
+  },
 ];
 
 export function rollUpgradeTier(wave: number): UpgradeTier {
