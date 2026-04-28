@@ -26,6 +26,13 @@
           <span class="hud-label">Chasse</span>
           <strong><span id="killsValue">0</span>/<span id="targetValue">0</span></strong>
         </div>
+        <div class="hud-panel wide xp-panel">
+          <span class="hud-label">Niveau <span id="levelValue">1</span></span>
+          <div class="meter xp-meter">
+            <span id="xpBar"></span>
+          </div>
+          <span class="xp-readout" id="xpValue">0/46 XP</span>
+        </div>
         <div class="hud-panel wide">
           <span class="hud-label">Integrite</span>
           <div class="meter">
@@ -41,6 +48,14 @@
       <aside class="stats-panel" aria-label="Stats globales du vaisseau">
         <span class="hud-label">Stats globales</span>
         <dl class="stats-grid">
+          <div>
+            <dt>Niveau</dt>
+            <dd id="statLevel">1</dd>
+          </div>
+          <div>
+            <dt>XP</dt>
+            <dd id="statXp">0/46</dd>
+          </div>
           <div>
             <dt>Coque</dt>
             <dd id="statHull">100/100</dd>
@@ -121,7 +136,7 @@
       <section class="overlay" id="upgradeOverlay">
         <div class="upgrade-modal">
           <p class="eyebrow">Hangar tactique</p>
-          <h2 id="upgradeTitle">Vague neutralisee</h2>
+          <h2 id="upgradeTitle">Niveau atteint</h2>
           <div class="upgrade-grid" id="upgradeGrid"></div>
         </div>
       </section>

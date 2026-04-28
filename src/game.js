@@ -5,9 +5,14 @@ const hud = {
   wave: document.querySelector("#waveValue"),
   kills: document.querySelector("#killsValue"),
   target: document.querySelector("#targetValue"),
+  level: document.querySelector("#levelValue"),
+  xp: document.querySelector("#xpValue"),
+  xpBar: document.querySelector("#xpBar"),
   score: document.querySelector("#scoreValue"),
   health: document.querySelector("#healthBar"),
   stats: {
+    level: document.querySelector("#statLevel"),
+    xp: document.querySelector("#statXp"),
     hull: document.querySelector("#statHull"),
     damage: document.querySelector("#statDamage"),
     fireRate: document.querySelector("#statFireRate"),
@@ -55,6 +60,10 @@ const state = {
   waveDelay: 0,
   bestCombo: 0,
   controlMode: "keyboard",
+  level: 1,
+  xp: 0,
+  xpTarget: xpToNextLevel(1),
+  pendingUpgrades: 0,
 };
 
 const player = {
@@ -83,6 +92,7 @@ const player = {
 
 const enemies = [];
 const bullets = [];
+const experienceOrbs = [];
 const particles = [];
 const floaters = [];
 const stars = [];
@@ -303,6 +313,10 @@ function resetGame() {
   state.score = 0;
   state.waveKills = 0;
   state.bestCombo = 0;
+  state.level = 1;
+  state.xp = 0;
+  state.xpTarget = xpToNextLevel(state.level);
+  state.pendingUpgrades = 0;
 
   player.x = world.width / 2;
   player.y = world.height / 2;
@@ -327,6 +341,7 @@ function resetGame() {
   nextEnemyId = 1;
   enemies.length = 0;
   bullets.length = 0;
+  experienceOrbs.length = 0;
   particles.length = 0;
   floaters.length = 0;
 
@@ -358,7 +373,11 @@ function hideOverlays() {
 
 function showUpgrade() {
   state.mode = "upgrade";
-  hud.upgradeTitle.textContent = `Vague ${state.wave} neutralisee`;
+  state.pendingUpgrades = Math.max(1, state.pendingUpgrades);
+  hud.upgradeTitle.textContent =
+    state.pendingUpgrades > 1
+      ? `Niveau ${state.level} atteint - ${state.pendingUpgrades} upgrades`
+      : `Niveau ${state.level} atteint`;
   hud.upgradeGrid.innerHTML = "";
 
   const choices = pickUpgrades(3);
@@ -399,7 +418,15 @@ function applyUpgrade(choice) {
 
   pulseText(player.x, player.y - 42, `${upgrade.name} ${tier.short}`, tier.color);
   updateLoadout();
-  startWave(state.wave + 1);
+  state.pendingUpgrades = Math.max(0, state.pendingUpgrades - 1);
+  if (state.pendingUpgrades > 0) {
+    showUpgrade();
+    return;
+  }
+
+  hideOverlays();
+  state.mode = "playing";
+  updateHud();
 }
 
 function showGameOver() {
@@ -509,6 +536,10 @@ function percent(value) {
   return `${Math.round(value * 100)}%`;
 }
 
+function xpToNextLevel(level) {
+  return Math.round(28 + level * 12 + Math.pow(level, 1.45) * 6);
+}
+
 function update(dt) {
   world.time += dt;
   world.shake = Math.max(0, world.shake - dt * 18);
@@ -524,6 +555,7 @@ function update(dt) {
   updateWave(dt);
   updateBullets(dt);
   updateEnemies(dt);
+  updateExperience(dt);
   updateParticles(dt);
   updateHud();
 
@@ -537,11 +569,12 @@ function update(dt) {
   if (
     state.spawnRemaining <= 0 &&
     enemies.length === 0 &&
+    experienceOrbs.length === 0 &&
     state.mode === "playing"
   ) {
     state.waveDelay += dt;
     if (state.waveDelay > 1.1) {
-      showUpgrade();
+      startWave(state.wave + 1);
     }
   }
 }
@@ -705,6 +738,32 @@ function updateEnemies(dt) {
   }
 }
 
+function updateExperience(dt) {
+  for (let i = experienceOrbs.length - 1; i >= 0; i -= 1) {
+    const orb = experienceOrbs[i];
+    orb.age += dt;
+    orb.x += orb.vx * dt;
+    orb.y += orb.vy * dt;
+    orb.vx *= 1 - dt * 2.7;
+    orb.vy *= 1 - dt * 2.7;
+
+    const dx = player.x - orb.x;
+    const dy = player.y - orb.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance < 82) {
+      const pull = (1 - distance / 82) * 560;
+      orb.vx += (dx / Math.max(1, distance)) * pull * dt;
+      orb.vy += (dy / Math.max(1, distance)) * pull * dt;
+    }
+
+    if (distance < player.radius + orb.radius + 8) {
+      collectExperience(orb.value);
+      spark(orb.x, orb.y, "#72ffb1");
+      experienceOrbs.splice(i, 1);
+    }
+  }
+}
+
 function updateParticles(dt) {
   for (let i = particles.length - 1; i >= 0; i -= 1) {
     const particle = particles[i];
@@ -819,9 +878,51 @@ function killEnemy(index) {
   state.waveKills += 1;
   state.score += Math.round(enemy.score * (1 + state.wave * 0.07));
   state.bestCombo += 1;
+  spawnExperience(enemy);
   burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);
   pulseText(enemy.x, enemy.y - enemy.radius, `+${enemy.score}`, enemy.accent);
   world.shake = Math.min(10, world.shake + 2.4);
+}
+
+function spawnExperience(enemy) {
+  const total = Math.round((enemy.score / 7) * (1 + state.wave * 0.04));
+  const shardCount = enemy.kind === "brute" ? 5 : enemy.kind === "hunter" ? 3 : 2;
+  let remaining = total;
+
+  for (let i = 0; i < shardCount; i += 1) {
+    const value = i === shardCount - 1 ? remaining : Math.max(1, Math.round(total / shardCount));
+    remaining -= value;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 70 + Math.random() * 120;
+    experienceOrbs.push({
+      x: enemy.x,
+      y: enemy.y,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      radius: 6 + Math.min(5, value * 0.18),
+      value,
+      age: Math.random() * 0.4,
+    });
+  }
+}
+
+function collectExperience(amount) {
+  state.xp += amount;
+  state.score += amount * 3;
+  pulseText(player.x, player.y - 34, `+${amount} XP`, "#72ffb1");
+
+  while (state.xp >= state.xpTarget) {
+    state.xp -= state.xpTarget;
+    state.level += 1;
+    state.xpTarget = xpToNextLevel(state.level);
+    state.pendingUpgrades += 1;
+    pulseText(player.x, player.y - 58, `Niveau ${state.level}`, "#ffbf47");
+  }
+
+  updateHud();
+  if (state.pendingUpgrades > 0 && state.mode === "playing") {
+    showUpgrade();
+  }
 }
 
 function damagePlayer(amount) {
@@ -854,6 +955,7 @@ function render() {
 
   drawParticles(true);
   drawTrackpadGuide();
+  for (const orb of experienceOrbs) drawExperienceOrb(orb);
   for (const bullet of bullets) drawBullet(bullet);
   for (const enemy of enemies) drawEnemy(enemy);
   drawDrones();
@@ -1068,6 +1170,27 @@ function drawBullet(bullet) {
   ctx.restore();
 }
 
+function drawExperienceOrb(orb) {
+  const pulse = 1 + Math.sin(world.time * 7 + orb.age * 4) * 0.12;
+  ctx.save();
+  ctx.translate(orb.x, orb.y);
+  ctx.rotate(world.time * 1.4 + orb.age);
+  ctx.shadowColor = "#72ffb1";
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = "#72ffb1";
+  ctx.strokeStyle = "#eaffd8";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, -orb.radius * pulse);
+  ctx.lineTo(orb.radius * 0.72 * pulse, 0);
+  ctx.lineTo(0, orb.radius * pulse);
+  ctx.lineTo(-orb.radius * 0.72 * pulse, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawParticles(behind) {
   for (const particle of particles) {
     if (particle.behind !== behind) continue;
@@ -1176,6 +1299,9 @@ function updateHud() {
   hud.wave.textContent = state.wave;
   hud.kills.textContent = state.waveKills;
   hud.target.textContent = state.waveTarget;
+  hud.level.textContent = state.level;
+  hud.xp.textContent = `${Math.floor(state.xp)}/${state.xpTarget} XP`;
+  hud.xpBar.style.width = `${clamp(state.xp / state.xpTarget, 0, 1) * 100}%`;
   hud.score.textContent = Math.floor(state.score).toLocaleString("fr-FR");
   const hpPct = clamp(player.hp / player.maxHp, 0, 1);
   hud.health.style.width = `${hpPct * 100}%`;
@@ -1187,6 +1313,8 @@ function updateHud() {
 }
 
 function updateStats() {
+  hud.stats.level.textContent = state.level;
+  hud.stats.xp.textContent = `${Math.floor(state.xp)}/${state.xpTarget}`;
   hud.stats.hull.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
   hud.stats.damage.textContent = Math.round(player.damage);
   hud.stats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;

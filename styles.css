@@ -60,9 +60,9 @@ button {
   top: 16px;
   left: 50%;
   display: grid;
-  grid-template-columns: auto auto minmax(150px, 230px) auto;
+  grid-template-columns: auto auto minmax(150px, 210px) minmax(150px, 230px) auto;
   gap: 8px;
-  width: min(760px, calc(100vw - 24px));
+  width: min(940px, calc(100vw - 24px));
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -120,6 +120,30 @@ button {
   background: linear-gradient(90deg, var(--mint), var(--cyan));
   box-shadow: 0 0 18px rgba(57, 217, 255, 0.55);
   transition: width 160ms ease;
+}
+
+.xp-panel {
+  position: relative;
+}
+
+.xp-meter {
+  height: 10px;
+  margin-top: 7px;
+  border-color: rgba(255, 191, 71, 0.34);
+}
+
+.xp-meter span {
+  width: 0%;
+  background: linear-gradient(90deg, #ffbf47, #72ffb1);
+  box-shadow: 0 0 18px rgba(255, 191, 71, 0.52);
+}
+
+.xp-readout {
+  display: block;
+  margin-top: 5px;
+  color: #d9edf4;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
 }
 
 .loadout {
