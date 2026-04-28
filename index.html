@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Voidline</title>
+    <link rel="icon" href="data:," />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="game-shell">
+      <canvas id="gameCanvas" aria-label="Voidline"></canvas>
+
+      <section class="hud" aria-live="polite">
+        <div class="hud-panel">
+          <span class="hud-label">Vague</span>
+          <strong id="waveValue">1</strong>
+        </div>
+        <div class="hud-panel wide">
+          <span class="hud-label">Chasse</span>
+          <strong><span id="killsValue">0</span>/<span id="targetValue">0</span></strong>
+        </div>
+        <div class="hud-panel wide">
+          <span class="hud-label">Integrite</span>
+          <div class="meter">
+            <span id="healthBar"></span>
+          </div>
+        </div>
+        <div class="hud-panel">
+          <span class="hud-label">Score</span>
+          <strong id="scoreValue">0</strong>
+        </div>
+      </section>
+
+      <nav class="control-dock" aria-label="Mode de pilotage">
+        <span class="hud-label">Pilotage</span>
+        <div class="mode-switch">
+          <button class="mode-button" type="button" data-control-mode="keyboard">KBD</button>
+          <button class="mode-button" type="button" data-control-mode="trackpad">PAD</button>
+        </div>
+      </nav>
+
+      <aside class="loadout" id="loadout"></aside>
+
+      <section class="overlay active" id="startOverlay">
+        <div class="modal">
+          <p class="eyebrow">Rogue-lite orbital</p>
+          <h1>Voidline</h1>
+          <p class="tagline">
+            Survis aux essaims orbitaux, vide chaque vague et transforme ton
+            vaisseau en arsenal.
+          </p>
+          <div class="pilot-card">
+            <div class="mode-switch large">
+              <button class="mode-button" type="button" data-control-mode="keyboard">Clavier</button>
+              <button class="mode-button" type="button" data-control-mode="trackpad">Trackpad</button>
+            </div>
+            <dl class="control-map">
+              <div>
+                <dt>Fleches / WASD</dt>
+                <dd>Deplacement</dd>
+              </div>
+              <div>
+                <dt>1 / 2 / 3</dt>
+                <dd>Upgrade</dd>
+              </div>
+              <div>
+                <dt>Esc / P</dt>
+                <dd>Pause</dd>
+              </div>
+            </dl>
+          </div>
+          <button class="primary-action" id="startButton" type="button">Lancer la vague</button>
+        </div>
+      </section>
+
+      <section class="overlay" id="upgradeOverlay">
+        <div class="upgrade-modal">
+          <p class="eyebrow">Hangar tactique</p>
+          <h2 id="upgradeTitle">Vague neutralisee</h2>
+          <div class="upgrade-grid" id="upgradeGrid"></div>
+        </div>
+      </section>
+
+      <section class="overlay" id="pauseOverlay">
+        <div class="modal compact">
+          <p class="eyebrow">Pause tactique</p>
+          <h2>Signal suspendu</h2>
+          <div class="pilot-card">
+            <div class="mode-switch large">
+              <button class="mode-button" type="button" data-control-mode="keyboard">Clavier</button>
+              <button class="mode-button" type="button" data-control-mode="trackpad">Trackpad</button>
+            </div>
+          </div>
+          <button class="primary-action" id="resumeButton" type="button">Reprendre</button>
+        </div>
+      </section>
+
+      <section class="overlay" id="gameOverOverlay">
+        <div class="modal">
+          <p class="eyebrow">Signal perdu</p>
+          <h2>Vaisseau detruit</h2>
+          <p class="tagline">
+            Score final <strong id="finalScore">0</strong> -
+            vague <strong id="finalWave">1</strong>
+          </p>
+          <button class="primary-action" id="restartButton" type="button">Reinitialiser</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./src/game.js"></script>
+  </body>
+</html>
