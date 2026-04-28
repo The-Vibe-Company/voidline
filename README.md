@@ -12,6 +12,7 @@ Ouvre `index.html` dans un navigateur moderne.
 - Passe en mode trackpad pour diriger le vaisseau vers le curseur.
 - Le vaisseau cible et tire automatiquement sur l'ennemi le plus proche.
 - Termine une vague pour choisir une amelioration avec le trackpad ou les touches 1/2/3.
+- Les ameliorations existent en tiers Standard, Rare, Prototype et Singularity.
 - Mets en pause avec Esc ou P.
 - Survis le plus longtemps possible et maximise le score.
 

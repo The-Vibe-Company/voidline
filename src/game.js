@@ -115,82 +115,142 @@ const enemyTypes = [
   },
 ];
 
+const upgradeTiers = [
+  {
+    id: "standard",
+    short: "T1",
+    name: "Standard",
+    power: 1,
+    color: "#39d9ff",
+    glow: "rgba(57, 217, 255, 0.22)",
+  },
+  {
+    id: "rare",
+    short: "T2",
+    name: "Rare",
+    power: 1.45,
+    color: "#72ffb1",
+    glow: "rgba(114, 255, 177, 0.25)",
+  },
+  {
+    id: "prototype",
+    short: "T3",
+    name: "Prototype",
+    power: 2.05,
+    color: "#ffbf47",
+    glow: "rgba(255, 191, 71, 0.28)",
+  },
+  {
+    id: "singularity",
+    short: "T4",
+    name: "Singularity",
+    power: 2.8,
+    color: "#ff5a69",
+    glow: "rgba(255, 90, 105, 0.3)",
+  },
+];
+
 const upgradePool = [
   {
     id: "twin-cannon",
     icon: "II",
     name: "Canon jumele",
-    description: "Ajoute un projectile a chaque salve principale.",
-    apply() {
-      player.projectileCount += 1;
+    description: "Elargit les salves principales.",
+    effect(tier) {
+      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve`;
+    },
+    apply(tier) {
+      player.projectileCount += projectileGain(tier);
     },
   },
   {
     id: "plasma-core",
     icon: "Hz",
     name: "Coeur plasma",
-    description: "Augmente fortement la cadence de tir.",
-    apply() {
-      player.fireRate *= 1.24;
+    description: "Accorde le reacteur au rythme des canons.",
+    effect(tier) {
+      return `+${percent(0.22 * tier.power)} cadence`;
+    },
+    apply(tier) {
+      player.fireRate *= 1 + 0.22 * tier.power;
     },
   },
   {
     id: "rail-slug",
     icon: "DMG",
     name: "Ogive railgun",
-    description: "Augmente les degats et donne plus de recul aux impacts.",
-    apply() {
-      player.damage *= 1.28;
-      player.bulletSpeed *= 1.06;
+    description: "Charge les impacts avec une masse cinetique.",
+    effect(tier) {
+      return `+${percent(0.26 * tier.power)} degats, +${percent(0.055 * tier.power)} vitesse`;
+    },
+    apply(tier) {
+      player.damage *= 1 + 0.26 * tier.power;
+      player.bulletSpeed *= 1 + 0.055 * tier.power;
     },
   },
   {
     id: "ion-engine",
     icon: "SPD",
     name: "Moteurs ioniques",
-    description: "Augmente la vitesse et la reponse du vaisseau.",
-    apply() {
-      player.speed *= 1.14;
+    description: "Rend les corrections de trajectoire plus nerveuses.",
+    effect(tier) {
+      return `+${percent(0.13 * tier.power)} vitesse`;
+    },
+    apply(tier) {
+      player.speed *= 1 + 0.13 * tier.power;
     },
   },
   {
     id: "kinetic-shield",
     icon: "SHD",
     name: "Ecran cinetique",
-    description: "Ajoute un bouclier regenerant au-dessus de la coque.",
-    apply() {
-      player.shieldMax += 26;
-      player.shield = Math.min(player.shieldMax, player.shield + 26);
-      player.shieldRegen += 2.8;
+    description: "Ajoute une couche regenerante autour de la coque.",
+    effect(tier) {
+      return `+${Math.round(24 * tier.power)} bouclier, +${(2.4 * tier.power).toFixed(1)}/s regen`;
+    },
+    apply(tier) {
+      const shieldGain = Math.round(24 * tier.power);
+      player.shieldMax += shieldGain;
+      player.shield = Math.min(player.shieldMax, player.shield + shieldGain);
+      player.shieldRegen += 2.4 * tier.power;
     },
   },
   {
     id: "repair-bay",
     icon: "HP",
     name: "Baie de reparation",
-    description: "Renforce la coque et restaure une partie de l'integrite.",
-    apply() {
-      player.maxHp += 22;
-      player.hp = Math.min(player.maxHp, player.hp + 45);
+    description: "Renforce la coque et injecte des nanoreparations.",
+    effect(tier) {
+      return `+${Math.round(20 * tier.power)} integrite max, +${Math.round(42 * tier.power)} soin`;
+    },
+    apply(tier) {
+      player.maxHp += Math.round(20 * tier.power);
+      player.hp = Math.min(player.maxHp, player.hp + Math.round(42 * tier.power));
     },
   },
   {
     id: "orbital-drone",
     icon: "O",
     name: "Drone orbital",
-    description: "Ajoute une tourelle autonome qui chasse les cibles proches.",
-    apply() {
-      player.drones += 1;
+    description: "Deploie une tourelle autonome en orbite proche.",
+    effect(tier) {
+      return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
+    },
+    apply(tier) {
+      player.drones += droneGain(tier);
     },
   },
   {
     id: "piercer",
     icon: ">>",
     name: "Munition perce-coque",
-    description: "Les tirs traversent une cible supplementaire.",
-    apply() {
-      player.pierce += 1;
-      player.damage *= 1.08;
+    description: "Permet aux tirs de traverser les blindages.",
+    effect(tier) {
+      return `+${pierceGain(tier)} penetration, +${percent(0.07 * tier.power)} degats`;
+    },
+    apply(tier) {
+      player.pierce += pierceGain(tier);
+      player.damage *= 1 + 0.07 * tier.power;
     },
   },
 ];
@@ -292,18 +352,24 @@ function showUpgrade() {
   hud.upgradeGrid.innerHTML = "";
 
   const choices = pickUpgrades(3);
-  for (const [index, upgrade] of choices.entries()) {
+  for (const [index, choice] of choices.entries()) {
+    const { upgrade, tier } = choice;
     const card = document.createElement("button");
     card.className = "upgrade-card";
     card.type = "button";
     card.dataset.choiceIndex = String(index + 1);
+    card.dataset.tier = tier.id;
+    card.style.setProperty("--tier-color", tier.color);
+    card.style.setProperty("--tier-glow", tier.glow);
     card.innerHTML = `
       <span class="choice-key">${index + 1}</span>
+      <span class="tier-badge">${tier.short} - ${tier.name}</span>
       <span class="upgrade-icon">${upgrade.icon}</span>
       <h3>${upgrade.name}</h3>
       <p>${upgrade.description}</p>
+      <strong class="upgrade-effect">${upgrade.effect(tier)}</strong>
     `;
-    card.addEventListener("click", () => applyUpgrade(upgrade));
+    card.addEventListener("click", () => applyUpgrade(choice));
     hud.upgradeGrid.appendChild(card);
   }
 
@@ -312,10 +378,16 @@ function showUpgrade() {
   requestAnimationFrame(() => hud.upgradeGrid.querySelector("button")?.focus());
 }
 
-function applyUpgrade(upgrade) {
-  upgrade.apply();
-  ownedUpgrades.set(upgrade.id, (ownedUpgrades.get(upgrade.id) || 0) + 1);
-  pulseText(player.x, player.y - 42, upgrade.name, "#ffbf47");
+function applyUpgrade(choice) {
+  const { upgrade, tier } = choice;
+  upgrade.apply(tier);
+
+  const key = `${upgrade.id}:${tier.id}`;
+  const owned = ownedUpgrades.get(key) || { upgrade, tier, count: 0 };
+  owned.count += 1;
+  ownedUpgrades.set(key, owned);
+
+  pulseText(player.x, player.y - 42, `${upgrade.name} ${tier.short}`, tier.color);
   updateLoadout();
   startWave(state.wave + 1);
 }
@@ -356,18 +428,21 @@ function setControlMode(mode) {
 
 function pickUpgrades(count) {
   const weighted = [...upgradePool];
-  if (player.drones >= 3) {
+  if (player.drones >= 5) {
     removeById(weighted, "orbital-drone");
   }
-  if (player.projectileCount >= 6) {
+  if (player.projectileCount >= 8) {
     removeById(weighted, "twin-cannon");
   }
-  if (player.pierce >= 3) {
+  if (player.pierce >= 5) {
     removeById(weighted, "piercer");
   }
 
   shuffle(weighted);
-  return weighted.slice(0, count);
+  return weighted.slice(0, count).map((upgrade) => ({
+    upgrade,
+    tier: rollUpgradeTier(state.wave),
+  }));
 }
 
 function removeById(list, id) {
@@ -382,6 +457,46 @@ function shuffle(list) {
     const j = Math.floor(Math.random() * (i + 1));
     [list[i], list[j]] = [list[j], list[i]];
   }
+}
+
+function rollUpgradeTier(wave) {
+  const weights = [
+    { tier: upgradeTiers[0], weight: Math.max(42, 100 - wave * 5.5) },
+    { tier: upgradeTiers[1], weight: 18 + wave * 2.8 },
+    { tier: upgradeTiers[2], weight: wave >= 2 ? 3 + wave * 1.45 : 1 },
+    { tier: upgradeTiers[3], weight: wave >= 5 ? wave * 0.75 : 0 },
+  ];
+  const total = weights.reduce((sum, item) => sum + item.weight, 0);
+  let roll = Math.random() * total;
+
+  for (const item of weights) {
+    roll -= item.weight;
+    if (roll <= 0) return item.tier;
+  }
+
+  return upgradeTiers[0];
+}
+
+function projectileGain(tier) {
+  return steppedGain(tier);
+}
+
+function droneGain(tier) {
+  return tier.power >= 2 ? 2 : 1;
+}
+
+function pierceGain(tier) {
+  return steppedGain(tier);
+}
+
+function steppedGain(tier) {
+  if (tier.power >= 2.75) return 3;
+  if (tier.power >= 1.4) return 2;
+  return 1;
+}
+
+function percent(value) {
+  return `${Math.round(value * 100)}%`;
 }
 
 function update(dt) {
@@ -662,6 +777,7 @@ function spawnEnemy() {
   enemies.push({
     ...type,
     id: nextEnemyId,
+    kind: type.id,
     x,
     y,
     hp: type.hp * scale,
@@ -693,7 +809,7 @@ function killEnemy(index) {
   state.waveKills += 1;
   state.score += Math.round(enemy.score * (1 + state.wave * 0.07));
   state.bestCombo += 1;
-  burst(enemy.x, enemy.y, enemy.color, enemy.id === "brute" ? 28 : 18, 220);
+  burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);
   pulseText(enemy.x, enemy.y - enemy.radius, `+${enemy.score}`, enemy.accent);
   world.shake = Math.min(10, world.shake + 2.4);
 }
@@ -900,12 +1016,12 @@ function drawDrones() {
 function drawEnemy(enemy) {
   ctx.save();
   ctx.translate(enemy.x, enemy.y);
-  ctx.rotate(enemy.age * (enemy.id === "brute" ? 0.7 : 1.6));
+  ctx.rotate(enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
   ctx.shadowColor = enemy.color;
   ctx.shadowBlur = enemy.hit > 0 ? 25 : 10;
   ctx.fillStyle = enemy.hit > 0 ? enemy.accent : enemy.color;
   ctx.strokeStyle = enemy.accent;
-  ctx.lineWidth = enemy.id === "brute" ? 2.5 : 1.5;
+  ctx.lineWidth = enemy.kind === "brute" ? 2.5 : 1.5;
 
   polygon(0, 0, enemy.radius, enemy.sides);
   ctx.fill();
@@ -914,7 +1030,7 @@ function drawEnemy(enemy) {
   ctx.shadowBlur = 0;
   const hpPct = clamp(enemy.hp / enemy.maxHp, 0, 1);
   if (hpPct < 0.98) {
-    ctx.rotate(-enemy.age * (enemy.id === "brute" ? 0.7 : 1.6));
+    ctx.rotate(-enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
     ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
     ctx.fillRect(-enemy.radius, enemy.radius + 9, enemy.radius * 2, 4);
     ctx.fillStyle = enemy.accent;
@@ -1061,12 +1177,13 @@ function updateHud() {
 
 function updateLoadout() {
   hud.loadout.innerHTML = "";
-  for (const upgrade of upgradePool) {
-    const count = ownedUpgrades.get(upgrade.id);
-    if (!count) continue;
+  for (const owned of ownedUpgrades.values()) {
+    const { upgrade, tier, count } = owned;
     const chip = document.createElement("span");
     chip.className = "loadout-chip";
-    chip.textContent = `${upgrade.icon} x${count}`;
+    chip.dataset.tier = tier.id;
+    chip.style.setProperty("--tier-color", tier.color);
+    chip.textContent = `${upgrade.icon} ${tier.short} x${count}`;
     hud.loadout.appendChild(chip);
   }
 }
