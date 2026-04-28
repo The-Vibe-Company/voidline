@@ -1,0 +1,29 @@
+index.html
+  70c9a8201dad0152 1-120
+.gitignore
+  70c9a8201dad0152 1-5
+README.md
+  70c9a8201dad0152 1-22
+styles.css
+  70c9a8201dad0152 1-461
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "12b7878feecc3d230bcbf7719b093d44035ebfc4",
+  "prompts": {
+    "70c9a8201dad0152": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd53e-4482-7753-a71d-9c1cc57abfb6",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 608,
+      "total_deletions": 0,
+      "accepted_lines": 608,
+      "overriden_lines": 0
+    }
+  }
+}
