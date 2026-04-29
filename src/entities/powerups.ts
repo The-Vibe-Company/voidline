@@ -52,6 +52,8 @@ const DROP_CHANCE: Record<EnemyEntity["kind"], number> = {
 
 const HEART_HEAL_RATIO = 0.5;
 
+let suppressDrops = false;
+
 function pickVariant(): PowerupVariant {
   let total = 0;
   for (const v of POWERUP_VARIANTS) total += v.rarity;
@@ -64,6 +66,7 @@ function pickVariant(): PowerupVariant {
 }
 
 export function maybeDropPowerup(enemy: EnemyEntity): void {
+  if (suppressDrops) return;
   if (Math.random() > DROP_CHANCE[enemy.kind]) return;
   const variant = pickVariant();
   const angle = Math.random() * Math.PI * 2;
@@ -137,8 +140,13 @@ export function updatePowerups(dt: number): void {
 function detonateBomb(): void {
   burst(player.x, player.y, "#ffbf47", 60, 420);
   pulseText(player.x, player.y - 30, "BOOM TOTAL", "#ffbf47");
-  for (let i = enemies.length - 1; i >= 0; i -= 1) {
-    killEnemy(i);
+  suppressDrops = true;
+  try {
+    for (let i = enemies.length - 1; i >= 0; i -= 1) {
+      killEnemy(i);
+    }
+  } finally {
+    suppressDrops = false;
   }
   world.shake = Math.min(28, world.shake + 22);
 }
