@@ -1,0 +1,53 @@
+src/systems/challenges.test.ts
+  a6020ca4ef863d99 1-99
+src/game/balance-simulation.test.ts
+  a6020ca4ef863d99 1-8,57-61,126,130-147
+src/render/hud.ts
+  a6020ca4ef863d99 9-16,68-71,269-315,340-342,575
+src/game/input.ts
+  a6020ca4ef863d99 11-12,15,56-63,203-211
+src/entities/enemies.ts
+  a6020ca4ef863d99 11,118,121,130
+src/simulation/simulation.test.ts
+  a6020ca4ef863d99 6-7,17-18,22,24-30,78-79,213-305
+styles.css
+  a6020ca4ef863d99 692-826,871-882,884-886,1483-1486,1539-1554
+src/game/progression.ts
+  a6020ca4ef863d99 5,13,22
+index.html
+  a6020ca4ef863d99 175-184,258-264
+src/main.ts
+  a6020ca4ef863d99 11,19
+src/game/challenge-catalog.test.ts
+  a6020ca4ef863d99 1-58
+src/systems/challenges.ts
+  a6020ca4ef863d99 1-194
+src/simulation/simulation.ts
+  a6020ca4ef863d99 44,93,143
+src/game/challenge-catalog.ts
+  a6020ca4ef863d99 1-124
+src/game/balance-simulation.ts
+  a6020ca4ef863d99 15-21,96-97,100-113,148-149,192-193
+src/types.ts
+  a6020ca4ef863d99 63-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c00e06889ae9cf690dc569668953817170853452",
+  "prompts": {
+    "a6020ca4ef863d99": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd990-c1b3-7e41-9986-a6a36b50372b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 966,
+      "total_deletions": 26,
+      "accepted_lines": 957,
+      "overriden_lines": 0
+    }
+  }
+}
