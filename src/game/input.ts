@@ -26,6 +26,8 @@ export function bindInput(): void {
       "KeyA",
       "KeyS",
       "KeyD",
+      "KeyZ",
+      "KeyQ",
     ];
     const movement = movementCodes.includes(event.code);
     const action = event.code === "Enter" || event.code === "Space";
@@ -78,12 +80,24 @@ export function bindInput(): void {
         return;
       }
 
-      if (event.code === "ArrowRight" || event.code === "ArrowDown") {
+      if (
+        event.code === "ArrowRight" ||
+        event.code === "ArrowDown" ||
+        event.code === "KeyD" ||
+        event.code === "KeyS"
+      ) {
         moveUpgradeFocus(1);
         return;
       }
 
-      if (event.code === "ArrowLeft" || event.code === "ArrowUp") {
+      if (
+        event.code === "ArrowLeft" ||
+        event.code === "ArrowUp" ||
+        event.code === "KeyA" ||
+        event.code === "KeyQ" ||
+        event.code === "KeyW" ||
+        event.code === "KeyZ"
+      ) {
         moveUpgradeFocus(-1);
         return;
       }
