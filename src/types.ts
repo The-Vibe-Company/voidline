@@ -38,6 +38,7 @@ export interface GameState {
   heartsCarried: number;
   magnetsCarried: number;
   bombsCarried: number;
+  showPickupZones: boolean;
 }
 
 export interface Player {

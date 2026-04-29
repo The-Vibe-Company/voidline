@@ -11,9 +11,39 @@ import {
   world,
 } from "../state";
 import { clamp, screenToWorld } from "../utils";
+import { balance } from "../game/balance";
 import { drawArenaBounds, drawBackground, polygon } from "./background";
 import { drawPowerupOrbs } from "./powerups";
 import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
+
+function drawPickupZones(): void {
+  if (!state.showPickupZones) return;
+
+  ctx.save();
+
+  if (Number.isFinite(state.magnetRadius)) {
+    const attraction =
+      balance.xp.pickupBaseRadius * player.pickupRadius + state.magnetRadius;
+    ctx.strokeStyle = "#72ffb1";
+    ctx.globalAlpha = 0.18;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, attraction, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  const collection = player.radius + balance.xp.orbRadiusBase + 8;
+  ctx.strokeStyle = "#ffffff";
+  ctx.globalAlpha = 0.35;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, collection, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.restore();
+}
 
 function drawTrackpadGuide(): void {
   if (state.mode !== "playing" || state.controlMode !== "trackpad" || !pointer.inside) {
@@ -231,6 +261,7 @@ export function render(): void {
   ctx.translate(-world.cameraX, -world.cameraY);
 
   drawArenaBounds();
+  drawPickupZones();
   drawParticles(true);
   drawTrackpadGuide();
   for (const orb of experienceOrbs) drawExperienceOrb(orb);

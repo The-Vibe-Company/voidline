@@ -57,6 +57,7 @@ export const state: GameState = {
   heartsCarried: 0,
   magnetsCarried: 0,
   bombsCarried: 0,
+  showPickupZones: false,
 };
 
 export const player: Player = createPlayerState();
