@@ -34,7 +34,6 @@ export interface GameState {
   xp: number;
   xpTarget: number;
   pendingUpgrades: number;
-  magnetRadius: number;
   heartsCarried: number;
   magnetsCarried: number;
   bombsCarried: number;
@@ -123,6 +122,7 @@ export interface ExperienceOrb {
   radius: number;
   value: number;
   age: number;
+  magnetized: boolean;
 }
 
 export interface Particle {
