@@ -1,6 +1,7 @@
 import { burst, pulseText } from "./particles";
 import { spawnExperience } from "./experience";
 import { damagePlayer } from "./player";
+import { maybeDropPowerup } from "./powerups";
 import { counters, enemies, player, state, world } from "../state";
 import { circleHit, clamp } from "../utils";
 import { scaledEnemyStats, selectEnemyType } from "../game/balance";
@@ -60,6 +61,7 @@ export function killEnemy(index: number): void {
   state.score += Math.round(enemy.score * (1 + state.wave * 0.07));
   state.bestCombo += 1;
   spawnExperience(enemy);
+  maybeDropPowerup(enemy);
   burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);
   pulseText(enemy.x, enemy.y - enemy.radius, `+${enemy.score}`, enemy.accent);
   world.shake = Math.min(10, world.shake + 2.4);

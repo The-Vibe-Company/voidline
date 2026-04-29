@@ -8,6 +8,7 @@ import type {
   Particle,
   Player,
   Pointer,
+  PowerupOrb,
   Star,
   World,
 } from "./types";
@@ -52,6 +53,10 @@ export const state: GameState = {
   xp: 0,
   xpTarget: xpToNextLevel(1),
   pendingUpgrades: 0,
+  magnetRadius: 0,
+  heartsCarried: 0,
+  magnetsCarried: 0,
+  bombsCarried: 0,
 };
 
 export const player: Player = createPlayerState();
@@ -59,6 +64,7 @@ export const player: Player = createPlayerState();
 export const enemies: EnemyEntity[] = [];
 export const bullets: Bullet[] = [];
 export const experienceOrbs: ExperienceOrb[] = [];
+export const powerupOrbs: PowerupOrb[] = [];
 export const particles: Particle[] = [];
 export const floaters: Floater[] = [];
 export const stars: Star[] = [];

@@ -15,6 +15,7 @@ import { updateBullets } from "../entities/bullets";
 import { updateExperience } from "../entities/experience";
 import { updateParticles, burst } from "../entities/particles";
 import { updatePlayer } from "../entities/player";
+import { resetPowerups, updatePowerups } from "../entities/powerups";
 import { updateCamera, updateStars } from "./camera";
 import { hideOverlays, showGameOver, updateHud, updateLoadout } from "../render/hud";
 import {
@@ -65,6 +66,7 @@ export function resetGame(): void {
   experienceOrbs.length = 0;
   particles.length = 0;
   floaters.length = 0;
+  resetPowerups();
 
   hideOverlays();
   updateCamera(0, true);
@@ -106,6 +108,7 @@ export function update(dt: number): void {
   updateBullets(dt);
   updateEnemies(dt);
   updateExperience(dt);
+  updatePowerups(dt);
   updateParticles(dt);
   updateHud();
 
