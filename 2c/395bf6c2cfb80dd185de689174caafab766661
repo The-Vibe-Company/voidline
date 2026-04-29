@@ -1,0 +1,43 @@
+index.html
+  1da8ffba2f9c7041 191-194
+src/game/balance.ts
+  1da8ffba2f9c7041 87
+src/entities/experience-pickup.ts
+  1da8ffba2f9c7041 1-23
+src/main.ts
+  1da8ffba2f9c7041 2,12
+src/render/hud.ts
+  1da8ffba2f9c7041 49,52-78
+src/render/world.ts
+  1da8ffba2f9c7041 15,31-45,276
+src/entities/experience.test.ts
+  1da8ffba2f9c7041 1-3,6,8-9,12,16,20-25,27-28,31-34,36,38-39,42-45,47-48,51-54,56-57,59
+src/state.ts
+  1da8ffba2f9c7041 59
+src/types.ts
+  1da8ffba2f9c7041 40
+styles.css
+  1da8ffba2f9c7041 337-367
+src/entities/experience.ts
+  1da8ffba2f9c7041 10,46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2c395bf6c2cfb80dd185de689174caafab766661",
+  "prompts": {
+    "1da8ffba2f9c7041": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "92738bdf-56a1-40ae-b9ce-a54a2a56382e",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 182,
+      "total_deletions": 8,
+      "accepted_lines": 254,
+      "overriden_lines": 0
+    }
+  }
+}
