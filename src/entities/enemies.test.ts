@@ -10,11 +10,12 @@ import {
   state,
   world,
 } from "../state";
-import { scoreAward } from "../game/balance";
+import { balance, scaledEnemyStats, scoreAward } from "../game/balance";
+import { bossBalance } from "../game/roguelike";
 import { clearEntityPools, resetEntityCounters } from "../simulation/pools";
 import { setSimulationSeed } from "../simulation/random";
-import type { EnemyEntity } from "../types";
-import { killEnemy } from "./enemies";
+import type { EnemyEntity, EnemyKind, EnemyType } from "../types";
+import { killEnemy, spawnEnemy, spawnMiniBoss, spawnWaveBoss } from "./enemies";
 
 function makeEnemy(id: number, score = 35): EnemyEntity {
   return {
@@ -37,6 +38,12 @@ function makeEnemy(id: number, score = 35): EnemyEntity {
     wobbleRate: 0,
     hit: 0,
   };
+}
+
+function enemyType(kind: EnemyKind): EnemyType {
+  const type = balance.enemies.find((item) => item.id === kind);
+  if (!type) throw new Error(`Missing enemy type ${kind}`);
+  return type;
 }
 
 function resetWorld(): void {
@@ -88,5 +95,38 @@ describe("enemy kill rewards", () => {
       `+${awardedScore}`,
       "SERIE x5",
     ]);
+  });
+
+  it("applies late-wave damage scaling to spawned enemies", () => {
+    state.wave = 10;
+
+    spawnEnemy();
+
+    const enemy = enemies[0]!;
+    const expected = scaledEnemyStats(enemyType(enemy.kind), state.wave);
+    expect(enemy.damage).toBeCloseTo(expected.damage);
+    expect(enemy.hp).toBeCloseTo(expected.hp);
+    expect(enemy.speed).toBeCloseTo(expected.speed);
+  });
+
+  it("applies late-wave damage scaling before elite multipliers", () => {
+    state.wave = 12;
+    spawnMiniBoss();
+
+    const miniBoss = enemies[0]!;
+    const miniBossBase = scaledEnemyStats(enemyType(miniBoss.kind), state.wave);
+    expect(miniBoss.role).toBe("mini-boss");
+    expect(miniBoss.damage).toBeCloseTo(
+      miniBossBase.damage * bossBalance.miniBoss.damageMultiplier,
+    );
+
+    enemies.length = 0;
+    state.wave = 20;
+    spawnWaveBoss();
+
+    const boss = enemies[0]!;
+    const bossBase = scaledEnemyStats(enemyType(boss.kind), state.wave);
+    expect(boss.role).toBe("boss");
+    expect(boss.damage).toBeCloseTo(bossBase.damage * bossBalance.boss.damageMultiplier);
   });
 });
