@@ -1,0 +1,43 @@
+index.html
+  377a5f2f22edfae4 120-140
+src/render/hud.ts
+  377a5f2f22edfae4 32-37,79-87,123
+src/render/powerups.ts
+  377a5f2f22edfae4 1-137
+src/render/world.ts
+  377a5f2f22edfae4 15,237
+styles.css
+  377a5f2f22edfae4 180-228,711-722
+src/entities/enemies.ts
+  377a5f2f22edfae4 4,64
+src/state.ts
+  377a5f2f22edfae4 11,56-59,67
+src/entities/powerups.ts
+  377a5f2f22edfae4 1-160
+src/entities/experience.ts
+  377a5f2f22edfae4 46
+src/types.ts
+  377a5f2f22edfae4 37-40,191-211
+src/systems/waves.ts
+  377a5f2f22edfae4 18,69,111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "4ac5ea6f26f3081be8bbe4dd3fa628c7c470d43f",
+  "prompts": {
+    "377a5f2f22edfae4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd7af-195e-7343-a22a-2b2d7d715d79",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 440,
+      "total_deletions": 5,
+      "accepted_lines": 436,
+      "overriden_lines": 0
+    }
+  }
+}
