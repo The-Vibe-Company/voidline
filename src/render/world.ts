@@ -1,5 +1,6 @@
 import {
   bullets,
+  chests,
   ctx,
   enemies,
   experienceOrbs,
@@ -15,7 +16,7 @@ import { clamp, screenToWorld } from "../utils";
 import { balance } from "../game/balance";
 import { drawArenaBounds, drawBackground, polygon } from "./background";
 import { drawPowerupOrbs } from "./powerups";
-import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
+import type { Bullet, ChestEntity, EnemyEntity, ExperienceOrb } from "../types";
 
 const view = { left: 0, top: 0, right: 0, bottom: 0 };
 
@@ -181,6 +182,36 @@ function drawEnemy(enemy: EnemyEntity): void {
   ctx.restore();
 }
 
+function drawChest(chest: ChestEntity): void {
+  const pulse = 1 + Math.sin(world.time * 5 + chest.age * 3) * 0.08;
+  ctx.save();
+  ctx.translate(chest.x, chest.y);
+  ctx.rotate(Math.sin(chest.age * 1.8) * 0.08);
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = 0.28;
+  ctx.fillStyle = "#ffbf47";
+  ctx.beginPath();
+  ctx.arc(0, 0, chest.radius * 2.3 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.globalAlpha = 1;
+  ctx.shadowColor = "#ffbf47";
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = "#201107";
+  ctx.strokeStyle = "#fff0b8";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.rect(-chest.radius, -chest.radius * 0.68, chest.radius * 2, chest.radius * 1.36);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = "#ffbf47";
+  ctx.fillRect(-chest.radius + 4, -3, chest.radius * 2 - 8, 6);
+  ctx.fillRect(-4, -chest.radius * 0.68, 8, chest.radius * 1.36);
+  ctx.fillStyle = "#fff0b8";
+  ctx.fillRect(-5, -5, 10, 10);
+  ctx.restore();
+}
+
 function drawBullet(bullet: Bullet): void {
   ctx.strokeStyle = bullet.color;
   ctx.fillStyle = bullet.color;
@@ -285,6 +316,14 @@ export function render(): void {
     drawExperienceOrb(orb);
   }
   drawPowerupOrbs();
+  for (const chest of chests) {
+    if (!inView(chest.x, chest.y, chest.radius + 12)) {
+      perfStats.culled += 1;
+      continue;
+    }
+    perfStats.drawn += 1;
+    drawChest(chest);
+  }
   for (const bullet of bullets) {
     if (!inView(bullet.x, bullet.y, bullet.radius + 8)) {
       perfStats.culled += 1;

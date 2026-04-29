@@ -1,13 +1,16 @@
 import type {
   Bullet,
+  ChestEntity,
   EnemyEntity,
   ExperienceOrb,
   Floater,
   GameState,
   OwnedUpgrade,
+  OwnedRelic,
   Particle,
   Player,
   Pointer,
+  Relic,
   PowerupOrb,
   Star,
   World,
@@ -48,6 +51,8 @@ export const state: GameState = {
   spawnGap: 0.7,
   waveDelay: 0,
   bestCombo: 0,
+  miniBossEligibleMisses: 0,
+  miniBossPending: false,
   controlMode: "keyboard",
   level: 1,
   xp: 0,
@@ -65,10 +70,13 @@ export const enemies: EnemyEntity[] = [];
 export const bullets: Bullet[] = [];
 export const experienceOrbs: ExperienceOrb[] = [];
 export const powerupOrbs: PowerupOrb[] = [];
+export const chests: ChestEntity[] = [];
 export const particles: Particle[] = [];
 export const floaters: Floater[] = [];
 export const stars: Star[] = [];
 export const ownedUpgrades = new Map<string, OwnedUpgrade>();
+export const ownedRelics = new Map<string, OwnedRelic>();
+export const unlockedRelics = new Set<Relic["id"]>();
 
 export const counters = {
   nextEnemyId: 1,

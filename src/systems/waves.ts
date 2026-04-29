@@ -4,14 +4,21 @@ import {
   enemies,
   experienceOrbs,
   floaters,
+  ownedRelics,
   ownedUpgrades,
   particles,
   player,
   state,
   world,
 } from "../state";
-import { spawnEnemy, updateEnemies } from "../entities/enemies";
+import {
+  spawnEnemy,
+  spawnMiniBoss,
+  spawnWaveBoss,
+  updateEnemies,
+} from "../entities/enemies";
 import { updateBullets } from "../entities/bullets";
+import { resetChests, updateChests } from "../entities/chests";
 import { updateExperience } from "../entities/experience";
 import { updateParticles, burst } from "../entities/particles";
 import { updatePlayer } from "../entities/player";
@@ -26,16 +33,30 @@ import {
   waveTarget,
   xpToNextLevel,
 } from "../game/balance";
+import { isBossWave, nextMiniBossMisses, shouldSpawnMiniBoss } from "../game/roguelike";
 
 export function startWave(wave: number): void {
   state.mode = "playing";
   state.wave = wave;
   state.waveKills = 0;
-  state.waveTarget = waveTarget(wave);
-  state.spawnRemaining = state.waveTarget;
+  const bossWave = isBossWave(wave);
+  const baseTarget = waveTarget(wave);
+  const spawnMiniBossThisWave =
+    !bossWave && shouldSpawnMiniBoss(wave, state.miniBossEligibleMisses, Math.random());
+  state.miniBossEligibleMisses = nextMiniBossMisses(
+    wave,
+    state.miniBossEligibleMisses,
+    spawnMiniBossThisWave,
+  );
+  state.miniBossPending = spawnMiniBossThisWave;
+  state.waveTarget = bossWave ? 1 : baseTarget + (spawnMiniBossThisWave ? 1 : 0);
+  state.spawnRemaining = bossWave ? 0 : baseTarget;
   state.spawnGap = spawnGap(wave);
   state.spawnTimer = balance.wave.spawnTimerStart;
   state.waveDelay = 0;
+  if (bossWave) {
+    spawnWaveBoss();
+  }
   hideOverlays();
   updateHud();
 }
@@ -46,6 +67,8 @@ export function resetGame(): void {
   state.score = 0;
   state.waveKills = 0;
   state.bestCombo = 0;
+  state.miniBossEligibleMisses = 0;
+  state.miniBossPending = false;
   state.level = 1;
   state.xp = 0;
   state.xpTarget = xpToNextLevel(state.level);
@@ -60,6 +83,7 @@ export function resetGame(): void {
     }),
   );
   ownedUpgrades.clear();
+  ownedRelics.clear();
   counters.nextEnemyId = 1;
   enemies.length = 0;
   bullets.length = 0;
@@ -67,6 +91,7 @@ export function resetGame(): void {
   particles.length = 0;
   floaters.length = 0;
   resetPowerups();
+  resetChests();
 
   hideOverlays();
   updateCamera(0, true);
@@ -76,6 +101,11 @@ export function resetGame(): void {
 }
 
 function updateWave(dt: number): void {
+  if (state.miniBossPending) {
+    spawnMiniBoss();
+    state.miniBossPending = false;
+  }
+
   state.spawnTimer -= dt;
   if (state.spawnRemaining > 0 && state.spawnTimer <= 0) {
     const pack = Math.min(
@@ -109,6 +139,7 @@ export function update(dt: number): void {
   updateEnemies(dt);
   updateExperience(dt);
   updatePowerups(dt);
+  updateChests(dt);
   updateParticles(dt);
   updateHud();
 

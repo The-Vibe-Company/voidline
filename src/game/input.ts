@@ -1,9 +1,11 @@
 import { canvas, keys, pointer, state } from "../state";
 import {
   getControlButtons,
+  moveRelicFocus,
   moveUpgradeFocus,
   pauseGame,
   resumeGame,
+  selectRelicByIndex,
   selectUpgradeByIndex,
   setControlMode,
 } from "../render/hud";
@@ -99,6 +101,46 @@ export function bindInput(): void {
         event.code === "KeyZ"
       ) {
         moveUpgradeFocus(-1);
+        return;
+      }
+
+      if (action && active?.classList.contains("upgrade-card")) {
+        active.click();
+      }
+      return;
+    }
+
+    if (state.mode === "chest") {
+      if (event.code === "Tab") {
+        event.preventDefault();
+        moveRelicFocus(event.shiftKey ? -1 : 1);
+        return;
+      }
+
+      const choiceIndex = choiceIndexFromKey(event.code);
+      if (choiceIndex && selectRelicByIndex(choiceIndex)) {
+        return;
+      }
+
+      if (
+        event.code === "ArrowRight" ||
+        event.code === "ArrowDown" ||
+        event.code === "KeyD" ||
+        event.code === "KeyS"
+      ) {
+        moveRelicFocus(1);
+        return;
+      }
+
+      if (
+        event.code === "ArrowLeft" ||
+        event.code === "ArrowUp" ||
+        event.code === "KeyA" ||
+        event.code === "KeyQ" ||
+        event.code === "KeyW" ||
+        event.code === "KeyZ"
+      ) {
+        moveRelicFocus(-1);
         return;
       }
 

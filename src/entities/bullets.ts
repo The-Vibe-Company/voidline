@@ -3,9 +3,13 @@ import { circleHit } from "../utils";
 import { spark } from "./particles";
 import { killEnemy } from "./enemies";
 import { balance } from "../game/balance";
+import { bossBalance } from "../game/roguelike";
 import type { EnemyEntity } from "../types";
 
-const MAX_ENEMY_RADIUS = balance.enemies.reduce((m, e) => Math.max(m, e.radius), 0);
+const MAX_ENEMY_RADIUS = Math.ceil(
+  balance.enemies.reduce((m, e) => Math.max(m, e.radius), 0) *
+    bossBalance.boss.radiusMultiplier,
+);
 const CELL_SIZE = Math.max(64, Math.ceil(MAX_ENEMY_RADIUS * 2 * 1.2));
 const grid = new Map<number, EnemyEntity[]>();
 

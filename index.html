@@ -39,6 +39,12 @@
             <span id="healthBar"></span>
           </div>
         </div>
+        <div class="hud-panel wide boss-panel" id="bossPanel" data-active="false">
+          <span class="hud-label" id="bossName">Boss</span>
+          <div class="meter boss-meter">
+            <span id="bossBar"></span>
+          </div>
+        </div>
         <div class="hud-panel">
           <span class="hud-label">Score</span>
           <strong id="scoreValue">0</strong>
@@ -189,6 +195,27 @@
             </p>
           </header>
           <div class="upgrade-grid" id="upgradeGrid"></div>
+        </div>
+      </section>
+
+      <section class="overlay" id="chestOverlay">
+        <div class="upgrade-modal chest-modal" role="dialog" aria-modal="true" aria-labelledby="chestTitle">
+          <span class="modal-corner tl" aria-hidden="true"></span>
+          <span class="modal-corner tr" aria-hidden="true"></span>
+          <span class="modal-corner bl" aria-hidden="true"></span>
+          <span class="modal-corner br" aria-hidden="true"></span>
+          <span class="modal-scanline" aria-hidden="true"></span>
+          <header class="upgrade-header">
+            <p class="eyebrow">
+              <span class="eyebrow-glyph" aria-hidden="true">◈</span>
+              Coffre de mini-boss
+            </p>
+            <h2 id="chestTitle">Choisis une relique</h2>
+            <p class="upgrade-prompt" aria-hidden="true">
+              Selectionne &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> ou <kbd>Espace</kbd>
+            </p>
+          </header>
+          <div class="upgrade-grid" id="chestGrid"></div>
         </div>
       </section>
 
