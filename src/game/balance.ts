@@ -69,6 +69,22 @@ export const waveBalance = {
   waveDelay: 0.7,
 };
 
+export const lateWaveBalance = {
+  startWave: 10,
+  targetLinear: 5,
+  targetExponent: 1.12,
+  targetExponentScale: 1.4,
+  spawnGapPerWave: 0.008,
+  spawnGapMin: 0.105,
+  packChancePerWave: 0.02,
+  packChanceMax: 0.84,
+  hpScalePerWave: 0.055,
+  speedScalePerWave: 0.018,
+  speedScaleMax: 0.24,
+  damageScalePerWave: 0.04,
+  damageScaleMax: 0.55,
+};
+
 export const xpBalance = {
   levelBase: 25,
   levelLinear: 10,
@@ -218,6 +234,7 @@ export const balance = {
   player: playerBalance,
   wave: waveBalance,
   xp: xpBalance,
+  lateWave: lateWaveBalance,
   enemy: enemyBalance,
   enemies: enemyTypes,
   upgrade: upgradeBalance,
@@ -284,19 +301,35 @@ export function waveTarget(wave: number): number {
   return Math.round(
     waveBalance.targetBase +
       wave * waveBalance.targetLinear +
-      Math.pow(wave, waveBalance.targetExponent),
+      Math.pow(wave, waveBalance.targetExponent) +
+      lateWaveTargetBonus(wave),
   );
 }
 
 export function spawnGap(wave: number): number {
+  const latePressure = lateWavePressure(wave);
   return Math.max(
-    waveBalance.spawnGapMin,
-    waveBalance.spawnGapStart - wave * waveBalance.spawnGapPerWave,
+    latePressure > 0 ? lateWaveBalance.spawnGapMin : waveBalance.spawnGapMin,
+    waveBalance.spawnGapStart -
+      wave * waveBalance.spawnGapPerWave -
+      latePressure * lateWaveBalance.spawnGapPerWave,
   );
 }
 
 export function spawnPackChance(wave: number): number {
-  return Math.min(waveBalance.packChanceMax, wave * waveBalance.packChancePerWave);
+  const latePressure = lateWavePressure(wave);
+  const cap =
+    latePressure > 0
+      ? Math.min(
+          lateWaveBalance.packChanceMax,
+          waveBalance.packChanceMax + latePressure * lateWaveBalance.packChancePerWave,
+        )
+      : waveBalance.packChanceMax;
+  return Math.min(
+    cap,
+    wave * waveBalance.packChancePerWave +
+      latePressure * lateWaveBalance.packChancePerWave,
+  );
 }
 
 export function scoreAward(enemyScore: number, wave: number): number {
@@ -366,13 +399,44 @@ export function selectEnemyType(wave: number, roll: number): EnemyType {
 export function scaledEnemyStats(
   type: EnemyType,
   wave: number,
-): Pick<EnemyType, "hp" | "speed"> {
+): Pick<EnemyType, "hp" | "speed" | "damage"> {
+  const latePressure = lateWavePressure(wave);
   return {
-    hp: type.hp * (1 + wave * enemyBalance.hpScalePerWave),
+    hp:
+      type.hp *
+      (1 +
+        wave * enemyBalance.hpScalePerWave +
+        latePressure * lateWaveBalance.hpScalePerWave),
     speed:
       type.speed *
-      (1 + Math.min(enemyBalance.speedScaleMax, wave * enemyBalance.speedScalePerWave)),
+      (1 +
+        Math.min(enemyBalance.speedScaleMax, wave * enemyBalance.speedScalePerWave) +
+        Math.min(
+          lateWaveBalance.speedScaleMax,
+          latePressure * lateWaveBalance.speedScalePerWave,
+        )),
+    damage:
+      type.damage *
+      (1 +
+        Math.min(
+          lateWaveBalance.damageScaleMax,
+          latePressure * lateWaveBalance.damageScalePerWave,
+        )),
   };
+}
+
+export function lateWavePressure(wave: number): number {
+  return Math.max(0, wave - lateWaveBalance.startWave + 1);
+}
+
+function lateWaveTargetBonus(wave: number): number {
+  const pressure = lateWavePressure(wave);
+  if (pressure <= 0) return 0;
+  return Math.round(
+    pressure * lateWaveBalance.targetLinear +
+      Math.pow(pressure, lateWaveBalance.targetExponent) *
+        lateWaveBalance.targetExponentScale,
+  );
 }
 
 export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[] {

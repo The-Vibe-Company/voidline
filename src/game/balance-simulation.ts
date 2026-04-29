@@ -25,7 +25,7 @@ import {
   restoreAccountProgress,
 } from "../systems/account";
 
-export type BalancePersonaId = "idle" | "panic" | "kiter";
+export type BalancePersonaId = "idle" | "panic" | "kiter" | "optimizer";
 
 export interface BalanceTrialOptions {
   seed: number;
@@ -59,6 +59,9 @@ export interface BalanceSummary {
   medianWave: number;
   medianHp: number;
   medianTimeSeconds: number;
+  medianLevel: number;
+  waveVariance: number;
+  hpVariance: number;
 }
 
 interface PersonaRuntime {
@@ -84,6 +87,20 @@ const OFFENSIVE_UPGRADE_PRIORITY = [
   "repair-bay",
   "magnet-array",
 ];
+const OPTIMIZER_UPGRADE_PRIORITY = [
+  "twin-cannon",
+  "plasma-core",
+  "rail-slug",
+  "ion-engine",
+  "kinetic-shield",
+  "vampire-coil",
+  "repair-bay",
+  "piercer",
+  "orbital-drone",
+  "heavy-caliber",
+  "crit-array",
+  "magnet-array",
+];
 const KITE_DIRECTIONS = [
   [1, 0],
   [-1, 0],
@@ -94,6 +111,26 @@ const KITE_DIRECTIONS = [
   [-1, 1],
   [-1, -1],
 ] as const;
+const OPTIMIZER_DIRECTIONS = [
+  [1, 0],
+  [0.924, 0.383],
+  [0.707, 0.707],
+  [0.383, 0.924],
+  [0, 1],
+  [-0.383, 0.924],
+  [-0.707, 0.707],
+  [-0.924, 0.383],
+  [-1, 0],
+  [-0.924, -0.383],
+  [-0.707, -0.707],
+  [-0.383, -0.924],
+  [0, -1],
+  [0.383, -0.924],
+  [0.707, -0.707],
+  [0.924, -0.383],
+  [0, 0],
+] as const;
+const OPTIMIZER_HORIZONS = [0.28, 0.62, 1.04] as const;
 
 export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResult {
   const stepSeconds = options.stepSeconds ?? DEFAULT_STEP_SECONDS;
@@ -101,6 +138,13 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
   const savedChallengeProgress = currentChallengeProgress();
   const savedChallengeTracking = isChallengeTrackingEnabled();
   const savedAccountProgress = currentAccountProgress();
+  const savedInput = {
+    keys: new Set(keys),
+    pointerX: pointer.x,
+    pointerY: pointer.y,
+    pointerInside: pointer.inside,
+    controlMode: state.controlMode,
+  };
 
   try {
     prepareHeadlessWorld(options.seed);
@@ -151,6 +195,12 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
     };
   } finally {
     cleanupHeadlessWorld();
+    keys.clear();
+    for (const key of savedInput.keys) keys.add(key);
+    pointer.x = savedInput.pointerX;
+    pointer.y = savedInput.pointerY;
+    pointer.inside = savedInput.pointerInside;
+    state.controlMode = savedInput.controlMode;
     restoreChallengeProgress(savedChallengeProgress);
     restoreAccountProgress(savedAccountProgress);
     setChallengeTrackingEnabled(savedChallengeTracking);
@@ -179,6 +229,9 @@ export function summarizeBalanceTrials(results: BalanceTrialResult[]): BalanceSu
     medianWave: median(results.map((result) => result.finalWave)),
     medianHp: median(results.map((result) => result.finalHp)),
     medianTimeSeconds: median(results.map((result) => result.timeSeconds)),
+    medianLevel: median(results.map((result) => result.level)),
+    waveVariance: variance(results.map((result) => result.finalWave)),
+    hpVariance: variance(results.map((result) => result.finalHp)),
   };
 }
 
@@ -247,20 +300,23 @@ function selectUpgradeChoice(
   persona: BalancePersonaId,
   choices: UpgradeChoice[],
 ): UpgradeChoice {
-  if (persona === "kiter") {
+  if (persona === "kiter" || persona === "optimizer") {
     return choices
       .slice()
       .sort(
         (a, b) =>
-          upgradePriority(a.upgrade.id) - upgradePriority(b.upgrade.id),
+          upgradePriority(persona, a.upgrade.id) -
+          upgradePriority(persona, b.upgrade.id),
       )[0]!;
   }
   return choices[0]!;
 }
 
-function upgradePriority(id: string): number {
-  const index = OFFENSIVE_UPGRADE_PRIORITY.indexOf(id);
-  return index >= 0 ? index : OFFENSIVE_UPGRADE_PRIORITY.length;
+function upgradePriority(persona: BalancePersonaId, id: string): number {
+  const priority =
+    persona === "optimizer" ? OPTIMIZER_UPGRADE_PRIORITY : OFFENSIVE_UPGRADE_PRIORITY;
+  const index = priority.indexOf(id);
+  return index >= 0 ? index : priority.length;
 }
 
 function updatePersonaMovement(
@@ -281,6 +337,15 @@ function updatePersonaMovement(
       runtime.nextDecisionSeconds = elapsedSeconds + 0.28 + runtime.rng() * 0.24;
     }
     setMovement(runtime.moveX, runtime.moveY);
+    return;
+  }
+
+  if (persona === "optimizer") {
+    if (elapsedSeconds >= runtime.nextDecisionSeconds) {
+      [runtime.moveX, runtime.moveY] = optimizerDirection(runtime);
+      runtime.nextDecisionSeconds = elapsedSeconds + 0.11;
+    }
+    setAnalogMovement(runtime.moveX, runtime.moveY);
     return;
   }
 
@@ -310,6 +375,75 @@ function kiteDirection(): [number, number] {
   }
 
   return bestDirection;
+}
+
+function optimizerDirection(runtime: PersonaRuntime): [number, number] {
+  const pickup = nearestExperienceOrb();
+  if (!enemies.length) {
+    if (pickup) return [pickup.x - player.x, pickup.y - player.y];
+    return [world.arenaWidth / 2 - player.x, world.arenaHeight / 2 - player.y];
+  }
+
+  const candidates = optimizerCandidateDirections(pickup);
+  let bestDirection: [number, number] = [0, 0];
+  let bestScore = -Infinity;
+
+  for (const [x, y] of candidates) {
+    const score = optimizerCandidateScore(x, y, pickup, runtime);
+    if (score > bestScore) {
+      bestScore = score;
+      bestDirection = [x, y];
+    }
+  }
+
+  return bestDirection;
+}
+
+function optimizerCandidateDirections(
+  pickup: { x: number; y: number } | null,
+): [number, number][] {
+  const candidates = OPTIMIZER_DIRECTIONS.map(([x, y]) => [x, y] as [number, number]);
+  const pressure = threatPressureDirection();
+  if (pressure) {
+    candidates.push(pressure);
+    candidates.push([pressure[1], -pressure[0]]);
+    candidates.push([-pressure[1], pressure[0]]);
+  }
+
+  if (pickup) {
+    const pickupDirection = [pickup.x - player.x, pickup.y - player.y] as [number, number];
+    candidates.push(pickupDirection);
+    if (pressure) {
+      candidates.push([
+        pressure[0] * 0.78 + pickupDirection[0] * 0.22,
+        pressure[1] * 0.78 + pickupDirection[1] * 0.22,
+      ]);
+    }
+  }
+
+  if (Math.hypot(player.vx, player.vy) > 1) {
+    candidates.push([player.vx, player.vy]);
+  }
+
+  return candidates;
+}
+
+function threatPressureDirection(): [number, number] | null {
+  let pressureX = 0;
+  let pressureY = 0;
+
+  for (const enemy of enemies) {
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const distance = Math.hypot(dx, dy) || 1;
+    const roleWeight = enemy.role === "boss" ? 2.6 : enemy.role === "mini-boss" ? 1.8 : 1;
+    const proximityWeight = roleWeight * (enemy.radius + enemy.speed * 0.45) / distance;
+    pressureX += (dx / distance) * proximityWeight;
+    pressureY += (dy / distance) * proximityWeight;
+  }
+
+  if (Math.hypot(pressureX, pressureY) < 0.001) return null;
+  return [pressureX, pressureY];
 }
 
 function nearestExperienceOrb(): { x: number; y: number } | null {
@@ -366,6 +500,79 @@ function kiteCandidateScore(
   return score;
 }
 
+function optimizerCandidateScore(
+  directionX: number,
+  directionY: number,
+  pickup: { x: number; y: number } | null,
+  runtime: PersonaRuntime,
+): number {
+  const [normalX, normalY] = normalizeDirection(directionX, directionY);
+  const lowHealthRatio = 1 - player.hp / Math.max(1, player.maxHp);
+  let score = 0;
+  let nearestProjectedDistance = Infinity;
+  let worstDanger = 0;
+
+  for (const horizonSeconds of OPTIMIZER_HORIZONS) {
+    const nextX = player.x + normalX * player.speed * horizonSeconds;
+    const nextY = player.y + normalY * player.speed * horizonSeconds;
+    score -= boundaryPenalty(nextX, nextY) * (1.3 + horizonSeconds);
+
+    for (const enemy of enemies) {
+      const predicted = predictedEnemyPosition(enemy, nextX, nextY, horizonSeconds);
+      const distance = Math.hypot(nextX - predicted.x, nextY - predicted.y);
+      nearestProjectedDistance = Math.min(nearestProjectedDistance, distance);
+
+      const contactDistance = player.radius + enemy.radius;
+      const dangerDistance = contactDistance + 76 + enemy.speed * 0.22;
+      const roleWeight = enemy.role === "boss" ? 2.8 : enemy.role === "mini-boss" ? 2 : 1;
+      const damageWeight = 1 + enemy.damage / Math.max(1, player.maxHp);
+
+      if (distance < contactDistance + 8) {
+        worstDanger += (contactDistance + 8 - distance) * 420 * roleWeight * damageWeight;
+      } else if (distance < dangerDistance) {
+        const danger = dangerDistance - distance;
+        worstDanger += danger * danger * 0.82 * roleWeight * damageWeight;
+      }
+
+      score += Math.min(distance, 860) * 0.018 * roleWeight;
+    }
+  }
+
+  score -= worstDanger * (1.25 + lowHealthRatio);
+  score += Math.min(nearestProjectedDistance, 920) * 0.92;
+
+  if (pickup) {
+    const pickupDistance = Math.hypot(player.x - pickup.x, player.y - pickup.y);
+    const nextPickupDistance = Math.hypot(
+      player.x + normalX * player.speed * 0.7 - pickup.x,
+      player.y + normalY * player.speed * 0.7 - pickup.y,
+    );
+    const pickupSafety = nearestProjectedDistance > 440 ? 1 : 0.25;
+    score += (pickupDistance - nextPickupDistance) * 0.9 * pickupSafety;
+    score += Math.max(0, 520 - nextPickupDistance) * 0.16 * pickupSafety;
+  }
+
+  const currentSpeed = Math.hypot(player.vx, player.vy);
+  if (currentSpeed > 1) {
+    score += ((normalX * player.vx + normalY * player.vy) / currentSpeed) * 18;
+  }
+
+  return score + runtime.rng() * 0.0001;
+}
+
+function predictedEnemyPosition(
+  enemy: (typeof enemies)[number],
+  targetX: number,
+  targetY: number,
+  horizonSeconds: number,
+): { x: number; y: number } {
+  const angle = Math.atan2(targetY - enemy.y, targetX - enemy.x);
+  return {
+    x: enemy.x + Math.cos(angle) * enemy.speed * horizonSeconds,
+    y: enemy.y + Math.sin(angle) * enemy.speed * horizonSeconds,
+  };
+}
+
 function boundaryPenalty(x: number, y: number): number {
   const margin = player.radius + 120;
   let penalty = 0;
@@ -380,8 +587,16 @@ function boundaryPenalty(x: number, y: number): number {
   return penalty;
 }
 
+function normalizeDirection(x: number, y: number): [number, number] {
+  const length = Math.hypot(x, y);
+  if (length < 0.1) return [0, 0];
+  return [x / length, y / length];
+}
+
 function setMovement(x: number, y: number): void {
   keys.clear();
+  pointer.inside = false;
+  state.controlMode = "keyboard";
   const length = Math.hypot(x, y);
   if (length < 0.1) return;
 
@@ -393,6 +608,21 @@ function setMovement(x: number, y: number): void {
   if (ny < -0.25) keys.add("KeyW");
 }
 
+function setAnalogMovement(x: number, y: number): void {
+  keys.clear();
+  const [nx, ny] = normalizeDirection(x, y);
+  if (nx === 0 && ny === 0) {
+    pointer.inside = false;
+    state.controlMode = "keyboard";
+    return;
+  }
+
+  state.controlMode = "trackpad";
+  pointer.inside = true;
+  pointer.x = player.x + nx * 420 - world.cameraX;
+  pointer.y = player.y + ny * 420 - world.cameraY;
+}
+
 function personaSeedSalt(persona: BalancePersonaId): number {
   switch (persona) {
     case "idle":
@@ -401,6 +631,8 @@ function personaSeedSalt(persona: BalancePersonaId): number {
       return 0x9a1c;
     case "kiter":
       return 0x71e5;
+    case "optimizer":
+      return 0x0f71;
   }
 }
 
@@ -409,6 +641,12 @@ function median(values: number[]): number {
   const middle = Math.floor(sorted.length / 2);
   if (sorted.length % 2 === 1) return sorted[middle]!;
   return (sorted[middle - 1]! + sorted[middle]!) / 2;
+}
+
+function variance(values: number[]): number {
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  const total = values.reduce((sum, value) => sum + (value - mean) ** 2, 0);
+  return roundMetric(total / values.length);
 }
 
 function roundMetric(value: number): number {

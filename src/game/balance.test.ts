@@ -5,6 +5,7 @@ import {
   enemyTypeWeights,
   experienceDropTotal,
   experienceOrbRadius,
+  lateWavePressure,
   scoreAward,
   scaledEnemyStats,
   selectUpgradeTier,
@@ -46,7 +47,11 @@ describe("balance curves", () => {
 
     for (let wave = 1; wave <= 80; wave += 1) {
       const gap = spawnGap(wave);
-      expect(gap).toBeGreaterThanOrEqual(balance.wave.spawnGapMin);
+      const minGap =
+        lateWavePressure(wave) > 0
+          ? balance.lateWave.spawnGapMin
+          : balance.wave.spawnGapMin;
+      expect(gap).toBeGreaterThanOrEqual(minGap);
       expect(gap).toBeLessThanOrEqual(balance.wave.spawnGapStart);
       expect(gap).toBeLessThanOrEqual(previousGap);
       previousGap = gap;
@@ -55,12 +60,49 @@ describe("balance curves", () => {
 
   it("front-loads the first wave tempo", () => {
     expect(waveTarget(1)).toBe(27);
-    expect(waveTarget(10)).toBe(88);
+    expect(waveTarget(10)).toBe(94);
     expect(spawnGap(1)).toBeCloseTo(0.39);
-    expect(spawnGap(10)).toBeCloseTo(0.255);
+    expect(spawnGap(10)).toBeCloseTo(0.247);
     expect(spawnPackChance(1)).toBeCloseTo(0.12);
-    expect(spawnPackChance(10)).toBeCloseTo(balance.wave.packChanceMax);
+    expect(spawnPackChance(10)).toBeCloseTo(0.64);
     expect(balance.wave.spawnTimerStart).toBeCloseTo(0.1);
+  });
+
+  it("keeps the late-game pressure boundary at wave 10", () => {
+    const scout = balance.enemies[0]!;
+    const wave9 = scaledEnemyStats(scout, 9);
+    const wave10 = scaledEnemyStats(scout, 10);
+    const wave20 = scaledEnemyStats(scout, 20);
+    const wave40 = scaledEnemyStats(scout, 40);
+
+    expect(lateWavePressure(9)).toBe(0);
+    expect(lateWavePressure(10)).toBe(1);
+    expect(lateWavePressure(20)).toBe(11);
+
+    expect(waveTarget(9)).toBe(81);
+    expect(waveTarget(10)).toBe(94);
+    expect(waveTarget(20)).toBe(236);
+    expect(waveTarget(10) - waveTarget(9)).toBe(13);
+
+    expect(spawnGap(9)).toBeCloseTo(0.27);
+    expect(spawnGap(10)).toBeCloseTo(0.247);
+    expect(spawnGap(20)).toBe(balance.lateWave.spawnGapMin);
+    expect(spawnPackChance(9)).toBeCloseTo(balance.wave.packChanceMax);
+    expect(spawnPackChance(10)).toBeCloseTo(0.64);
+    expect(spawnPackChance(20)).toBeCloseTo(balance.lateWave.packChanceMax);
+
+    expect(wave9.damage).toBe(scout.damage);
+    expect(wave10.hp).toBeCloseTo(65.31);
+    expect(wave10.speed).toBeCloseTo(163.416);
+    expect(wave10.damage).toBeCloseTo(26);
+    expect(wave20.hp).toBeCloseTo(109.41);
+    expect(wave20.damage).toBeCloseTo(36);
+    expect(wave40.speed).toBeCloseTo(
+      scout.speed * (1 + balance.enemy.speedScaleMax + balance.lateWave.speedScaleMax),
+    );
+    expect(wave40.damage).toBeCloseTo(
+      scout.damage * (1 + balance.lateWave.damageScaleMax),
+    );
   });
 
   it("locks the early threat constants used by balance simulations", () => {
@@ -117,6 +159,7 @@ describe("balance curves", () => {
     const scout = balance.enemies[0]!;
     expect(scaledEnemyStats(scout, 10).hp).toBeGreaterThan(scout.hp);
     expect(scaledEnemyStats(scout, 10).speed).toBeGreaterThan(scout.speed);
+    expect(scaledEnemyStats(scout, 10).damage).toBeGreaterThan(scout.damage);
     expect(experienceDropTotal(scout.score, 10)).toBeGreaterThan(
       experienceDropTotal(scout.score, 1),
     );
