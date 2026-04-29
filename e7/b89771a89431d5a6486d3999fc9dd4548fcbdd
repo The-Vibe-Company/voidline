@@ -1,0 +1,51 @@
+src/entities/experience-pickup.ts
+  55c597c704552048 7-10,25
+src/perf/stress-mode.ts
+  55c597c704552048 18,22,46-57,70,120,130-152,232-234,237-238,240,252-261,263-268,270-279,281,283-297
+src/entities/particles.ts
+  55c597c704552048 50-63
+src/simulation/simulation.ts
+  55c597c704552048 1-33,36-73,75-128,131-187,198,203-226
+src/main.ts
+  55c597c704552048 1-6,10-11,13,16,21
+index.html
+  55c597c704552048 142,144,196,198,214,216
+src/simulation/pools.ts
+  55c597c704552048 210
+styles.css
+  55c597c704552048 311,1274,1283,1286,1288
+package.json
+  55c597c704552048 13-14,17,21-23
+src/entities/experience.ts
+  55c597c704552048 10-17,27-37,43,52-64,66-68
+scripts/browser-smoke.mjs
+  55c597c704552048 1-22,24-26,29-38,40-41,43-46,49-74,76-92,94-95,97-98,101-113
+src/simulation/simulation.test.ts
+  55c597c704552048 1,8,12-45,48-63,66-108,110-157,159-191
+src/render/hud.ts
+  55c597c704552048 6,112-118,124,127,129,131,216-233,313,342,354,364
+src/types.ts
+  55c597c704552048 52-77,141,156,168,181,186,246
+src/entities/player.ts
+  55c597c704552048 1,5-8,11-23,45,48-58,91-92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e7b89771a89431d5a6486d3999fc9dd4548fcbdd",
+  "prompts": {
+    "55c597c704552048": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd890-ba37-7a62-a695-3f502149d319",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 784,
+      "total_deletions": 75,
+      "accepted_lines": 781,
+      "overriden_lines": 0
+    }
+  }
+}
