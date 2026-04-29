@@ -1,0 +1,71 @@
+styles.css
+  87a7f0d8443a028b 703,716,860
+  1f2f05f19d1918f6 680-702,704-715,717-814,859,861-870,872-874,1422-1425,1478-1493
+src/game/challenge-catalog.ts
+  1f2f05f19d1918f6 1-124
+src/entities/enemies.ts
+  1f2f05f19d1918f6 11,112,115,124
+src/game/progression.ts
+  1f2f05f19d1918f6 5,10,19
+src/main.ts
+  1f2f05f19d1918f6 11,19
+src/systems/challenges.ts
+  b17761ca87a3bfec 9,81-85,131-142,149-152
+  1f2f05f19d1918f6 1-8,10-80,86-130,143-148,153-169
+src/simulation/simulation.ts
+  1f2f05f19d1918f6 44,93,143
+src/game/input.ts
+  1f2f05f19d1918f6 11-12,15,56-63,203-211
+index.html
+  1f2f05f19d1918f6 175-184,258-264
+src/types.ts
+  1f2f05f19d1918f6 63-94
+src/render/hud.ts
+  1f2f05f19d1918f6 8-15,67-70,234-280,305,534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "db63f8e232e2683a3fba8eb0574292f160b7348f",
+  "prompts": {
+    "1f2f05f19d1918f6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd96c-5e64-7742-9b01-2faa47d2eb80",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 590,
+      "total_deletions": 8,
+      "accepted_lines": 581,
+      "overriden_lines": 0
+    },
+    "87a7f0d8443a028b": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd989-03a1-7f13-a1ef-53de04e07d30",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 3,
+      "total_deletions": 1,
+      "accepted_lines": 3,
+      "overriden_lines": 0
+    },
+    "b17761ca87a3bfec": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd989-03bf-7503-95bb-97b8b73c6fc5",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 22,
+      "total_deletions": 1,
+      "accepted_lines": 22,
+      "overriden_lines": 0
+    }
+  }
+}
