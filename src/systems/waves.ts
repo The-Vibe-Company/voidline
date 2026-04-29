@@ -17,16 +17,23 @@ import { updateParticles, burst } from "../entities/particles";
 import { updatePlayer } from "../entities/player";
 import { updateCamera, updateStars } from "./camera";
 import { hideOverlays, showGameOver, updateHud, updateLoadout } from "../render/hud";
-import { xpToNextLevel } from "../utils";
+import {
+  balance,
+  createPlayerState,
+  spawnGap,
+  spawnPackChance,
+  waveTarget,
+  xpToNextLevel,
+} from "../game/balance";
 
 export function startWave(wave: number): void {
   state.mode = "playing";
   state.wave = wave;
   state.waveKills = 0;
-  state.waveTarget = Math.round(10 + wave * 4 + Math.pow(wave, 1.25));
+  state.waveTarget = waveTarget(wave);
   state.spawnRemaining = state.waveTarget;
-  state.spawnGap = Math.max(0.18, 0.74 - wave * 0.04);
-  state.spawnTimer = 0.7;
+  state.spawnGap = spawnGap(wave);
+  state.spawnTimer = balance.wave.spawnTimerStart;
   state.waveDelay = 0;
   hideOverlays();
   updateHud();
@@ -43,29 +50,14 @@ export function resetGame(): void {
   state.xpTarget = xpToNextLevel(state.level);
   state.pendingUpgrades = 0;
 
-  player.x = world.arenaWidth / 2;
-  player.y = world.arenaHeight / 2;
-  player.hp = 100;
-  player.maxHp = 100;
-  player.speed = 265;
-  player.damage = 24;
-  player.fireRate = 3;
-  player.bulletSpeed = 610;
-  player.projectileCount = 1;
-  player.pierce = 0;
-  player.drones = 0;
-  player.shield = 0;
-  player.shieldMax = 0;
-  player.shieldRegen = 0;
-  player.critChance = 0;
-  player.lifesteal = 0;
-  player.pickupRadius = 1;
-  player.bulletRadius = 1;
-  player.invuln = 1.2;
-  player.fireTimer = 0;
-  player.droneTimer = 0;
-  player.vx = 0;
-  player.vy = 0;
+  Object.assign(
+    player,
+    createPlayerState({
+      x: world.arenaWidth / 2,
+      y: world.arenaHeight / 2,
+      invuln: balance.player.resetInvulnerability,
+    }),
+  );
   ownedUpgrades.clear();
   counters.nextEnemyId = 1;
   enemies.length = 0;
@@ -86,7 +78,7 @@ function updateWave(dt: number): void {
   if (state.spawnRemaining > 0 && state.spawnTimer <= 0) {
     const pack = Math.min(
       state.spawnRemaining,
-      Math.random() < Math.min(0.52, state.wave * 0.035) ? 2 : 1,
+      Math.random() < spawnPackChance(state.wave) ? 2 : 1,
     );
     for (let i = 0; i < pack; i += 1) {
       spawnEnemy();

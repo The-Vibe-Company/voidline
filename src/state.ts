@@ -11,7 +11,7 @@ import type {
   Star,
   World,
 } from "./types";
-import { xpToNextLevel } from "./utils";
+import { createPlayerState, xpToNextLevel } from "./game/balance";
 
 export const canvas = document.querySelector<HTMLCanvasElement>("#gameCanvas")!;
 export const ctx = canvas.getContext("2d")!;
@@ -54,33 +54,7 @@ export const state: GameState = {
   pendingUpgrades: 0,
 };
 
-export const player: Player = {
-  x: 0,
-  y: 0,
-  radius: 18,
-  hp: 100,
-  maxHp: 100,
-  speed: 265,
-  damage: 24,
-  fireRate: 3,
-  bulletSpeed: 610,
-  projectileCount: 1,
-  pierce: 0,
-  drones: 0,
-  shield: 0,
-  shieldMax: 0,
-  shieldRegen: 0,
-  critChance: 0,
-  lifesteal: 0,
-  pickupRadius: 1,
-  bulletRadius: 1,
-  invuln: 0,
-  fireTimer: 0,
-  droneTimer: 0,
-  aimAngle: -Math.PI / 2,
-  vx: 0,
-  vy: 0,
-};
+export const player: Player = createPlayerState();
 
 export const enemies: EnemyEntity[] = [];
 export const bullets: Bullet[] = [];

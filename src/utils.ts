@@ -1,4 +1,5 @@
 import { world } from "./state";
+import { xpToNextLevel as balancedXpToNextLevel } from "./game/balance";
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -47,5 +48,5 @@ export function percent(value: number): string {
 }
 
 export function xpToNextLevel(level: number): number {
-  return Math.round(28 + level * 12 + Math.pow(level, 1.45) * 6);
+  return balancedXpToNextLevel(level);
 }

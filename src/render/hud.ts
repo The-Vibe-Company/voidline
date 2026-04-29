@@ -124,14 +124,20 @@ export function showUpgrade(): void {
     card.type = "button";
     card.dataset.choiceIndex = String(index + 1);
     card.dataset.tier = tier.id;
+    card.setAttribute(
+      "aria-label",
+      `Choix ${index + 1}: ${upgrade.name}, ${tier.name}, ${upgrade.effect(tier)}`,
+    );
     card.style.setProperty("--tier-color", tier.color);
     card.style.setProperty("--tier-glow", tier.glow);
     card.innerHTML = `
       <span class="choice-key">${index + 1}</span>
-      <span class="tier-badge">${tier.short} - ${tier.name}</span>
+      <span class="tier-badge"><span>${tier.short}</span>${tier.name}</span>
       <span class="upgrade-icon">${upgrade.icon}</span>
-      <h3>${upgrade.name}</h3>
-      <p>${upgrade.description}</p>
+      <span class="upgrade-copy">
+        <h3>${upgrade.name}</h3>
+        <p>${upgrade.description}</p>
+      </span>
       <strong class="upgrade-effect">${upgrade.effect(tier)}</strong>
     `;
     card.addEventListener("click", () => onUpgradeChoice(choice));

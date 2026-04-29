@@ -1,11 +1,17 @@
 import { experienceOrbs, player, state } from "../state";
 import { collectExperience } from "../game/progression";
 import { spark } from "./particles";
+import {
+  balance,
+  experienceDropTotal,
+  experienceOrbRadius,
+  experienceShardCount,
+} from "../game/balance";
 import type { EnemyEntity } from "../types";
 
 export function spawnExperience(enemy: EnemyEntity): void {
-  const total = Math.round((enemy.score / 7) * (1 + state.wave * 0.04));
-  const shardCount = enemy.kind === "brute" ? 5 : enemy.kind === "hunter" ? 3 : 2;
+  const total = experienceDropTotal(enemy.score, state.wave);
+  const shardCount = experienceShardCount(enemy.kind);
   let remaining = total;
 
   for (let i = 0; i < shardCount; i += 1) {
@@ -18,7 +24,7 @@ export function spawnExperience(enemy: EnemyEntity): void {
       y: enemy.y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      radius: 6 + Math.min(5, value * 0.18),
+      radius: experienceOrbRadius(value),
       value,
       age: Math.random() * 0.4,
     });
@@ -37,7 +43,7 @@ export function updateExperience(dt: number): void {
     const dx = player.x - orb.x;
     const dy = player.y - orb.y;
     const distance = Math.hypot(dx, dy);
-    const pickupRadius = 82 * player.pickupRadius;
+    const pickupRadius = balance.xp.pickupBaseRadius * player.pickupRadius;
     if (distance < pickupRadius) {
       const pull = (1 - distance / pickupRadius) * 560;
       orb.vx += (dx / Math.max(1, distance)) * pull * dt;
