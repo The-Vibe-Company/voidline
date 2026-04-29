@@ -1,0 +1,23 @@
+src/game/balance.ts
+  ff3fe17ce1b7aa3f 87
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "b023deb664db9f70d596fe134e0a37a5f231acd9",
+  "prompts": {
+    "ff3fe17ce1b7aa3f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf9bd841-da18-4e89-84ef-58271fd76e43",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
