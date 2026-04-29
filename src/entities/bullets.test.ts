@@ -39,6 +39,7 @@ function placeEnemy(id: number, x: number, y: number, hp = 1000): EnemyEntity {
 
 function placeBullet(x: number, y: number, opts: Partial<Bullet> = {}): Bullet {
   return {
+    id: 1,
     x,
     y,
     vx: 0,
@@ -77,6 +78,11 @@ function resetWorld(): void {
   state.magnetsCarried = 0;
   state.bombsCarried = 0;
   counters.nextEnemyId = 1;
+  counters.nextBulletId = 1;
+  counters.nextExperienceId = 1;
+  counters.nextPowerupId = 1;
+  counters.nextParticleId = 1;
+  counters.nextFloaterId = 1;
   bullets.length = 0;
   enemies.length = 0;
   experienceOrbs.length = 0;

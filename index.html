@@ -139,9 +139,9 @@
       </aside>
 
       <section class="overlay active" id="startOverlay">
-        <div class="modal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="startTitle">
           <p class="eyebrow">Rogue-lite orbital</p>
-          <h1>Voidline</h1>
+          <h1 id="startTitle">Voidline</h1>
           <p class="tagline">
             Survis aux essaims orbitaux, vide chaque vague et transforme ton
             vaisseau en arsenal.
@@ -193,9 +193,9 @@
       </section>
 
       <section class="overlay" id="pauseOverlay">
-        <div class="modal compact">
+        <div class="modal compact" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
           <p class="eyebrow">Pause tactique</p>
-          <h2>Signal suspendu</h2>
+          <h2 id="pauseTitle">Signal suspendu</h2>
           <div class="pilot-card">
             <div class="mode-switch large">
               <button class="mode-button" type="button" data-control-mode="keyboard">Clavier</button>
@@ -211,9 +211,9 @@
       </section>
 
       <section class="overlay" id="gameOverOverlay">
-        <div class="modal">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
           <p class="eyebrow">Signal perdu</p>
-          <h2>Vaisseau detruit</h2>
+          <h2 id="gameOverTitle">Vaisseau detruit</h2>
           <p class="tagline">
             Score final <strong id="finalScore">0</strong> -
             vague <strong id="finalWave">1</strong>

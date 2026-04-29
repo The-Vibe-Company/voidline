@@ -4,6 +4,10 @@ import type { ExperienceOrb, Player } from "../types";
 const MAGNETIZED_PULL = 560;
 const MAGNETIZED_CONTACT_PADDING = 8;
 
+export function pickupRadiusFor(target: Player): number {
+  return balance.xp.pickupBaseRadius * target.pickupRadius;
+}
+
 export function shouldCollectOrb(orb: ExperienceOrb, target: Player, dt: number): boolean {
   const dx = target.x - orb.x;
   const dy = target.y - orb.y;
@@ -18,6 +22,6 @@ export function shouldCollectOrb(orb: ExperienceOrb, target: Player, dt: number)
     return distSq < contact * contact;
   }
 
-  const pickupRadius = balance.xp.pickupBaseRadius * target.pickupRadius;
+  const pickupRadius = pickupRadiusFor(target);
   return distSq < pickupRadius * pickupRadius;
 }

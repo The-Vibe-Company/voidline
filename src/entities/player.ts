@@ -1,9 +1,26 @@
-import { bullets, enemies, keys, player, pointer, state, world } from "../state";
+import { enemies, keys, player, pointer, state, world } from "../state";
 import { clamp, distanceSq, screenToWorld } from "../utils";
 import { pulseText } from "./particles";
 import type { EnemyEntity } from "../types";
+import { enemyGrid, targetSearchRadius } from "../simulation/grids";
+import { markHudDirty } from "../simulation/events";
+import { acquireBullet } from "../simulation/pools";
+import { random } from "../simulation/random";
 
 export function nearestEnemy(x: number, y: number): EnemyEntity | null {
+  if (enemies.length > 96) {
+    const maxRadius = Math.hypot(world.arenaWidth, world.arenaHeight);
+    for (
+      let radius = targetSearchRadius;
+      radius <= maxRadius + targetSearchRadius;
+      radius *= 2
+    ) {
+      const gridTarget = enemyGrid.nearest(x, y, radius);
+      if (gridTarget) return gridTarget;
+    }
+    return null;
+  }
+
   let nearest: EnemyEntity | null = null;
   let best = Infinity;
   for (const enemy of enemies) {
@@ -25,22 +42,20 @@ export function fireVolley(x: number, y: number, angle: number, drone: boolean):
   for (let i = 0; i < count; i += 1) {
     const bulletAngle = start + step * i;
     const speed = drone ? player.bulletSpeed * 0.9 : player.bulletSpeed;
-    const isCrit = Math.random() < player.critChance;
+    const isCrit = random() < player.critChance;
     const baseDamage = drone ? player.damage * 0.58 : player.damage;
     const baseRadius = drone ? 4 : 5;
-    bullets.push({
-      x: x + Math.cos(bulletAngle) * 20,
-      y: y + Math.sin(bulletAngle) * 20,
-      vx: Math.cos(bulletAngle) * speed,
-      vy: Math.sin(bulletAngle) * speed,
-      radius: baseRadius * player.bulletRadius,
-      damage: isCrit ? baseDamage * 2 : baseDamage,
-      pierce: player.pierce,
-      life: drone ? 0.9 : 1.15,
-      color: drone ? "#ffbf47" : isCrit ? "#ff5af0" : "#39d9ff",
-      trail: 0,
-      hitIds: new Set(),
-    });
+    const bullet = acquireBullet();
+    bullet.x = x + Math.cos(bulletAngle) * 20;
+    bullet.y = y + Math.sin(bulletAngle) * 20;
+    bullet.vx = Math.cos(bulletAngle) * speed;
+    bullet.vy = Math.sin(bulletAngle) * speed;
+    bullet.radius = baseRadius * player.bulletRadius;
+    bullet.damage = isCrit ? baseDamage * 2 : baseDamage;
+    bullet.pierce = player.pierce;
+    bullet.life = drone ? 0.9 : 1.15;
+    bullet.color = drone ? "#ffbf47" : isCrit ? "#ff5af0" : "#39d9ff";
+    bullet.trail = 0;
   }
 }
 
@@ -73,7 +88,8 @@ export function damagePlayer(amount: number): void {
 
   player.invuln = 0.34;
   world.shake = 14;
-  pulseText(player.x, player.y - 38, `-${Math.round(amount)}`, "#ff5a69");
+  pulseText(player.x, player.y - 38, `-${Math.round(amount)}`, "#ff5a69", true);
+  markHudDirty();
 }
 
 export function updatePlayer(dt: number): void {
@@ -143,4 +159,3 @@ export function updatePlayer(dt: number): void {
     }
   }
 }
-

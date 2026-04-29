@@ -1,4 +1,3 @@
-import { setFrameTickHook } from "../game/loop";
 import { togglePerfOverlay } from "../render/perf-overlay";
 import {
   bullets,
@@ -16,9 +15,11 @@ import { hideOverlays } from "../render/hud";
 import { mulberry32 } from "./rng";
 import type { EnemyEntity, EnemyKind } from "../types";
 import { balance } from "../game/balance";
+import { setSimulationSeed } from "../simulation/random";
 
 interface StressConfig {
   enemies: number;
+  bullets: number;
   orbs: number;
   seconds: number;
   seed: number;
@@ -42,6 +43,18 @@ interface StressReport {
   config: StressConfig;
 }
 
+interface ActiveStressRun {
+  config: StressConfig;
+  rand: () => number;
+  frameTimes: number[];
+  updateTimes: number[];
+  renderTimes: number[];
+  startedAt: number;
+  finished: boolean;
+}
+
+let activeStressRun: ActiveStressRun | null = null;
+
 function readConfig(): StressConfig | null {
   if (typeof window === "undefined") return null;
   const params = new URLSearchParams(window.location.search);
@@ -54,6 +67,7 @@ function readConfig(): StressConfig | null {
   };
   return {
     enemies: Math.max(0, Math.floor(num("enemies", 120))),
+    bullets: Math.max(0, Math.floor(num("bullets", 0))),
     orbs: Math.max(0, Math.floor(num("orbs", 250))),
     seconds: Math.max(1, num("seconds", 10)),
     seed: Math.floor(num("seed", 42)),
@@ -103,6 +117,7 @@ function seedOrbs(count: number, rand: () => number): void {
   experienceOrbs.length = 0;
   for (let i = 0; i < count; i += 1) {
     experienceOrbs.push({
+      id: counters.nextExperienceId,
       x: 100 + rand() * (world.arenaWidth - 200),
       y: 100 + rand() * (world.arenaHeight - 200),
       vx: (rand() - 0.5) * 60,
@@ -112,6 +127,29 @@ function seedOrbs(count: number, rand: () => number): void {
       age: rand() * 0.4,
       magnetized: false,
     });
+    counters.nextExperienceId += 1;
+  }
+}
+
+function seedBullets(count: number, rand: () => number): void {
+  bullets.length = 0;
+  for (let i = 0; i < count; i += 1) {
+    const angle = rand() * Math.PI * 2;
+    bullets.push({
+      id: counters.nextBulletId,
+      x: 100 + rand() * (world.arenaWidth - 200),
+      y: 100 + rand() * (world.arenaHeight - 200),
+      vx: Math.cos(angle) * 520,
+      vy: Math.sin(angle) * 520,
+      radius: 5,
+      damage: 4,
+      pierce: 1,
+      life: 1.15,
+      color: "#39d9ff",
+      trail: 0,
+      hitIds: new Set<number>(),
+    });
+    counters.nextBulletId += 1;
   }
 }
 
@@ -191,14 +229,19 @@ export function maybeStartStressMode(): void {
   player.hp = 1e9;
   player.maxHp = 1e9;
   player.invuln = 1e9;
+  counters.nextEnemyId = 1;
+  counters.nextBulletId = 1;
+  counters.nextExperienceId = 1;
 
   const rand = mulberry32(config.seed);
+  setSimulationSeed(config.seed);
+  bullets.length = 0;
   seedEnemies(config.enemies, rand);
+  seedBullets(config.bullets, rand);
   seedOrbs(config.orbs, rand);
   if (config.magnet) {
     for (const orb of experienceOrbs) orb.magnetized = true;
   }
-  bullets.length = 0;
   particles.length = 0;
   floaters.length = 0;
 
@@ -206,35 +249,52 @@ export function maybeStartStressMode(): void {
 
   (window as unknown as { compareReports: typeof compareReports }).compareReports = compareReports;
 
-  const frameTimes: number[] = [];
-  const updateTimes: number[] = [];
-  const renderTimes: number[] = [];
-  const startedAt = performance.now();
-  let finished = false;
+  activeStressRun = {
+    config,
+    rand,
+    frameTimes: [],
+    updateTimes: [],
+    renderTimes: [],
+    startedAt: performance.now(),
+    finished: false,
+  };
+}
 
-  setFrameTickHook((now) => {
-    if (finished) return;
-    frameTimes.push(perfStats.frameMs);
-    updateTimes.push(perfStats.updateMs);
-    renderTimes.push(perfStats.renderMs);
+export function recordStressFrame(now: number): void {
+  const run = activeStressRun;
+  if (!run || run.finished) return;
+  run.frameTimes.push(perfStats.frameMs);
+  run.updateTimes.push(perfStats.updateMs);
+  run.renderTimes.push(perfStats.renderMs);
 
-    if (config.enemies > 0 && enemies.length < config.enemies / 2) {
-      seedEnemies(config.enemies, rand);
+  if (run.config.enemies > 0 && enemies.length < run.config.enemies / 2) {
+    seedEnemies(run.config.enemies, run.rand);
+  }
+  if (run.config.bullets > 0 && bullets.length < run.config.bullets / 2) {
+    seedBullets(run.config.bullets, run.rand);
+  }
+  if (run.config.orbs > 0 && experienceOrbs.length < run.config.orbs / 2) {
+    seedOrbs(run.config.orbs, run.rand);
+    if (run.config.magnet) {
+      for (const orb of experienceOrbs) orb.magnetized = true;
     }
-    if (config.orbs > 0 && experienceOrbs.length < config.orbs / 2) {
-      seedOrbs(config.orbs, rand);
-    }
+  }
 
-    const elapsed = (now - startedAt) / 1000;
-    if (elapsed >= config.seconds) {
-      finished = true;
-      const report = summarize(frameTimes, updateTimes, renderTimes, elapsed, config);
-      // eslint-disable-next-line no-console
-      console.log("[stress-mode] report", JSON.stringify(report, null, 2));
-      attachReportToDom(report);
-      setFrameTickHook(null);
-    }
-  });
+  const elapsed = (now - run.startedAt) / 1000;
+  if (elapsed < run.config.seconds) return;
+
+  run.finished = true;
+  const report = summarize(
+    run.frameTimes,
+    run.updateTimes,
+    run.renderTimes,
+    elapsed,
+    run.config,
+  );
+  // eslint-disable-next-line no-console
+  console.log("[stress-mode] report", JSON.stringify(report, null, 2));
+  attachReportToDom(report);
+  activeStressRun = null;
 }
 
 function attachReportToDom(report: StressReport): void {

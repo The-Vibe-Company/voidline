@@ -2,23 +2,26 @@ import { burst, pulseText } from "./particles";
 import { spawnExperience } from "./experience";
 import { damagePlayer } from "./player";
 import { maybeDropPowerup } from "./powerups";
-import { counters, enemies, player, state, world } from "../state";
+import { enemies, player, state, world } from "../state";
 import { circleHit, clamp } from "../utils";
 import { scaledEnemyStats, selectEnemyType } from "../game/balance";
 import type { EnemyType } from "../types";
+import { markHudDirty } from "../simulation/events";
+import { acquireEnemy, releaseEnemy } from "../simulation/pools";
+import { random } from "../simulation/random";
 
 export function chooseEnemyType(): EnemyType {
-  return selectEnemyType(state.wave, Math.random());
+  return selectEnemyType(state.wave, random());
 }
 
 export function spawnEnemy(): void {
   const type = chooseEnemyType();
-  const side = Math.floor(Math.random() * 4);
+  const side = Math.floor(random() * 4);
   const pad = 70;
   const viewLeft = world.cameraX;
   const viewTop = world.cameraY;
-  let x = viewLeft + Math.random() * world.width;
-  let y = viewTop + Math.random() * world.height;
+  let x = viewLeft + random() * world.width;
+  let y = viewTop + random() * world.height;
 
   if (side === 0) {
     x = viewLeft - pad;
@@ -34,29 +37,22 @@ export function spawnEnemy(): void {
   y = clamp(y, pad, world.arenaHeight - pad);
 
   const scaled = scaledEnemyStats(type, state.wave);
-  enemies.push({
-    ...type,
-    id: counters.nextEnemyId,
-    kind: type.id,
-    x,
-    y,
-    hp: scaled.hp,
-    maxHp: scaled.hp,
-    speed: scaled.speed,
-    radius: type.radius,
-    damage: type.damage,
-    age: 0,
-    seed: Math.random() * 100,
-    wobble: type.id === "brute" ? 0.08 : 0.18,
-    wobbleRate: 2 + Math.random() * 2,
-    hit: 0,
-  });
-  counters.nextEnemyId += 1;
+  const enemy = acquireEnemy(type, type.id);
+  enemy.x = x;
+  enemy.y = y;
+  enemy.hp = scaled.hp;
+  enemy.maxHp = scaled.hp;
+  enemy.speed = scaled.speed;
+  enemy.age = 0;
+  enemy.seed = random() * 100;
+  enemy.wobble = type.id === "brute" ? 0.08 : 0.18;
+  enemy.wobbleRate = 2 + random() * 2;
+  enemy.hit = 0;
 }
 
 export function killEnemy(index: number): void {
   const enemy = enemies[index]!;
-  enemies.splice(index, 1);
+  releaseEnemy(index);
   state.waveKills += 1;
   state.score += Math.round(enemy.score * (1 + state.wave * 0.07));
   state.bestCombo += 1;
@@ -64,6 +60,7 @@ export function killEnemy(index: number): void {
   maybeDropPowerup(enemy);
   burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);
   pulseText(enemy.x, enemy.y - enemy.radius, `+${enemy.score}`, enemy.accent);
+  markHudDirty();
   world.shake = Math.min(10, world.shake + 2.4);
 }
 
@@ -81,7 +78,7 @@ export function updateEnemies(dt: number): void {
     if (circleHit(enemy, player)) {
       damagePlayer(enemy.damage);
       burst(enemy.x, enemy.y, enemy.color, 16, 160);
-      enemies.splice(i, 1);
+      releaseEnemy(i);
     }
   }
 }

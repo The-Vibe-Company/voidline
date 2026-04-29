@@ -9,13 +9,13 @@ import type {
   Player,
   Pointer,
   PowerupOrb,
+  SimulationPerfConfig,
   Star,
   World,
 } from "./types";
 import { createPlayerState, xpToNextLevel } from "./game/balance";
 
 export const canvas = document.querySelector<HTMLCanvasElement>("#gameCanvas")!;
-export const ctx = canvas.getContext("2d")!;
 
 export const keys = new Set<string>();
 
@@ -72,6 +72,23 @@ export const ownedUpgrades = new Map<string, OwnedUpgrade>();
 
 export const counters = {
   nextEnemyId: 1,
+  nextBulletId: 1,
+  nextExperienceId: 1,
+  nextPowerupId: 1,
+  nextParticleId: 1,
+  nextFloaterId: 1,
+};
+
+export const simulationPerfConfig: SimulationPerfConfig = {
+  targetFps: 60,
+  targetFrameMs: 1000 / 60,
+  dprMax: 2,
+  budgets: {
+    maxParticles: 720,
+    maxFloaters: 48,
+    maxVisibleXp: 900,
+    maxDamageTexts: 28,
+  },
 };
 
 export const perfStats = {
