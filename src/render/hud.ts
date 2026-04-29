@@ -1,6 +1,7 @@
 import { ownedUpgrades, player, state } from "../state";
 import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
+import { upgradeTiers } from "../game/balance";
 import type { ControlMode } from "../types";
 
 const hud = {
@@ -40,6 +41,7 @@ const hud = {
   pauseOverlay: document.querySelector<HTMLElement>("#pauseOverlay")!,
   gameOverOverlay: document.querySelector<HTMLElement>("#gameOverOverlay")!,
   upgradeTitle: document.querySelector<HTMLElement>("#upgradeTitle")!,
+  upgradeStep: document.querySelector<HTMLElement>("#upgradeStep")!,
   upgradeGrid: document.querySelector<HTMLElement>("#upgradeGrid")!,
   controlButtons: [
     ...document.querySelectorAll<HTMLButtonElement>("[data-control-mode]"),
@@ -49,6 +51,25 @@ const hud = {
 };
 
 let upgradeReturnFocus: HTMLElement | null = null;
+let upgradeRunTotal = 0;
+
+const TIER_RANK_LOOKUP = new Map<string, number>(
+  upgradeTiers.map((tier, idx) => [tier.id, idx + 1] as const),
+);
+
+function tierRank(tierId: string): number {
+  return TIER_RANK_LOOKUP.get(tierId) ?? 1;
+}
+
+function cipherFor(upgradeId: string, tierShort: string, index: number): string {
+  const head = upgradeId.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase().padEnd(3, "X");
+  let hash = 0;
+  for (let i = 0; i < upgradeId.length; i++) {
+    hash = (hash * 31 + upgradeId.charCodeAt(i)) >>> 0;
+  }
+  const seed = (hash + index * 113) & 0xffff;
+  return `${head}-${tierShort}-${seed.toString(16).toUpperCase().padStart(4, "0")}`;
+}
 
 export function getControlButtons(): HTMLButtonElement[] {
   return hud.controlButtons;
@@ -157,13 +178,20 @@ export function updateHud(): void {
 export function showUpgrade(): void {
   if (state.mode !== "upgrade") {
     rememberFocusBeforeUpgrade();
+    upgradeRunTotal = Math.max(1, state.pendingUpgrades);
   }
   state.mode = "upgrade";
   state.pendingUpgrades = Math.max(1, state.pendingUpgrades);
-  hud.upgradeTitle.textContent =
-    state.pendingUpgrades > 1
-      ? `Niveau ${state.level} atteint - ${state.pendingUpgrades} upgrades`
-      : `Niveau ${state.level} atteint`;
+  if (state.pendingUpgrades > upgradeRunTotal) {
+    upgradeRunTotal = state.pendingUpgrades;
+  }
+  const currentPick = Math.max(1, upgradeRunTotal - state.pendingUpgrades + 1);
+
+  hud.upgradeTitle.textContent = `Niveau ${state.level} atteint`;
+  hud.upgradeStep.textContent =
+    upgradeRunTotal > 1 ? `${currentPick} / ${upgradeRunTotal}` : "";
+  hud.upgradeStep.dataset.active = upgradeRunTotal > 1 ? "true" : "false";
+
   hud.upgradeGrid.innerHTML = "";
 
   const choices = pickUpgrades(3);
@@ -174,25 +202,52 @@ export function showUpgrade(): void {
     const titleId = `${choiceId}-title`;
     const descriptionId = `${choiceId}-description`;
     const effectId = `${choiceId}-effect`;
+    const rank = tierRank(tier.id);
+    const cipher = cipherFor(upgrade.id, tier.short, index);
     const card = document.createElement("button");
     card.className = "upgrade-card";
     card.type = "button";
     card.dataset.choiceIndex = String(index + 1);
     card.dataset.tier = tier.id;
+    card.dataset.tierRank = String(rank);
     card.setAttribute("aria-labelledby", `${choiceId} ${titleId} ${tierId}`);
     card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
     card.style.setProperty("--tier-color", tier.color);
     card.style.setProperty("--tier-glow", tier.glow);
+    card.style.setProperty("--card-delay", `${index * 70}ms`);
+
+    const chevrons = Array.from({ length: 4 }, (_, i) => {
+      const filled = i < rank ? " is-filled" : "";
+      return `<span class="tier-chevron${filled}" aria-hidden="true"></span>`;
+    }).join("");
+
     card.innerHTML = `
       <span class="sr-only" id="${choiceId}">Choix ${index + 1}</span>
-      <span class="choice-key" aria-hidden="true">${index + 1}</span>
-      <span class="tier-badge" id="${tierId}"><span>${tier.short}</span>${tier.name}</span>
-      <span class="upgrade-icon">${upgrade.icon}</span>
+      <span class="lock-tick lt-tl" aria-hidden="true"></span>
+      <span class="lock-tick lt-tr" aria-hidden="true"></span>
+      <span class="lock-tick lt-bl" aria-hidden="true"></span>
+      <span class="lock-tick lt-br" aria-hidden="true"></span>
+      <span class="cipher-strip" aria-hidden="true">
+        <span class="cipher-dot"></span>
+        <span class="cipher-code">${cipher}</span>
+        <span class="choice-key">${index + 1}</span>
+      </span>
+      <span class="tier-row" id="${tierId}" aria-label="Niveau ${tier.short} sur T4 - ${tier.name}">
+        <span class="tier-chevrons" aria-hidden="true">${chevrons}</span>
+        <span class="tier-name" aria-hidden="true">${tier.name}</span>
+      </span>
+      <span class="upgrade-stamp" aria-hidden="true">
+        <span class="upgrade-stamp-rivet"></span>
+        <span class="upgrade-stamp-glyph">${upgrade.icon}</span>
+      </span>
       <span class="upgrade-copy">
         <h3 id="${titleId}">${upgrade.name}</h3>
         <p id="${descriptionId}">${upgrade.description}</p>
       </span>
-      <strong class="upgrade-effect" id="${effectId}">${upgrade.effect(tier)}</strong>
+      <strong class="upgrade-effect" id="${effectId}">
+        <span class="upgrade-effect-arrow" aria-hidden="true">&#9656;</span>
+        <span class="upgrade-effect-text">${upgrade.effect(tier)}</span>
+      </strong>
     `;
     card.addEventListener("click", () => onUpgradeChoice(choice));
     hud.upgradeGrid.appendChild(card);
@@ -214,6 +269,9 @@ function onUpgradeChoice(choice: Parameters<typeof applyUpgrade>[0]): void {
     return;
   }
 
+  upgradeRunTotal = 0;
+  hud.upgradeStep.textContent = "";
+  hud.upgradeStep.dataset.active = "false";
   hideOverlays();
   state.mode = "playing";
   updateHud();

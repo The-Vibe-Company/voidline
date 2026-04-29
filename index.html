@@ -153,11 +153,11 @@
             </div>
             <dl class="control-map">
               <div>
-                <dt>Fleches / WASD</dt>
+                <dt>Fleches / WASD / ZQSD</dt>
                 <dd>Deplacement</dd>
               </div>
               <div>
-                <dt>1 / 2 / 3</dt>
+                <dt>1 / 2 / 3 &middot; Espace</dt>
                 <dd>Upgrade</dd>
               </div>
               <div>
@@ -172,8 +172,22 @@
 
       <section class="overlay" id="upgradeOverlay">
         <div class="upgrade-modal" role="dialog" aria-modal="true" aria-labelledby="upgradeTitle">
-          <p class="eyebrow">Hangar tactique</p>
-          <h2 id="upgradeTitle">Niveau atteint</h2>
+          <span class="modal-corner tl" aria-hidden="true"></span>
+          <span class="modal-corner tr" aria-hidden="true"></span>
+          <span class="modal-corner bl" aria-hidden="true"></span>
+          <span class="modal-corner br" aria-hidden="true"></span>
+          <span class="modal-scanline" aria-hidden="true"></span>
+          <header class="upgrade-header">
+            <p class="eyebrow">
+              <span class="eyebrow-glyph" aria-hidden="true">◣</span>
+              Hangar tactique
+              <span class="upgrade-step" id="upgradeStep" aria-hidden="true"></span>
+            </p>
+            <h2 id="upgradeTitle">Niveau atteint</h2>
+            <p class="upgrade-prompt" id="upgradePrompt" aria-hidden="true">
+              Selectionne &middot; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> ou <kbd>Espace</kbd>
+            </p>
+          </header>
           <div class="upgrade-grid" id="upgradeGrid"></div>
         </div>
       </section>
