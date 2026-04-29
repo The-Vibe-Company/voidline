@@ -2,6 +2,7 @@ import { bench, describe } from "vitest";
 import { bullets, counters, enemies, experienceOrbs, player, world } from "../state";
 import { updateBullets } from "../entities/bullets";
 import { updateExperience } from "../entities/experience";
+import { createPlayerBonus } from "../game/balance";
 import { polygon } from "../render/background";
 import { mulberry32 } from "./rng";
 
@@ -24,6 +25,7 @@ function resetWorld(): void {
   player.lifesteal = 0;
   player.invuln = 0;
   player.pickupRadius = 1;
+  player.bonus = createPlayerBonus();
   counters.nextEnemyId = 1;
 }
 

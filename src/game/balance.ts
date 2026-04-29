@@ -1,4 +1,4 @@
-import type { EnemyKind, EnemyType, Player, UpgradeTier } from "../types";
+import type { EnemyKind, EnemyType, Player, PlayerBonus, UpgradeTier } from "../types";
 
 export type PlayerStatBalance = Pick<
   Player,
@@ -224,8 +224,34 @@ export const balance = {
   tiers: upgradeTiers,
 };
 
-export function createPlayerState(overrides: Partial<Player> = {}): Player {
+export function createPlayerBonus(): PlayerBonus {
   return {
+    fireRatePct: 0,
+    damagePct: 0,
+    bulletSpeedPct: 0,
+    speedPct: 0,
+    pickupRadiusPct: 0,
+    bulletRadiusPct: 0,
+  };
+}
+
+const MULTIPLICATIVE_STATS = [
+  ["fireRate", "fireRatePct"],
+  ["damage", "damagePct"],
+  ["bulletSpeed", "bulletSpeedPct"],
+  ["speed", "speedPct"],
+  ["pickupRadius", "pickupRadiusPct"],
+  ["bulletRadius", "bulletRadiusPct"],
+] as const;
+
+export function recomputeMultiplicativeStats(player: Player): void {
+  for (const [statKey, bonusKey] of MULTIPLICATIVE_STATS) {
+    player[statKey] = playerStatBalance[statKey] * (1 + player.bonus[bonusKey]);
+  }
+}
+
+export function createPlayerState(overrides: Partial<Player> = {}): Player {
+  const base: Player = {
     x: 0,
     y: 0,
     ...playerStatBalance,
@@ -235,7 +261,12 @@ export function createPlayerState(overrides: Partial<Player> = {}): Player {
     aimAngle: -Math.PI / 2,
     vx: 0,
     vy: 0,
+    bonus: createPlayerBonus(),
+  };
+  return {
+    ...base,
     ...overrides,
+    bonus: { ...base.bonus, ...(overrides.bonus ?? {}) },
   };
 }
 
