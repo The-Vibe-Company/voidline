@@ -4,6 +4,8 @@ import {
   setControlMode,
   updateHud,
 } from "./render/hud";
+import { bindCockpit } from "./render/cockpit";
+import { bindTree } from "./render/orbital-tree";
 import { bindInput } from "./game/input";
 import { bindPerfOverlay } from "./render/perf-overlay";
 import { maybeStartStressMode } from "./perf/stress-mode";
@@ -20,6 +22,8 @@ initializeRelicUnlocks();
 initializeChallenges();
 initializeAccountProgress();
 initOverlayFocusScope();
+bindCockpit();
+bindTree();
 updateHud();
 bindInput();
 bindPerfOverlay();
