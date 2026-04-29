@@ -2,12 +2,12 @@ import { experienceOrbs, player, state } from "../state";
 import { collectExperience } from "../game/progression";
 import { spark } from "./particles";
 import {
-  balance,
   experienceDropTotal,
   experienceOrbRadius,
   experienceShardCount,
 } from "../game/balance";
 import type { EnemyEntity } from "../types";
+import { shouldCollectOrb } from "./experience-pickup";
 
 export function spawnExperience(enemy: EnemyEntity): void {
   const total = experienceDropTotal(enemy.score, state.wave);
@@ -27,6 +27,7 @@ export function spawnExperience(enemy: EnemyEntity): void {
       radius: experienceOrbRadius(value),
       value,
       age: Math.random() * 0.4,
+      magnetized: false,
     });
   }
 }
@@ -40,12 +41,7 @@ export function updateExperience(dt: number): void {
     orb.vx *= 1 - dt * 2.7;
     orb.vy *= 1 - dt * 2.7;
 
-    const dx = player.x - orb.x;
-    const dy = player.y - orb.y;
-    const distance = Math.hypot(dx, dy);
-    const pickupRadius = balance.xp.pickupBaseRadius * player.pickupRadius + state.magnetRadius;
-
-    if (distance < pickupRadius) {
+    if (shouldCollectOrb(orb, player, dt)) {
       collectExperience(orb.value);
       spark(orb.x, orb.y, "#72ffb1");
       experienceOrbs.splice(i, 1);

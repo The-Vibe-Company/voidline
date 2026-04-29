@@ -53,7 +53,6 @@ export const state: GameState = {
   xp: 0,
   xpTarget: xpToNextLevel(1),
   pendingUpgrades: 0,
-  magnetRadius: 0,
   heartsCarried: 0,
   magnetsCarried: 0,
   bombsCarried: 0,
