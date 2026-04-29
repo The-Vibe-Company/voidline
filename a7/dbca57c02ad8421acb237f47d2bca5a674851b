@@ -1,0 +1,23 @@
+src/game/balance-simulation.test.ts
+  d5aa716155e72566 102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a7dbca57c02ad8421acb237f47d2bca5a674851b",
+  "prompts": {
+    "d5aa716155e72566": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd903-0962-7b32-814a-4a27fc30ad37",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
