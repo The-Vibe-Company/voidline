@@ -51,6 +51,8 @@ function placeBullet(x: number, y: number, opts: Partial<Bullet> = {}): Bullet {
     color: "#39d9ff",
     trail: 0,
     hitIds: new Set<number>(),
+    source: "player",
+    chainRemaining: 0,
     ...opts,
   };
 }
@@ -69,6 +71,15 @@ function resetWorld(): void {
   player.hp = 100;
   player.maxHp = 100;
   player.lifesteal = 0;
+  player.traits = {
+    railSplitter: false,
+    droneSwarm: false,
+    kineticRam: false,
+    magnetStorm: false,
+  };
+  player.ramTimer = 0;
+  player.magnetStormCharge = 0;
+  player.magnetStormTimer = 0;
   state.mode = "playing";
   state.wave = 1;
   state.score = 0;
@@ -176,5 +187,20 @@ describe("bullet vs enemy spatial collision", () => {
     updateBullets(0);
 
     expect(bullets.length).toBe(0);
+  });
+
+  it("spawns a rail splitter chain bullet toward a nearby enemy", () => {
+    player.traits.railSplitter = true;
+    player.bulletSpeed = 610;
+    enemies.push(placeEnemy(1, 500, 500));
+    enemies.push(placeEnemy(2, 560, 500));
+    bullets.push(placeBullet(500, 500, { chainRemaining: 1 }));
+
+    updateBullets(0);
+
+    const chain = bullets.find((bullet) => bullet.source === "chain");
+    expect(chain).toBeDefined();
+    expect(chain!.vx).toBeGreaterThan(0);
+    expect(chain!.hitIds.has(1)).toBe(true);
   });
 });

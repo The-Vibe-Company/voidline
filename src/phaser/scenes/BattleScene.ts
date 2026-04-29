@@ -22,6 +22,7 @@ import { ImageRenderPool, TextRenderPool } from "../pools";
 import { textureKeys } from "../textures";
 import { recordStressFrame } from "../../perf/stress-mode";
 import { bossVisualForVariant, bossVisuals } from "../../game/boss-visuals";
+import { pickupRadiusFor } from "../../entities/experience-pickup";
 import type { EnemyEntity, EnemyRole } from "../../types";
 
 const bossCycleTints = [0xffffff, 0xffd0d5, 0xd9f6ff, 0xeaffd8, 0xfff0b8, 0xead4ff] as const;
@@ -165,7 +166,7 @@ export class BattleScene extends Phaser.Scene {
     this.worldGuides.strokePath();
 
     if (state.showPickupZones) {
-      const pickupRadius = 28 * player.pickupRadius;
+      const pickupRadius = pickupRadiusFor(player);
       this.worldGuides.lineStyle(2, 0x72ffb1, 0.32);
       this.worldGuides.strokeCircle(player.x, player.y, pickupRadius);
     }

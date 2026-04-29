@@ -112,10 +112,14 @@ export function acquireBullet(): Bullet {
       color: "#ffffff",
       trail: 0,
       hitIds: new Set<number>(),
+      source: "player",
+      chainRemaining: 0,
     } satisfies Bullet);
   bullet.id = counters.nextBulletId;
   counters.nextBulletId += 1;
   bullet.hitIds.clear();
+  bullet.source = "player";
+  bullet.chainRemaining = 0;
   bullets.push(bullet);
   return bullet;
 }

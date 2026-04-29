@@ -43,7 +43,9 @@ export function fireVolley(x: number, y: number, angle: number, drone: boolean):
     const bulletAngle = start + step * i;
     const speed = drone ? player.bulletSpeed * 0.9 : player.bulletSpeed;
     const isCrit = random() < player.critChance;
-    const baseDamage = drone ? player.damage * 0.58 : player.damage;
+    const baseDamage = drone
+      ? player.damage * (player.traits.droneSwarm ? 0.66 : 0.58)
+      : player.damage;
     const baseRadius = drone ? 4 : 5;
     const bullet = acquireBullet();
     bullet.x = x + Math.cos(bulletAngle) * 20;
@@ -52,10 +54,13 @@ export function fireVolley(x: number, y: number, angle: number, drone: boolean):
     bullet.vy = Math.sin(bulletAngle) * speed;
     bullet.radius = baseRadius * player.bulletRadius;
     bullet.damage = isCrit ? baseDamage * 2 : baseDamage;
-    bullet.pierce = player.pierce;
+    bullet.pierce =
+      drone && player.traits.droneSwarm ? Math.max(1, Math.floor(player.pierce / 2)) : player.pierce;
     bullet.life = drone ? 0.9 : 1.15;
     bullet.color = drone ? "#ffbf47" : isCrit ? "#ff5af0" : "#39d9ff";
     bullet.trail = 0;
+    bullet.source = drone ? "drone" : "player";
+    bullet.chainRemaining = !drone && player.traits.railSplitter ? 1 : 0;
   }
 }
 
@@ -134,6 +139,8 @@ export function updatePlayer(dt: number): void {
   );
 
   player.invuln = Math.max(0, player.invuln - dt);
+  player.ramTimer = Math.max(0, player.ramTimer - dt);
+  player.magnetStormTimer = Math.max(0, player.magnetStormTimer - dt);
   if (player.shieldMax > 0) {
     player.shield = Math.min(player.shieldMax, player.shield + player.shieldRegen * dt);
   }
@@ -155,7 +162,9 @@ export function updatePlayer(dt: number): void {
     player.droneTimer -= dt;
     if (player.droneTimer <= 0) {
       fireDrones();
-      player.droneTimer = Math.max(0.18, 0.72 - player.drones * 0.05);
+      player.droneTimer = player.traits.droneSwarm
+        ? Math.max(0.12, 0.52 - player.drones * 0.055)
+        : Math.max(0.18, 0.72 - player.drones * 0.05);
     }
   }
 }
