@@ -1127,7 +1127,14 @@ h2 {
   #upgradeOverlay.active {
     animation: none !important;
   }
-  .upgrade-card { opacity: 1; }
+  .upgrade-card {
+    opacity: 1;
+    transition: none !important;
+  }
+  .upgrade-card:hover,
+  .upgrade-card:focus-visible {
+    transform: none !important;
+  }
 }
 
 @media (max-width: 1060px) {
