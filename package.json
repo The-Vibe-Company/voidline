@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:balance": "vitest run src/game/balance.test.ts src/game/balance-simulation.test.ts",
     "test:watch": "vitest",
     "bench": "vitest bench --run",
     "smoke": "npm run build && node scripts/browser-smoke.mjs"

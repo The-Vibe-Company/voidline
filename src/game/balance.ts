@@ -53,19 +53,19 @@ export const playerStatBalance: PlayerStatBalance = {
 
 export const playerBalance = {
   stats: playerStatBalance,
-  resetInvulnerability: 1.2,
+  resetInvulnerability: 0.2,
 };
 
 export const waveBalance = {
-  targetBase: 14,
-  targetLinear: 4,
-  targetExponent: 1.25,
-  spawnGapStart: 0.56,
-  spawnGapPerWave: 0.035,
-  spawnGapMin: 0.16,
-  spawnTimerStart: 0.18,
-  packChancePerWave: 0.08,
-  packChanceMax: 0.55,
+  targetBase: 21,
+  targetLinear: 5,
+  targetExponent: 1.22,
+  spawnGapStart: 0.405,
+  spawnGapPerWave: 0.015,
+  spawnGapMin: 0.14,
+  spawnTimerStart: 0.1,
+  packChancePerWave: 0.12,
+  packChanceMax: 0.62,
   waveDelay: 0.7,
 };
 
@@ -92,9 +92,9 @@ export const enemyTypes = [
     id: "scout",
     score: 35,
     radius: 14,
-    hp: 32,
-    speed: 86,
-    damage: 12,
+    hp: 42,
+    speed: 132,
+    damage: 25,
     color: "#ff5a69",
     accent: "#ffd0d5",
     sides: 3,
@@ -103,9 +103,9 @@ export const enemyTypes = [
     id: "hunter",
     score: 55,
     radius: 18,
-    hp: 48,
-    speed: 70,
-    damage: 16,
+    hp: 64,
+    speed: 112,
+    damage: 29,
     color: "#ffbf47",
     accent: "#fff0b8",
     sides: 4,
@@ -114,9 +114,9 @@ export const enemyTypes = [
     id: "brute",
     score: 90,
     radius: 25,
-    hp: 115,
-    speed: 46,
-    damage: 24,
+    hp: 130,
+    speed: 72,
+    damage: 40,
     color: "#b973ff",
     accent: "#ead4ff",
     sides: 6,
@@ -124,13 +124,13 @@ export const enemyTypes = [
 ] satisfies EnemyType[];
 
 export const enemyBalance = {
-  hpScalePerWave: 0.055,
-  speedScalePerWave: 0.018,
-  speedScaleMax: 0.32,
-  hunterChancePerWave: 0.045,
-  hunterChanceMax: 0.38,
+  hpScalePerWave: 0.05,
+  speedScalePerWave: 0.022,
+  speedScaleMax: 0.4,
+  hunterChancePerWave: 0.05,
+  hunterChanceMax: 0.4,
   bruteChanceOffsetWave: 3,
-  bruteChancePerWave: 0.035,
+  bruteChancePerWave: 0.05,
   bruteChanceMax: 0.25,
 };
 

@@ -54,13 +54,24 @@ describe("balance curves", () => {
   });
 
   it("front-loads the first wave tempo", () => {
-    expect(waveTarget(1)).toBe(19);
-    expect(waveTarget(10)).toBe(72);
-    expect(spawnGap(1)).toBeCloseTo(0.525);
-    expect(spawnGap(10)).toBeCloseTo(0.21);
-    expect(spawnPackChance(1)).toBeCloseTo(0.08);
+    expect(waveTarget(1)).toBe(27);
+    expect(waveTarget(10)).toBe(88);
+    expect(spawnGap(1)).toBeCloseTo(0.39);
+    expect(spawnGap(10)).toBeCloseTo(0.255);
+    expect(spawnPackChance(1)).toBeCloseTo(0.12);
     expect(spawnPackChance(10)).toBeCloseTo(balance.wave.packChanceMax);
-    expect(balance.wave.spawnTimerStart).toBeCloseTo(0.18);
+    expect(balance.wave.spawnTimerStart).toBeCloseTo(0.1);
+  });
+
+  it("locks the early threat constants used by balance simulations", () => {
+    const [scout, hunter, brute] = balance.enemies;
+
+    expect(balance.player.resetInvulnerability).toBeCloseTo(0.2);
+    expect(scout).toMatchObject({ hp: 42, speed: 132, damage: 25 });
+    expect(hunter).toMatchObject({ hp: 64, speed: 112, damage: 29 });
+    expect(brute).toMatchObject({ hp: 130, speed: 72, damage: 40 });
+    expect(balance.enemy.hunterChancePerWave).toBeCloseTo(0.05);
+    expect(balance.enemy.bruteChancePerWave).toBeCloseTo(0.05);
   });
 
   it("awards more visible score as waves advance", () => {
