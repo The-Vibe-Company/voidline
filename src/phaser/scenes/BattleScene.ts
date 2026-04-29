@@ -37,9 +37,9 @@ function enemyTexture(enemy: EnemyEntity): string {
 }
 
 function enemyTextureSize(role: EnemyRole | undefined): number {
-  if (role === "boss") return 192;
-  if (role === "mini-boss") return 128;
-  return 96;
+  if (role === "boss") return 112;
+  if (role === "mini-boss") return 80;
+  return 60;
 }
 
 function bossCycleTint(variant: number): number {
