@@ -1,0 +1,37 @@
+src/types.ts
+  ff3fe17ce1b7aa3f 41
+src/state.ts
+  ff3fe17ce1b7aa3f 60
+index.html
+  ff3fe17ce1b7aa3f 191-194
+src/render/hud.ts
+  ff3fe17ce1b7aa3f 49,52-78
+styles.css
+  ff3fe17ce1b7aa3f 337-367
+src/game/balance.ts
+  ff3fe17ce1b7aa3f 87
+src/main.ts
+  ff3fe17ce1b7aa3f 2,10
+src/render/world.ts
+  ff3fe17ce1b7aa3f 14,19-47,264
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "faac8924bfd4fd7ace55116ddf7e85a0f3fb3b2f",
+  "prompts": {
+    "ff3fe17ce1b7aa3f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "cf9bd841-da18-4e89-84ef-58271fd76e43",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 100,
+      "total_deletions": 2,
+      "accepted_lines": 100,
+      "overriden_lines": 0
+    }
+  }
+}
