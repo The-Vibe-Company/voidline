@@ -7,6 +7,9 @@ import { recordChallengeProgress } from "../systems/challenges";
 export function collectExperience(amount: number): void {
   state.xp += amount;
   state.score += amount * 3;
+  if (player.traits.magnetStorm) {
+    player.magnetStormCharge = Math.min(80, player.magnetStormCharge + amount);
+  }
   recordChallengeProgress("bestScore", state.score);
   pulseText(player.x, player.y - 34, `+${amount} XP`, "#72ffb1");
   markHudDirty();
