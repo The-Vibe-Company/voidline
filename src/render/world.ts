@@ -12,6 +12,7 @@ import {
 } from "../state";
 import { clamp, screenToWorld } from "../utils";
 import { drawArenaBounds, drawBackground, polygon } from "./background";
+import { drawPowerupOrbs } from "./powerups";
 import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
 
 function drawTrackpadGuide(): void {
@@ -233,6 +234,7 @@ export function render(): void {
   drawParticles(true);
   drawTrackpadGuide();
   for (const orb of experienceOrbs) drawExperienceOrb(orb);
+  drawPowerupOrbs();
   for (const bullet of bullets) drawBullet(bullet);
   for (const enemy of enemies) drawEnemy(enemy);
   drawDrones();

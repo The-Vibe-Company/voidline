@@ -37,7 +37,7 @@ export function updateExperience(dt: number): void {
     const dx = player.x - orb.x;
     const dy = player.y - orb.y;
     const distance = Math.hypot(dx, dy);
-    const pickupRadius = 82 * player.pickupRadius;
+    const pickupRadius = 82 * player.pickupRadius + state.magnetRadius;
     if (distance < pickupRadius) {
       const pull = (1 - distance / pickupRadius) * 560;
       orb.vx += (dx / Math.max(1, distance)) * pull * dt;
