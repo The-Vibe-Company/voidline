@@ -5,6 +5,14 @@ import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
 import type { ControlMode, RelicChoice } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
+import {
+  challengeCatalog,
+  challengeValueLabel,
+  nextChallengeThreshold,
+  totalPermanentBonus,
+  unlockedTierCount,
+} from "../game/challenge-catalog";
+import { challengeProgress, challengeSummary } from "../systems/challenges";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -56,6 +64,10 @@ const hud = {
   finalScore: document.querySelector<HTMLElement>("#finalScore")!,
   finalWave: document.querySelector<HTMLElement>("#finalWave")!,
   pickupZonesToggle: document.querySelector<HTMLInputElement>("#togglePickupZones")!,
+  startChallengeList: document.querySelector<HTMLElement>("#startChallengeList")!,
+  startChallengeSummary: document.querySelector<HTMLElement>("#startChallengeSummary")!,
+  gameOverChallengeList: document.querySelector<HTMLElement>("#gameOverChallengeList")!,
+  gameOverChallengeSummary: document.querySelector<HTMLElement>("#gameOverChallengeSummary")!,
 };
 
 const PICKUP_ZONES_KEY = "voidline:showPickupZones";
@@ -219,6 +231,53 @@ function updateStats(): void {
   hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
 }
 
+function bonusLabel(): string {
+  const bonus = totalPermanentBonus(challengeProgress);
+  const labels: string[] = [];
+  if (bonus.damagePct) labels.push(`Degats +${Math.round(bonus.damagePct * 100)}%`);
+  if (bonus.fireRatePct) labels.push(`Cadence +${Math.round(bonus.fireRatePct * 100)}%`);
+  if (bonus.speedPct) labels.push(`Vitesse +${Math.round(bonus.speedPct * 100)}%`);
+  if (bonus.pickupRadiusPct) labels.push(`Aimant +${Math.round(bonus.pickupRadiusPct * 100)}%`);
+  if (bonus.maxHpFlat) labels.push(`Coque +${bonus.maxHpFlat}`);
+  return labels.length > 0 ? labels.join(" - ") : "Aucun bonus actif";
+}
+
+function renderChallengeList(target: HTMLElement): void {
+  target.innerHTML = "";
+  for (const challenge of challengeCatalog) {
+    const value = challengeProgress[challenge.metric] ?? 0;
+    const unlocked = unlockedTierCount(challenge, challengeProgress);
+    const nextThreshold = nextChallengeThreshold(challenge, challengeProgress);
+    const total = challenge.tiers.length;
+    const progressMax = nextThreshold ?? challenge.tiers[total - 1]!.threshold;
+    const pct = clamp(value / progressMax, 0, 1) * 100;
+    const row = document.createElement("article");
+    row.className = "challenge-row";
+    row.dataset.complete = unlocked === total ? "true" : "false";
+    row.innerHTML = `
+      <span class="challenge-icon" aria-hidden="true">${challenge.icon}</span>
+      <span class="challenge-copy">
+        <strong>${challenge.name}</strong>
+        <span>${challenge.description}</span>
+        <span class="challenge-meter" aria-hidden="true"><span style="width: ${pct}%"></span></span>
+      </span>
+      <span class="challenge-progress">
+        <strong>${unlocked}/${total}</strong>
+        <span>${challengeValueLabel(challenge.metric, value)}${nextThreshold === null ? "" : `/${challengeValueLabel(challenge.metric, nextThreshold)}`}</span>
+      </span>
+    `;
+    target.appendChild(row);
+  }
+}
+
+export function updateChallengePanels(): void {
+  const summary = `${challengeSummary()} - ${bonusLabel()}`;
+  hud.startChallengeSummary.textContent = summary;
+  hud.gameOverChallengeSummary.textContent = summary;
+  renderChallengeList(hud.startChallengeList);
+  renderChallengeList(hud.gameOverChallengeList);
+}
+
 export function updateHud(): void {
   hud.wave.textContent = String(state.wave);
   hud.kills.textContent = String(state.waveKills);
@@ -243,6 +302,7 @@ export function updateHud(): void {
   }
   updateStats();
   updateItemBar();
+  updateChallengePanels();
 }
 
 export function flushSimulationHud(force = false): void {
@@ -471,6 +531,7 @@ export function showGameOver(): void {
   state.mode = "gameover";
   hud.finalScore.textContent = Math.floor(state.score).toLocaleString("fr-FR");
   hud.finalWave.textContent = String(state.wave);
+  updateChallengePanels();
   hud.gameOverOverlay.classList.add("active");
   setOverlayFocusScope("gameOverOverlay");
   requestAnimationFrame(() =>

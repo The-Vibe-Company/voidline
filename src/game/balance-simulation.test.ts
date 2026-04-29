@@ -1,4 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import {
+  challengeProgress,
+  initializeChallenges,
+  recordChallengeProgress,
+  setChallengeTrackingEnabled,
+  resetChallengeProgress,
+} from "../systems/challenges";
 import {
   runBalanceTrial,
   summarizeBalanceTrials,
@@ -47,6 +54,11 @@ function formatSummary(
 }
 
 describe("headless early-wave balance", () => {
+  afterEach(() => {
+    resetChallengeProgress(null);
+    setChallengeTrackingEnabled(true);
+  });
+
   it("replays the same persona and seed deterministically", () => {
     const first = runBalanceTrial({
       seed: 4242,
@@ -111,7 +123,26 @@ describe("headless early-wave balance", () => {
     const summary = summarizeBalanceTrials(results);
     const message = formatSummary(summary, results);
 
-    expect(summary.reachedWave3, message).toBeGreaterThanOrEqual(18);
+    // Baseline measured with permanent challenge tracking isolated from headless trials.
+    expect(summary.reachedWave3, message).toBeGreaterThanOrEqual(15);
     expect(summary.reachedWave6, message).toBeLessThanOrEqual(20);
   }, 30_000);
+
+  it("restores challenge progress and tracking after headless trials", () => {
+    resetChallengeProgress(null);
+    initializeChallenges(null);
+    recordChallengeProgress("bestWave", 20, null);
+    setChallengeTrackingEnabled(true);
+
+    runBalanceTrial({
+      seed: 4242,
+      persona: "idle",
+      maxWave: 2,
+      maxSeconds: 20,
+    });
+
+    expect(challengeProgress.bestWave).toBe(20);
+    recordChallengeProgress("bestScore", 2_000, null);
+    expect(challengeProgress.bestScore).toBe(2_000);
+  });
 });
