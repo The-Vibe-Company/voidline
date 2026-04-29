@@ -166,7 +166,7 @@ export function showUpgrade(): void {
       : `Niveau ${state.level} atteint`;
   hud.upgradeGrid.innerHTML = "";
 
-  const choices = pickUpgrades(5);
+  const choices = pickUpgrades(3);
   for (const [index, choice] of choices.entries()) {
     const { upgrade, tier } = choice;
     const choiceId = `upgrade-choice-${index + 1}`;
