@@ -172,6 +172,16 @@
               </div>
             </dl>
           </div>
+          <section class="challenge-panel" aria-labelledby="startChallengesTitle">
+            <div class="challenge-panel-header">
+              <h2 id="startChallengesTitle">Challenges permanents</h2>
+              <span id="startChallengeSummary">0/16</span>
+            </div>
+            <div class="challenge-list" id="startChallengeList"></div>
+            <button class="secondary-action" id="resetChallengesButton" type="button">
+              Reinitialiser progression
+            </button>
+          </section>
           <button class="primary-action" id="startButton" type="button">Lancer la vague</button>
         </div>
       </section>
@@ -245,6 +255,13 @@
             Score final <strong id="finalScore">0</strong> -
             vague <strong id="finalWave">1</strong>
           </p>
+          <section class="challenge-panel compact-challenges" aria-labelledby="gameOverChallengesTitle">
+            <div class="challenge-panel-header">
+              <h2 id="gameOverChallengesTitle">Bonus permanents</h2>
+              <span id="gameOverChallengeSummary">0/16</span>
+            </div>
+            <div class="challenge-list" id="gameOverChallengeList"></div>
+          </section>
           <button class="primary-action" id="restartButton" type="button">Reinitialiser</button>
         </div>
       </section>

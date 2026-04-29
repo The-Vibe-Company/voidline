@@ -689,6 +689,141 @@ h2 {
   background: rgba(3, 7, 12, 0.48);
 }
 
+#startOverlay .modal,
+#gameOverOverlay .modal {
+  width: min(760px, 100%);
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+}
+
+.challenge-panel {
+  margin: 0 0 22px;
+  padding: 12px;
+  border: 1px solid rgba(156, 230, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(3, 7, 12, 0.48);
+}
+
+.compact-challenges {
+  margin-top: -6px;
+}
+
+.challenge-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.challenge-panel h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.challenge-panel-header span {
+  flex: 1 1 220px;
+  color: var(--amber);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.76rem;
+  text-align: right;
+}
+
+.challenge-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.challenge-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 72px;
+  padding: 9px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.challenge-row[data-complete="true"] {
+  border-color: rgba(114, 255, 177, 0.26);
+  background: rgba(114, 255, 177, 0.07);
+}
+
+.challenge-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(57, 217, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(57, 217, 255, 0.08);
+  color: #ffffff;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+}
+
+.challenge-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.challenge-copy strong {
+  overflow: hidden;
+  color: #ffffff;
+  font-size: 0.86rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-copy span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-meter {
+  width: 100%;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(2, 3, 6, 0.72);
+}
+
+.challenge-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--amber), var(--mint));
+}
+
+.challenge-progress {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  min-width: 54px;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+}
+
+.challenge-progress strong {
+  color: var(--amber);
+  font-size: 0.84rem;
+}
+
+.challenge-progress span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
 .control-map {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -733,8 +868,22 @@ h2 {
   cursor: pointer;
 }
 
+.secondary-action {
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 0 14px;
+  border: 1px solid rgba(156, 230, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #d9edf4;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
 .primary-action:hover,
-.primary-action:focus-visible {
+.primary-action:focus-visible,
+.secondary-action:hover,
+.secondary-action:focus-visible {
   transform: translateY(-1px);
   box-shadow: 0 20px 44px rgba(57, 217, 255, 0.34);
 }
@@ -1331,6 +1480,10 @@ h2 {
   .control-map {
     grid-template-columns: 1fr;
   }
+
+  .challenge-list {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 440px) {
@@ -1382,5 +1535,22 @@ h2 {
   .item-cell {
     min-width: 64px;
     font-size: 0.85rem;
+  }
+
+  .challenge-row {
+    grid-template-columns: 34px minmax(0, 1fr);
+  }
+
+  .challenge-icon {
+    width: 34px;
+    height: 34px;
+    font-size: 0.66rem;
+  }
+
+  .challenge-progress {
+    grid-column: 2 / 3;
+    grid-template-columns: auto auto;
+    justify-content: space-between;
+    justify-items: start;
   }
 }

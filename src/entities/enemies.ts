@@ -8,6 +8,7 @@ import { circleHit, clamp, distanceSq } from "../utils";
 import { scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
 import { bossBalance } from "../game/roguelike";
 import { unlockRelicsForBossWave } from "../systems/relics";
+import { incrementChallengeProgress, recordChallengeProgress } from "../systems/challenges";
 import type { EnemyType } from "../types";
 import { markHudDirty } from "../simulation/events";
 import { acquireEnemy, releaseEnemy } from "../simulation/pools";
@@ -114,8 +115,10 @@ export function killEnemy(index: number): void {
   const role = enemy.role ?? "normal";
   releaseEnemy(index);
   state.waveKills += 1;
+  incrementChallengeProgress("totalKills");
   const awardedScore = scoreAward(enemy.score, state.wave);
   state.score += awardedScore;
+  recordChallengeProgress("bestScore", state.score);
   state.bestCombo += 1;
   spawnExperience(enemy);
   maybeDropPowerup(enemy);
@@ -124,6 +127,7 @@ export function killEnemy(index: number): void {
     spawnChest(enemy.x, enemy.y);
   }
   if (role === "boss") {
+    incrementChallengeProgress("bossKills");
     const unlocked = unlockRelicsForBossWave(state.wave);
     if (unlocked.length > 0) {
       pulseText(enemy.x, enemy.y - enemy.radius - 22, "NOUVELLES RELIQUES", "#72ffb1");

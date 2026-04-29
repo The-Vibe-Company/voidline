@@ -60,6 +60,38 @@ export interface PlayerBonus {
   bulletRadiusPct: number;
 }
 
+export type ChallengeMetric =
+  | "bestWave"
+  | "bossKills"
+  | "totalKills"
+  | "bestScore"
+  | "bestLevel";
+
+export interface PermanentBonus {
+  fireRatePct?: number;
+  damagePct?: number;
+  speedPct?: number;
+  pickupRadiusPct?: number;
+  maxHpFlat?: number;
+}
+
+export interface ChallengeTier {
+  threshold: number;
+  bonus: PermanentBonus;
+}
+
+export interface Challenge {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+  metric: ChallengeMetric;
+  unit: string;
+  tiers: ChallengeTier[];
+}
+
+export type ChallengeProgress = Record<ChallengeMetric, number>;
+
 export interface SimulationInputState {
   keys: ReadonlySet<string>;
   pointer: Pointer;

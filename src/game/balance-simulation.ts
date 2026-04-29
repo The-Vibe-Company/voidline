@@ -12,6 +12,13 @@ import { resetSimulation, stepSimulation } from "../simulation/simulation";
 import { setSimulationSeed } from "../simulation/random";
 import { mulberry32 } from "../perf/rng";
 import type { UpgradeChoice } from "../types";
+import {
+  currentChallengeProgress,
+  isChallengeTrackingEnabled,
+  resetChallengeProgress,
+  restoreChallengeProgress,
+  setChallengeTrackingEnabled,
+} from "../systems/challenges";
 
 export type BalancePersonaId = "idle" | "panic" | "kiter";
 
@@ -86,22 +93,24 @@ const KITE_DIRECTIONS = [
 export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResult {
   const stepSeconds = options.stepSeconds ?? DEFAULT_STEP_SECONDS;
   validateTrialOptions(options, stepSeconds);
-  prepareHeadlessWorld(options.seed);
-
-  const runtime: PersonaRuntime = {
-    rng: mulberry32(options.seed ^ personaSeedSalt(options.persona)),
-    nextDecisionSeconds: 0,
-    moveX: 0,
-    moveY: 0,
-  };
-  let elapsedSeconds = 0;
-  let lowestHp = player.hp;
-  let upgradesApplied = 0;
-  let totalKills = 0;
-  let trackedWave = state.wave;
-  let trackedWaveKills = state.waveKills;
+  const savedChallengeProgress = currentChallengeProgress();
+  const savedChallengeTracking = isChallengeTrackingEnabled();
 
   try {
+    prepareHeadlessWorld(options.seed);
+    const runtime: PersonaRuntime = {
+      rng: mulberry32(options.seed ^ personaSeedSalt(options.persona)),
+      nextDecisionSeconds: 0,
+      moveX: 0,
+      moveY: 0,
+    };
+    let elapsedSeconds = 0;
+    let lowestHp = player.hp;
+    let upgradesApplied = 0;
+    let totalKills = 0;
+    let trackedWave = state.wave;
+    let trackedWaveKills = state.waveKills;
+
     while (
       elapsedSeconds < options.maxSeconds &&
       state.mode !== "gameover" &&
@@ -136,6 +145,8 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
     };
   } finally {
     cleanupHeadlessWorld();
+    restoreChallengeProgress(savedChallengeProgress);
+    setChallengeTrackingEnabled(savedChallengeTracking);
   }
 }
 
@@ -178,6 +189,8 @@ function prepareHeadlessWorld(seed: number): void {
   world.dpr = 1;
   world.time = 0;
   world.shake = 0;
+  setChallengeTrackingEnabled(false);
+  resetChallengeProgress(null);
   resetSimulation(seed);
   state.controlMode = "keyboard";
 }

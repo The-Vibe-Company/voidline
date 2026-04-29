@@ -41,6 +41,7 @@ import { random, setSimulationSeed } from "./random";
 import type { SimulationConfig, SimulationInputState } from "../types";
 import { clamp } from "../utils";
 import { isBossWave, nextMiniBossMisses, shouldSpawnMiniBoss } from "../game/roguelike";
+import { applyPermanentBonuses, recordChallengeProgress } from "../systems/challenges";
 
 export function createSimulation(config: SimulationConfig = {}): {
   resetSimulation: typeof resetSimulation;
@@ -89,6 +90,7 @@ export function resizeSimulation(width: number, height: number): void {
 export function startSimulationWave(wave: number): void {
   state.mode = "playing";
   state.wave = wave;
+  recordChallengeProgress("bestWave", wave);
   state.waveKills = 0;
   const bossWave = isBossWave(wave);
   const baseTarget = waveTarget(wave);
@@ -138,6 +140,7 @@ export function resetSimulation(seed?: number): void {
       invuln: balance.player.resetInvulnerability,
     }),
   );
+  applyPermanentBonuses(player);
   ownedUpgrades.clear();
   ownedRelics.clear();
   resetEntityCounters();

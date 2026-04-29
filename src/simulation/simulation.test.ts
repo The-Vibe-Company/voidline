@@ -3,6 +3,8 @@ import {
   enemies,
   experienceOrbs,
   floaters,
+  ownedRelics,
+  ownedUpgrades,
   particles,
   player,
   simulationPerfConfig,
@@ -12,11 +14,20 @@ import {
 import { updateExperience } from "../entities/experience";
 import { burst, pulseText } from "../entities/particles";
 import { nearestEnemy } from "../entities/player";
+import { killEnemy } from "../entities/enemies";
+import { collectExperience } from "../game/progression";
 import type { EnemyEntity } from "../types";
 import { swapRemove } from "../utils";
 import { enemyGrid } from "./grids";
-import { resetSimulation, stepSimulation } from "./simulation";
+import { resetSimulation, startSimulationWave, stepSimulation } from "./simulation";
 import { SpatialGrid } from "./spatial-grid";
+import {
+  challengeProgress,
+  initializeChallenges,
+  recordChallengeProgress,
+  resetChallengeProgress,
+  setChallengeTrackingEnabled,
+} from "../systems/challenges";
 
 const defaultParticleBudget = simulationPerfConfig.budgets.maxParticles;
 const defaultFloaterBudget = simulationPerfConfig.budgets.maxFloaters;
@@ -64,6 +75,8 @@ function prepareWorld(): void {
 }
 
 afterEach(() => {
+  resetChallengeProgress(null);
+  setChallengeTrackingEnabled(true);
   simulationPerfConfig.budgets.maxParticles = defaultParticleBudget;
   simulationPerfConfig.budgets.maxFloaters = defaultFloaterBudget;
   simulationPerfConfig.budgets.maxDamageTexts = defaultDamageTextBudget;
@@ -196,5 +209,99 @@ describe("simulation performance helpers", () => {
     resetSimulation(123);
 
     expect(state.pendingChests).toBe(0);
+  });
+
+  it("applies permanent challenge bonuses when a run resets", () => {
+    prepareWorld();
+    resetChallengeProgress(null);
+    initializeChallenges(null);
+    recordChallengeProgress("bestWave", 20, null);
+    recordChallengeProgress("bestScore", 20_000, null);
+
+    resetSimulation(123);
+
+    expect(player.speed).toBeGreaterThan(265);
+    expect(player.maxHp).toBe(130);
+
+    player.speed = 1;
+    player.maxHp = 1;
+    resetSimulation(123);
+
+    expect(player.speed).toBeGreaterThan(265);
+    expect(player.maxHp).toBe(130);
+  });
+
+  it("keeps run upgrades and relics reset while permanent bonuses persist", () => {
+    prepareWorld();
+    resetChallengeProgress(null);
+    initializeChallenges(null);
+    recordChallengeProgress("bestWave", 5, null);
+    ownedUpgrades.set("fake", {
+      upgrade: {
+        id: "fake",
+        icon: "F",
+        name: "Fake",
+        description: "Fake",
+        tags: ["cannon"],
+        effect: () => "Fake",
+        apply: () => undefined,
+      },
+      tier: {
+        id: "standard",
+        short: "T1",
+        name: "Standard",
+        power: 1,
+        color: "#39d9ff",
+        glow: "rgba(57, 217, 255, 0.22)",
+      },
+      count: 1,
+    });
+    ownedRelics.set("fake", {
+      relic: {
+        id: "fake",
+        icon: "F",
+        name: "Fake",
+        description: "Fake",
+        tags: ["salvage"],
+        color: "#ffffff",
+        effect: "Fake",
+        apply: () => undefined,
+      },
+      count: 1,
+    });
+
+    resetSimulation(123);
+
+    expect(player.speed).toBeGreaterThan(265);
+    expect(ownedUpgrades.size).toBe(0);
+    expect(ownedRelics.size).toBe(0);
+  });
+
+  it("records gameplay challenge metrics from waves, kills, bosses, and XP", () => {
+    prepareWorld();
+    resetChallengeProgress(null);
+    initializeChallenges(null);
+    state.wave = 3;
+    state.score = 0;
+    state.level = 1;
+    state.xp = 0;
+    state.xpTarget = 1;
+
+    startSimulationWave(5);
+    expect(challengeProgress.bestWave).toBe(5);
+
+    enemies.push(makeEnemy(1, player.x + 100, player.y));
+    killEnemy(enemies.length - 1);
+    expect(challengeProgress.totalKills).toBe(1);
+    expect(challengeProgress.bestScore).toBeGreaterThan(0);
+
+    const boss = makeEnemy(2, player.x + 120, player.y);
+    boss.role = "boss";
+    enemies.push(boss);
+    killEnemy(enemies.length - 1);
+    expect(challengeProgress.bossKills).toBe(1);
+
+    collectExperience(1);
+    expect(challengeProgress.bestLevel).toBe(2);
   });
 });
