@@ -1,0 +1,23 @@
+CLAUDE.md
+  e6f16844cbd883ee 5-10,12-35,99-106
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "5909d7f289e77c60ea2317006594983f52809191",
+  "prompts": {
+    "e6f16844cbd883ee": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "59cdfdf7-00c4-4eeb-933d-65e54b423185",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 152,
+      "total_deletions": 12,
+      "accepted_lines": 152,
+      "overriden_lines": 0
+    }
+  }
+}
