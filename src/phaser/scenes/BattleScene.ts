@@ -21,7 +21,38 @@ import { clamp, colorToNumber, screenToWorld } from "../../utils";
 import { ImageRenderPool, TextRenderPool } from "../pools";
 import { textureKeys } from "../textures";
 import { recordStressFrame } from "../../perf/stress-mode";
+import { bossVisualForVariant, bossVisuals } from "../../game/boss-visuals";
 import { pickupRadiusFor } from "../../entities/experience-pickup";
+import type { EnemyEntity, EnemyRole } from "../../types";
+
+const bossCycleTints = [0xffffff, 0xffd0d5, 0xd9f6ff, 0xeaffd8, 0xfff0b8, 0xead4ff] as const;
+
+function enemyTexture(enemy: EnemyEntity): string {
+  if (enemy.role === "boss") {
+    return bossVisualForVariant(enemy.bossVariant ?? 0).texture;
+  }
+  if (enemy.role === "mini-boss") {
+    return textureKeys.miniBosses[enemy.kind];
+  }
+  return textureKeys.enemies[enemy.kind];
+}
+
+function enemyTextureSize(role: EnemyRole | undefined): number {
+  if (role === "boss") return 112;
+  if (role === "mini-boss") return 80;
+  return 60;
+}
+
+function bossCycleTint(variant: number): number {
+  const cycle = Math.floor(variant / bossVisuals.length);
+  return bossCycleTints[cycle % bossCycleTints.length]!;
+}
+
+function bossCycleRotationOffset(variant: number): number {
+  if (variant < bossVisuals.length) return 0;
+  const cycle = Math.floor(variant / bossVisuals.length);
+  return cycle * (Math.PI / 10) + (variant % bossVisuals.length) * 0.05;
+}
 
 export class BattleScene extends Phaser.Scene {
   private readonly enemyPools = {
@@ -180,17 +211,23 @@ export class BattleScene extends Phaser.Scene {
       }
       perfStats.drawn += 1;
       const sprite = this.enemyPools[enemy.kind].sync(enemy.id, frame);
+      const role = enemy.role ?? "normal";
+      const bossVariant = enemy.bossVariant ?? 0;
       sprite.setPosition(enemy.x, enemy.y);
-      sprite.setRotation(enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
-      sprite.setScale((enemy.radius * 2.25) / 60);
-      sprite.setAlpha(1);
-      sprite.setTint(
-        enemy.hit > 0
-          ? colorToNumber(enemy.accent)
-          : enemy.role === "boss" || enemy.role === "mini-boss"
-            ? colorToNumber(enemy.color)
-            : 0xffffff,
+      sprite.setTexture(enemyTexture(enemy));
+      sprite.setRotation(
+        enemy.age * (enemy.kind === "brute" || role === "boss" ? 0.7 : 1.6) +
+          (role === "boss" ? bossCycleRotationOffset(bossVariant) : 0),
       );
+      sprite.setScale((enemy.radius * (role === "normal" ? 2.25 : 2.35)) / enemyTextureSize(role));
+      sprite.setAlpha(1);
+      sprite.setDepth(role === "boss" ? 28 : role === "mini-boss" ? 24 : 20);
+      sprite.clearTint();
+      if (enemy.hit > 0) {
+        sprite.setTint(colorToNumber(enemy.accent));
+      } else if (role === "boss" && bossVariant >= bossVisuals.length) {
+        sprite.setTint(bossCycleTint(bossVariant));
+      }
     }
     this.enemyPools.scout.sweep(frame);
     this.enemyPools.hunter.sweep(frame);
@@ -333,6 +370,7 @@ export class BattleScene extends Phaser.Scene {
 
   private syncPlayer(): void {
     this.playerShip.setPosition(player.x, player.y);
+    this.playerShip.setDisplaySize(player.radius * 2.7, player.radius * 3.1);
     this.playerShip.setRotation(player.aimAngle + Math.PI / 2);
     this.playerShip.setAlpha(player.invuln > 0 && Math.sin(world.time * 42) > 0 ? 0.56 : 1);
   }

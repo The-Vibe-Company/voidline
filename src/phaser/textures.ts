@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { balance } from "../game/balance";
+import { bossVisuals } from "../game/boss-visuals";
 import { colorToNumber } from "../utils";
 
 export const textureKeys = {
@@ -19,6 +20,12 @@ export const textureKeys = {
     hunter: "voidline-enemy-hunter",
     brute: "voidline-enemy-brute",
   },
+  miniBosses: {
+    scout: "voidline-mini-boss-scout",
+    hunter: "voidline-mini-boss-hunter",
+    brute: "voidline-mini-boss-brute",
+  },
+  bosses: bossVisuals.map((boss) => boss.texture),
 } as const;
 
 export function createGeneratedTextures(scene: Phaser.Scene): void {
@@ -38,6 +45,10 @@ export function createGeneratedTextures(scene: Phaser.Scene): void {
 
   for (const enemy of balance.enemies) {
     generateEnemy(graphics, scene, textureKeys.enemies[enemy.id], enemy.id);
+    generateEliteEnemy(graphics, scene, textureKeys.miniBosses[enemy.id], enemy.id);
+  }
+  for (let index = 0; index < textureKeys.bosses.length; index += 1) {
+    generateBoss(graphics, scene, textureKeys.bosses[index]!, index);
   }
 
   graphics.destroy();
@@ -131,6 +142,128 @@ function generateEnemy(
     graphics.strokeCircle(30, 30, 25);
   }
   graphics.generateTexture(key, 60, 60);
+}
+
+function generateEliteEnemy(
+  graphics: Phaser.GameObjects.Graphics,
+  scene: Phaser.Scene,
+  key: string,
+  kind: "scout" | "hunter" | "brute",
+): void {
+  if (skipExisting(scene, key)) return;
+  const enemy = balance.enemies.find((item) => item.id === kind)!;
+  const fill = colorToNumber(enemy.color);
+  const stroke = colorToNumber(enemy.accent);
+  graphics.clear();
+  graphics.fillStyle(fill, 1);
+  graphics.lineStyle(4, stroke, 1);
+  if (kind === "scout") {
+    graphics.fillTriangle(40, 4, 74, 76, 6, 76);
+    graphics.strokeTriangle(40, 4, 74, 76, 6, 76);
+    graphics.fillTriangle(40, 22, 78, 66, 48, 62);
+    graphics.fillTriangle(40, 22, 2, 66, 32, 62);
+  } else if (kind === "hunter") {
+    graphics.fillRect(13, 13, 54, 54);
+    graphics.strokeRect(13, 13, 54, 54);
+    graphics.fillTriangle(40, 2, 72, 34, 40, 24);
+    graphics.fillTriangle(40, 2, 8, 34, 40, 24);
+  } else {
+    graphics.fillCircle(40, 40, 35);
+    graphics.strokeCircle(40, 40, 35);
+    graphics.fillCircle(40, 40, 14);
+  }
+  graphics.generateTexture(key, 80, 80);
+}
+
+function generateBoss(
+  graphics: Phaser.GameObjects.Graphics,
+  scene: Phaser.Scene,
+  key: string,
+  index: number,
+): void {
+  if (skipExisting(scene, key)) return;
+  const visual = bossVisuals[index]!;
+  const fill = colorToNumber(visual.accent);
+  const stroke = visual.accent === "#ffffff" ? 0xd9f6ff : 0xffffff;
+  graphics.clear();
+  graphics.fillStyle(fill, 1);
+  graphics.lineStyle(5, stroke, 1);
+  const center = 56;
+
+  if (index === 0) {
+    graphics.fillTriangle(56, 4, 94, 104, 56, 78);
+    graphics.fillTriangle(56, 4, 18, 104, 56, 78);
+    graphics.strokeTriangle(56, 4, 94, 104, 56, 78);
+    graphics.strokeTriangle(56, 4, 18, 104, 56, 78);
+    graphics.fillTriangle(56, 34, 108, 64, 72, 72);
+    graphics.fillTriangle(56, 34, 4, 64, 40, 72);
+  } else if (index === 1) {
+    graphics.fillTriangle(56, 10, 108, 40, 76, 58);
+    graphics.fillTriangle(56, 10, 4, 40, 36, 58);
+    graphics.fillRect(24, 34, 64, 48);
+    graphics.strokeTriangle(56, 10, 108, 40, 76, 58);
+    graphics.strokeTriangle(56, 10, 4, 40, 36, 58);
+    graphics.strokeRect(24, 34, 64, 48);
+    graphics.fillTriangle(56, 104, 98, 68, 70, 72);
+    graphics.fillTriangle(56, 104, 14, 68, 42, 72);
+  } else if (index === 2) {
+    graphics.fillCircle(center, center, 48);
+    graphics.strokeCircle(center, center, 48);
+    graphics.fillRect(10, 48, 92, 16);
+    graphics.fillRect(48, 10, 16, 92);
+    graphics.strokeRect(10, 48, 92, 16);
+    graphics.strokeRect(48, 10, 16, 92);
+  } else if (index === 3) {
+    graphics.fillTriangle(56, 4, 72, 108, 40, 108);
+    graphics.strokeTriangle(56, 4, 72, 108, 40, 108);
+    graphics.fillTriangle(18, 30, 52, 54, 8, 92);
+    graphics.fillTriangle(94, 30, 60, 54, 104, 92);
+    graphics.strokeTriangle(18, 30, 52, 54, 8, 92);
+    graphics.strokeTriangle(94, 30, 60, 54, 104, 92);
+  } else if (index === 4) {
+    graphics.fillRect(18, 20, 76, 72);
+    graphics.strokeRect(18, 20, 76, 72);
+    graphics.fillCircle(22, 56, 18);
+    graphics.fillCircle(90, 56, 18);
+    graphics.strokeCircle(22, 56, 18);
+    graphics.strokeCircle(90, 56, 18);
+    graphics.fillTriangle(56, 4, 76, 36, 36, 36);
+    graphics.fillTriangle(56, 108, 76, 76, 36, 76);
+  } else {
+    generateStar(graphics, center, center, 48, 22, 8);
+    graphics.strokeCircle(center, center, 44);
+    graphics.lineStyle(3, 0x05060b, 1);
+    graphics.strokeCircle(center, center, 24);
+    graphics.lineStyle(5, stroke, 1);
+  }
+
+  graphics.fillStyle(0x05060b, 1);
+  graphics.fillCircle(center, center, 13);
+  graphics.lineStyle(2, stroke, 1);
+  graphics.strokeCircle(center, center, 13);
+  graphics.generateTexture(key, 112, 112);
+}
+
+function generateStar(
+  graphics: Phaser.GameObjects.Graphics,
+  centerX: number,
+  centerY: number,
+  outerRadius: number,
+  innerRadius: number,
+  points: number,
+): void {
+  graphics.beginPath();
+  for (let i = 0; i < points * 2; i += 1) {
+    const angle = -Math.PI / 2 + (Math.PI * i) / points;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+    if (i === 0) graphics.moveTo(x, y);
+    else graphics.lineTo(x, y);
+  }
+  graphics.closePath();
+  graphics.fillPath();
+  graphics.strokePath();
 }
 
 function generateChest(

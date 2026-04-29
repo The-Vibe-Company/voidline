@@ -83,6 +83,7 @@ export function acquireEnemy(type: EnemyType, kind: EnemyKind): EnemyEntity {
   enemy.accent = type.accent;
   enemy.sides = type.sides;
   enemy.role = "normal";
+  enemy.bossVariant = undefined;
   enemy.contactTimer = 0;
   enemy.contactCooldown = undefined;
   enemies.push(enemy);
