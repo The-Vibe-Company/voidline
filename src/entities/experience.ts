@@ -2,12 +2,12 @@ import { experienceOrbs, player, state } from "../state";
 import { collectExperience } from "../game/progression";
 import { spark } from "./particles";
 import {
-  balance,
   experienceDropTotal,
   experienceOrbRadius,
   experienceShardCount,
 } from "../game/balance";
 import type { EnemyEntity } from "../types";
+import { shouldCollectOrb } from "./experience-pickup";
 
 export function spawnExperience(enemy: EnemyEntity): void {
   const total = experienceDropTotal(enemy.score, state.wave);
@@ -32,12 +32,7 @@ export function spawnExperience(enemy: EnemyEntity): void {
   }
 }
 
-const MAGNET_FORCE = 560;
-
 export function updateExperience(dt: number): void {
-  const pullRadius = balance.xp.pickupBaseRadius * player.pickupRadius;
-  const pullRadiusSq = pullRadius * pullRadius;
-  const pickupCutoff = player.radius + 8;
   const damp = 1 - dt * 2.7;
 
   for (let i = experienceOrbs.length - 1; i >= 0; i -= 1) {
@@ -48,29 +43,10 @@ export function updateExperience(dt: number): void {
     orb.vx *= damp;
     orb.vy *= damp;
 
-    const dx = player.x - orb.x;
-    const dy = player.y - orb.y;
-    const distSq = dx * dx + dy * dy;
-    const pickupRadius = pickupCutoff + orb.radius;
-
-    if (distSq < pickupRadius * pickupRadius) {
+    if (shouldCollectOrb(orb, player, dt)) {
       collectExperience(orb.value);
       spark(orb.x, orb.y, "#72ffb1");
       experienceOrbs.splice(i, 1);
-      continue;
-    }
-
-    if (orb.magnetized) {
-      const distance = Math.sqrt(distSq);
-      const inv = 1 / Math.max(1, distance);
-      orb.vx += dx * inv * MAGNET_FORCE * dt;
-      orb.vy += dy * inv * MAGNET_FORCE * dt;
-    } else if (distSq < pullRadiusSq) {
-      const distance = Math.sqrt(distSq);
-      const pull = (1 - distance / pullRadius) * MAGNET_FORCE;
-      const inv = 1 / Math.max(1, distance);
-      orb.vx += dx * inv * pull * dt;
-      orb.vy += dy * inv * pull * dt;
     }
   }
 }

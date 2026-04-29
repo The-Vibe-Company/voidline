@@ -46,7 +46,36 @@ const hud = {
   ],
   finalScore: document.querySelector<HTMLElement>("#finalScore")!,
   finalWave: document.querySelector<HTMLElement>("#finalWave")!,
+  pickupZonesToggle: document.querySelector<HTMLInputElement>("#togglePickupZones")!,
 };
+
+const PICKUP_ZONES_KEY = "voidline:showPickupZones";
+
+function loadPickupZonesPref(): boolean {
+  try {
+    return localStorage.getItem(PICKUP_ZONES_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function savePickupZonesPref(value: boolean): void {
+  try {
+    localStorage.setItem(PICKUP_ZONES_KEY, value ? "1" : "0");
+  } catch {
+    // localStorage unavailable (private mode, sandbox) — keep the in-memory toggle
+  }
+}
+
+export function initPickupZonesToggle(): void {
+  const initial = loadPickupZonesPref();
+  state.showPickupZones = initial;
+  hud.pickupZonesToggle.checked = initial;
+  hud.pickupZonesToggle.addEventListener("change", () => {
+    state.showPickupZones = hud.pickupZonesToggle.checked;
+    savePickupZonesPref(state.showPickupZones);
+  });
+}
 
 let upgradeReturnFocus: HTMLElement | null = null;
 

@@ -12,6 +12,7 @@ import {
   world,
 } from "../state";
 import { clamp, screenToWorld } from "../utils";
+import { balance } from "../game/balance";
 import { drawArenaBounds, drawBackground, polygon } from "./background";
 import { drawPowerupOrbs } from "./powerups";
 import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
@@ -25,6 +26,21 @@ function inView(x: number, y: number, radius: number): boolean {
     y + radius >= view.top &&
     y - radius <= view.bottom
   );
+}
+
+function drawPickupZones(): void {
+  if (!state.showPickupZones) return;
+
+  const pickupRadius = balance.xp.pickupBaseRadius * player.pickupRadius;
+
+  ctx.save();
+  ctx.strokeStyle = "#72ffb1";
+  ctx.globalAlpha = 0.32;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, pickupRadius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
 }
 
 function drawTrackpadGuide(): void {
@@ -257,6 +273,7 @@ export function render(): void {
   view.bottom = world.cameraY + world.height + 32;
 
   drawArenaBounds();
+  drawPickupZones();
   drawParticles(true);
   drawTrackpadGuide();
   for (const orb of experienceOrbs) {
