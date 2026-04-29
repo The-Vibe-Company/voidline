@@ -63,8 +63,12 @@ function drawBombFuse(r: number, time: number): void {
 
   const flameRadius = r * 0.32 * (0.85 + Math.sin(time * 22) * 0.18);
   ctx.save();
-  ctx.shadowColor = "#ff5a69";
-  ctx.shadowBlur = 22;
+  ctx.globalAlpha = 0.45;
+  ctx.fillStyle = "#ff5a69";
+  ctx.beginPath();
+  ctx.arc(r * 0.55, -r * 1.3, flameRadius * 1.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.fillStyle = "#ffbf47";
   ctx.beginPath();
   ctx.arc(r * 0.55, -r * 1.3, flameRadius, 0, Math.PI * 2);
@@ -120,8 +124,14 @@ function drawPowerupOrb(orb: PowerupOrb): void {
   const bob = Math.sin(world.time * 3 + orb.age * 2) * 1.5;
   ctx.translate(0, bob);
 
-  ctx.shadowColor = variant.accent;
-  ctx.shadowBlur = 18;
+  ctx.save();
+  ctx.globalAlpha = 0.35 * blink;
+  ctx.fillStyle = variant.color;
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+
   ctx.fillStyle = variant.color;
   ctx.strokeStyle = variant.accent;
   ctx.lineWidth = 1.8;

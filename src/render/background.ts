@@ -1,36 +1,89 @@
 import { ctx, stars, world } from "../state";
 
-function drawNebula(x: number, y: number, radius: number, color: string): void {
-  const nebula = ctx.createRadialGradient(x, y, 0, x, y, radius);
-  nebula.addColorStop(0, color);
-  nebula.addColorStop(1, "rgba(0, 0, 0, 0)");
-  ctx.fillStyle = nebula;
+interface GradientCache {
+  width: number;
+  height: number;
+  base: CanvasGradient | null;
+  nebulaA: CanvasGradient | null;
+  nebulaB: CanvasGradient | null;
+}
+
+const cache: GradientCache = {
+  width: 0,
+  height: 0,
+  base: null,
+  nebulaA: null,
+  nebulaB: null,
+};
+
+function ensureGradients(): void {
+  if (cache.width === world.width && cache.height === world.height && cache.base) return;
+  cache.width = world.width;
+  cache.height = world.height;
+
+  const base = ctx.createLinearGradient(0, 0, world.width, world.height);
+  base.addColorStop(0, "#05060b");
+  base.addColorStop(0.48, "#081017");
+  base.addColorStop(1, "#110b12");
+  cache.base = base;
+
+  const nebulaARadius = Math.min(world.width, world.height) * 0.62;
+  const nebulaACx = world.width * 0.16;
+  const nebulaACy = world.height * 0.22;
+  const nebulaA = ctx.createRadialGradient(
+    nebulaACx,
+    nebulaACy,
+    0,
+    nebulaACx,
+    nebulaACy,
+    nebulaARadius,
+  );
+  nebulaA.addColorStop(0, "rgba(57, 217, 255, 0.08)");
+  nebulaA.addColorStop(1, "rgba(0, 0, 0, 0)");
+  cache.nebulaA = nebulaA;
+
+  const nebulaBRadius = Math.min(world.width, world.height) * 0.5;
+  const nebulaBCx = world.width * 0.84;
+  const nebulaBCy = world.height * 0.72;
+  const nebulaB = ctx.createRadialGradient(
+    nebulaBCx,
+    nebulaBCy,
+    0,
+    nebulaBCx,
+    nebulaBCy,
+    nebulaBRadius,
+  );
+  nebulaB.addColorStop(0, "rgba(255, 191, 71, 0.06)");
+  nebulaB.addColorStop(1, "rgba(0, 0, 0, 0)");
+  cache.nebulaB = nebulaB;
+}
+
+function fillNebula(gradient: CanvasGradient, x: number, y: number, radius: number): void {
+  ctx.fillStyle = gradient;
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fill();
 }
 
 export function drawBackground(): void {
-  const gradient = ctx.createLinearGradient(0, 0, world.width, world.height);
-  gradient.addColorStop(0, "#05060b");
-  gradient.addColorStop(0.48, "#081017");
-  gradient.addColorStop(1, "#110b12");
-  ctx.fillStyle = gradient;
+  ensureGradients();
+
+  ctx.fillStyle = cache.base!;
   ctx.fillRect(0, 0, world.width, world.height);
 
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  drawNebula(
+  fillNebula(
+    cache.nebulaA!,
     world.width * 0.16,
     world.height * 0.22,
     Math.min(world.width, world.height) * 0.62,
-    "rgba(57, 217, 255, 0.08)",
   );
-  drawNebula(
+  fillNebula(
+    cache.nebulaB!,
     world.width * 0.84,
     world.height * 0.72,
     Math.min(world.width, world.height) * 0.5,
-    "rgba(255, 191, 71, 0.06)",
   );
   ctx.restore();
 
@@ -49,18 +102,16 @@ export function drawBackground(): void {
   const grid = 64;
   const offsetX = -((world.cameraX - world.time * 8) % grid) - grid;
   const offsetY = -((world.cameraY - world.time * 5) % grid) - grid;
+  ctx.beginPath();
   for (let x = offsetX; x < world.width + grid; x += grid) {
-    ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, world.height);
-    ctx.stroke();
   }
   for (let y = offsetY; y < world.height + grid; y += grid) {
-    ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(world.width, y);
-    ctx.stroke();
   }
+  ctx.stroke();
   ctx.restore();
 }
 
@@ -76,27 +127,40 @@ export function drawArenaBounds(): void {
   ctx.strokeStyle = "#72ffb1";
   ctx.lineWidth = 1;
   const sector = 512;
+  ctx.beginPath();
   for (let x = sector; x < world.arenaWidth; x += sector) {
-    ctx.beginPath();
     ctx.moveTo(x, 0);
     ctx.lineTo(x, world.arenaHeight);
-    ctx.stroke();
   }
   for (let y = sector; y < world.arenaHeight; y += sector) {
-    ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(world.arenaWidth, y);
-    ctx.stroke();
   }
+  ctx.stroke();
   ctx.restore();
 }
 
-export function polygon(x: number, y: number, radius: number, sides: number): void {
-  ctx.beginPath();
+const polyCache = new Map<number, Float32Array>();
+
+function unitVertices(sides: number): Float32Array {
+  let cached = polyCache.get(sides);
+  if (cached) return cached;
+  cached = new Float32Array(sides * 2);
   for (let i = 0; i < sides; i += 1) {
     const angle = -Math.PI / 2 + (Math.PI * 2 * i) / sides;
-    const px = x + Math.cos(angle) * radius;
-    const py = y + Math.sin(angle) * radius;
+    cached[i * 2] = Math.cos(angle);
+    cached[i * 2 + 1] = Math.sin(angle);
+  }
+  polyCache.set(sides, cached);
+  return cached;
+}
+
+export function polygon(x: number, y: number, radius: number, sides: number): void {
+  const verts = unitVertices(sides);
+  ctx.beginPath();
+  for (let i = 0; i < sides; i += 1) {
+    const px = x + verts[i * 2]! * radius;
+    const py = y + verts[i * 2 + 1]! * radius;
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }

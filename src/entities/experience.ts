@@ -33,13 +33,15 @@ export function spawnExperience(enemy: EnemyEntity): void {
 }
 
 export function updateExperience(dt: number): void {
+  const damp = 1 - dt * 2.7;
+
   for (let i = experienceOrbs.length - 1; i >= 0; i -= 1) {
     const orb = experienceOrbs[i]!;
     orb.age += dt;
     orb.x += orb.vx * dt;
     orb.y += orb.vy * dt;
-    orb.vx *= 1 - dt * 2.7;
-    orb.vy *= 1 - dt * 2.7;
+    orb.vx *= damp;
+    orb.vy *= damp;
 
     if (shouldCollectOrb(orb, player, dt)) {
       collectExperience(orb.value);

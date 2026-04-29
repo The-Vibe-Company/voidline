@@ -2,6 +2,8 @@ import { resize } from "./systems/camera";
 import { initPickupZonesToggle, setControlMode, updateHud } from "./render/hud";
 import { bindInput } from "./game/input";
 import { startLoop } from "./game/loop";
+import { bindPerfOverlay } from "./render/perf-overlay";
+import { maybeStartStressMode } from "./perf/stress-mode";
 
 window.addEventListener("resize", resize);
 
@@ -10,5 +12,7 @@ setControlMode("keyboard");
 initPickupZonesToggle();
 updateHud();
 bindInput();
+bindPerfOverlay();
 document.querySelector<HTMLButtonElement>("#startButton")?.focus();
+maybeStartStressMode();
 startLoop();
