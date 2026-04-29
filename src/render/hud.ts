@@ -48,6 +48,8 @@ const hud = {
   finalWave: document.querySelector<HTMLElement>("#finalWave")!,
 };
 
+let upgradeReturnFocus: HTMLElement | null = null;
+
 export function getControlButtons(): HTMLButtonElement[] {
   return hud.controlButtons;
 }
@@ -61,6 +63,35 @@ export function hideOverlays(): void {
   hud.upgradeOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
+  setUpgradeFocusScope(false);
+}
+
+function setUpgradeFocusScope(active: boolean): void {
+  for (const element of document.querySelectorAll<HTMLElement>(
+    ".game-shell > :not(#upgradeOverlay)",
+  )) {
+    element.toggleAttribute("inert", active);
+    if (active) {
+      element.setAttribute("aria-hidden", "true");
+    } else {
+      element.removeAttribute("aria-hidden");
+    }
+  }
+}
+
+function rememberFocusBeforeUpgrade(): void {
+  const active = document.activeElement;
+  if (active instanceof HTMLElement && !hud.upgradeOverlay.contains(active)) {
+    upgradeReturnFocus = active;
+  }
+}
+
+function restoreFocusAfterUpgrade(): void {
+  const target = upgradeReturnFocus;
+  upgradeReturnFocus = null;
+  if (target?.isConnected && target.getClientRects().length > 0) {
+    target.focus({ preventScroll: true });
+  }
 }
 
 export function updateLoadout(): void {
@@ -124,6 +155,9 @@ export function updateHud(): void {
 }
 
 export function showUpgrade(): void {
+  if (state.mode !== "upgrade") {
+    rememberFocusBeforeUpgrade();
+  }
   state.mode = "upgrade";
   state.pendingUpgrades = Math.max(1, state.pendingUpgrades);
   hud.upgradeTitle.textContent =
@@ -135,26 +169,37 @@ export function showUpgrade(): void {
   const choices = pickUpgrades(5);
   for (const [index, choice] of choices.entries()) {
     const { upgrade, tier } = choice;
+    const choiceId = `upgrade-choice-${index + 1}`;
+    const tierId = `${choiceId}-tier`;
+    const titleId = `${choiceId}-title`;
+    const descriptionId = `${choiceId}-description`;
+    const effectId = `${choiceId}-effect`;
     const card = document.createElement("button");
     card.className = "upgrade-card";
     card.type = "button";
     card.dataset.choiceIndex = String(index + 1);
     card.dataset.tier = tier.id;
+    card.setAttribute("aria-labelledby", `${choiceId} ${titleId} ${tierId}`);
+    card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
     card.style.setProperty("--tier-color", tier.color);
     card.style.setProperty("--tier-glow", tier.glow);
     card.innerHTML = `
-      <span class="choice-key">${index + 1}</span>
-      <span class="tier-badge">${tier.short} - ${tier.name}</span>
+      <span class="sr-only" id="${choiceId}">Choix ${index + 1}</span>
+      <span class="choice-key" aria-hidden="true">${index + 1}</span>
+      <span class="tier-badge" id="${tierId}"><span>${tier.short}</span>${tier.name}</span>
       <span class="upgrade-icon">${upgrade.icon}</span>
-      <h3>${upgrade.name}</h3>
-      <p>${upgrade.description}</p>
-      <strong class="upgrade-effect">${upgrade.effect(tier)}</strong>
+      <span class="upgrade-copy">
+        <h3 id="${titleId}">${upgrade.name}</h3>
+        <p id="${descriptionId}">${upgrade.description}</p>
+      </span>
+      <strong class="upgrade-effect" id="${effectId}">${upgrade.effect(tier)}</strong>
     `;
     card.addEventListener("click", () => onUpgradeChoice(choice));
     hud.upgradeGrid.appendChild(card);
   }
 
   hud.upgradeOverlay.classList.add("active");
+  setUpgradeFocusScope(true);
   updateLoadout();
   requestAnimationFrame(() =>
     hud.upgradeGrid.querySelector<HTMLButtonElement>("button")?.focus(),
@@ -172,6 +217,7 @@ function onUpgradeChoice(choice: Parameters<typeof applyUpgrade>[0]): void {
   hideOverlays();
   state.mode = "playing";
   updateHud();
+  restoreFocusAfterUpgrade();
 }
 
 export function showGameOver(): void {

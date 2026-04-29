@@ -34,18 +34,3 @@ export function shuffle<T>(list: T[]): void {
     [list[i]!, list[j]!] = [list[j]!, list[i]!];
   }
 }
-
-export function removeById<T extends { id: string }>(list: T[], id: string): void {
-  const index = list.findIndex((item) => item.id === id);
-  if (index >= 0) {
-    list.splice(index, 1);
-  }
-}
-
-export function percent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-export function xpToNextLevel(level: number): number {
-  return Math.round(28 + level * 12 + Math.pow(level, 1.45) * 6);
-}

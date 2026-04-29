@@ -37,6 +37,15 @@ button {
   font: inherit;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+
 .game-shell {
   position: relative;
   width: 100vw;
@@ -361,8 +370,27 @@ button {
 }
 
 .upgrade-modal {
-  width: min(980px, 100%);
-  padding: clamp(20px, 4vw, 34px);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(1180px, calc(100vw - 48px));
+  height: min(86dvh, 760px);
+  max-height: min(86vh, 760px);
+  min-height: 0;
+  overflow: hidden;
+  padding: clamp(22px, 3.4vw, 38px);
+}
+
+.upgrade-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  background:
+    linear-gradient(90deg, rgba(57, 217, 255, 0.07), transparent 32%),
+    repeating-linear-gradient(90deg, transparent 0 76px, rgba(156, 230, 255, 0.045) 76px 77px);
+  opacity: 0.62;
+  pointer-events: none;
 }
 
 .eyebrow {
@@ -457,25 +485,50 @@ h2 {
 
 .upgrade-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 12px;
-  margin-top: 22px;
+  position: relative;
+  flex: 1 1 auto;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 2px;
+  margin-top: 26px;
 }
 
 .upgrade-card {
   position: relative;
-  min-height: 180px;
+  display: grid;
+  grid-template-rows: auto auto minmax(92px, 1fr) auto;
+  min-height: 318px;
+  overflow: hidden;
   padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--tier-color, #39d9ff) 42%, rgba(156, 230, 255, 0.18));
+  border: 1px solid color-mix(in srgb, var(--tier-color, #39d9ff) 54%, rgba(156, 230, 255, 0.18));
   border-radius: 8px;
   background:
-    radial-gradient(circle at 18px 18px, var(--tier-glow, rgba(57, 217, 255, 0.2)), transparent 110px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.075), transparent),
-    rgba(5, 9, 14, 0.86);
+    linear-gradient(180deg, color-mix(in srgb, var(--tier-color, #39d9ff) 16%, transparent), transparent 36%),
+    radial-gradient(circle at 30% 16%, var(--tier-glow, rgba(57, 217, 255, 0.2)), transparent 120px),
+    rgba(4, 8, 13, 0.9);
   color: var(--text);
   text-align: left;
   cursor: pointer;
-  transition: transform 150ms ease, border-color 150ms ease, background 150ms ease;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -44px 90px rgba(0, 0, 0, 0.26);
+  transition:
+    transform 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.upgrade-card::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--tier-color, #39d9ff), transparent);
+  opacity: 0.72;
+  pointer-events: none;
 }
 
 .choice-key {
@@ -484,26 +537,33 @@ h2 {
   right: 12px;
   display: grid;
   place-items: center;
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border: 1px solid color-mix(in srgb, var(--tier-color, #39d9ff) 68%, transparent);
   border-radius: 7px;
-  background: color-mix(in srgb, var(--tier-color, #39d9ff) 14%, transparent);
-  color: #dff9ff;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), transparent),
+    color-mix(in srgb, var(--tier-color, #39d9ff) 18%, rgba(2, 3, 6, 0.8));
+  color: #ffffff;
   font-family: "Share Tech Mono", ui-monospace, monospace;
-  font-size: 0.82rem;
+  font-size: 0.94rem;
+  box-shadow: 0 0 18px var(--tier-glow, rgba(57, 217, 255, 0.18));
 }
 
 .tier-badge {
   display: inline-flex;
+  gap: 8px;
   max-width: calc(100% - 42px);
-  min-height: 28px;
+  min-height: 30px;
   align-items: center;
-  margin-bottom: 14px;
-  padding: 0 10px;
+  justify-self: start;
+  margin-bottom: 16px;
+  padding: 0 11px;
   border: 1px solid color-mix(in srgb, var(--tier-color, #39d9ff) 62%, transparent);
   border-radius: 999px;
-  background: color-mix(in srgb, var(--tier-color, #39d9ff) 14%, transparent);
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--tier-color, #39d9ff) 18%, transparent), rgba(255, 255, 255, 0.035)),
+    rgba(2, 3, 6, 0.4);
   color: var(--tier-color, #39d9ff);
   font-family: "Share Tech Mono", ui-monospace, monospace;
   font-size: 0.72rem;
@@ -511,50 +571,84 @@ h2 {
   box-shadow: 0 0 18px var(--tier-glow, rgba(57, 217, 255, 0.18));
 }
 
+.tier-badge span {
+  color: #ffffff;
+}
+
 .upgrade-card:hover,
 .upgrade-card:focus-visible {
   transform: translateY(-3px);
   border-color: color-mix(in srgb, var(--tier-color, #ffbf47) 82%, white 4%);
   background:
-    radial-gradient(circle at 18px 18px, var(--tier-glow, rgba(255, 191, 71, 0.28)), transparent 130px),
-    linear-gradient(180deg, color-mix(in srgb, var(--tier-color, #ffbf47) 17%, transparent), transparent),
+    linear-gradient(180deg, color-mix(in srgb, var(--tier-color, #ffbf47) 22%, transparent), transparent 42%),
+    radial-gradient(circle at 30% 16%, var(--tier-glow, rgba(255, 191, 71, 0.28)), transparent 138px),
     rgba(7, 12, 18, 0.96);
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.36),
+    0 0 0 3px color-mix(in srgb, var(--tier-color, #39d9ff) 22%, transparent),
+    inset 0 1px 0 rgba(255, 255, 255, 0.13);
+  outline: none;
 }
 
 .upgrade-icon {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  margin-bottom: 14px;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 18px;
   border: 1px solid color-mix(in srgb, var(--tier-color, #ffbf47) 58%, transparent);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--tier-color, #ffbf47) 14%, transparent);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.09), transparent),
+    color-mix(in srgb, var(--tier-color, #ffbf47) 15%, transparent);
   color: var(--tier-color, var(--amber));
   font-family: "Share Tech Mono", ui-monospace, monospace;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
+  text-shadow: 0 0 18px var(--tier-glow, rgba(57, 217, 255, 0.2));
+}
+
+.upgrade-copy {
+  display: block;
+  min-width: 0;
 }
 
 .upgrade-card h3 {
-  margin: 0 0 9px;
-  font-size: clamp(1rem, 2.2vw, 1.26rem);
+  margin: 0 0 10px;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.08rem, 1.5vw, 1.38rem);
+  line-height: 1.12;
 }
 
 .upgrade-card p {
   margin: 0;
   color: #b7cbd5;
-  font-size: 0.95rem;
-  line-height: 1.45;
+  font-size: 0.92rem;
+  line-height: 1.42;
 }
 
 .upgrade-effect {
   display: block;
-  margin-top: 14px;
+  align-self: end;
+  min-height: 58px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--tier-color, #39d9ff) 30%, transparent);
   color: var(--tier-color, #39d9ff);
   font-family: "Share Tech Mono", ui-monospace, monospace;
   font-size: 0.82rem;
   font-weight: 400;
   line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1060px) {
+  .upgrade-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  }
+
+  .upgrade-card {
+    min-height: 272px;
+  }
 }
 
 @media (max-width: 760px) {
@@ -580,13 +674,11 @@ h2 {
 
   .upgrade-grid {
     grid-template-columns: 1fr;
-    max-height: 62vh;
-    overflow-y: auto;
-    padding-right: 2px;
+    padding-right: 4px;
   }
 
   .upgrade-card {
-    min-height: 150px;
+    min-height: 210px;
   }
 
   .control-map {

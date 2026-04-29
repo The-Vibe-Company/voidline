@@ -4,51 +4,11 @@ import { damagePlayer } from "./player";
 import { maybeDropPowerup } from "./powerups";
 import { counters, enemies, player, state, world } from "../state";
 import { circleHit, clamp } from "../utils";
+import { scaledEnemyStats, selectEnemyType } from "../game/balance";
 import type { EnemyType } from "../types";
 
-export const enemyTypes: EnemyType[] = [
-  {
-    id: "scout",
-    score: 35,
-    radius: 14,
-    hp: 32,
-    speed: 86,
-    damage: 12,
-    color: "#ff5a69",
-    accent: "#ffd0d5",
-    sides: 3,
-  },
-  {
-    id: "hunter",
-    score: 55,
-    radius: 18,
-    hp: 48,
-    speed: 70,
-    damage: 16,
-    color: "#ffbf47",
-    accent: "#fff0b8",
-    sides: 4,
-  },
-  {
-    id: "brute",
-    score: 90,
-    radius: 25,
-    hp: 115,
-    speed: 46,
-    damage: 24,
-    color: "#b973ff",
-    accent: "#ead4ff",
-    sides: 6,
-  },
-];
-
 export function chooseEnemyType(): EnemyType {
-  const roll = Math.random();
-  const bruteChance = Math.min(0.25, Math.max(0, (state.wave - 3) * 0.035));
-  const hunterChance = Math.min(0.38, state.wave * 0.045);
-  if (roll < bruteChance) return enemyTypes[2]!;
-  if (roll < bruteChance + hunterChance) return enemyTypes[1]!;
-  return enemyTypes[0]!;
+  return selectEnemyType(state.wave, Math.random());
 }
 
 export function spawnEnemy(): void {
@@ -73,16 +33,16 @@ export function spawnEnemy(): void {
   x = clamp(x, pad, world.arenaWidth - pad);
   y = clamp(y, pad, world.arenaHeight - pad);
 
-  const scale = 1 + state.wave * 0.055;
+  const scaled = scaledEnemyStats(type, state.wave);
   enemies.push({
     ...type,
     id: counters.nextEnemyId,
     kind: type.id,
     x,
     y,
-    hp: type.hp * scale,
-    maxHp: type.hp * scale,
-    speed: type.speed * (1 + Math.min(0.32, state.wave * 0.018)),
+    hp: scaled.hp,
+    maxHp: scaled.hp,
+    speed: scaled.speed,
     radius: type.radius,
     damage: type.damage,
     age: 0,

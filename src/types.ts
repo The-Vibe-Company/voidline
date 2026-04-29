@@ -175,7 +175,7 @@ export interface Upgrade {
   name: string;
   description: string;
   effect: (tier: UpgradeTier) => string;
-  apply: (tier: UpgradeTier) => void;
+  apply: (tier: UpgradeTier, target: Player) => void;
 }
 
 export interface UpgradeChoice {
