@@ -45,15 +45,15 @@ export function pickUpgradeDraft(
       (upgrade) => tagsIntersect(upgrade.tags, buildTags),
       buildTags,
     );
+    ensureDraftContains(
+      picked,
+      remaining,
+      (upgrade) =>
+        !tagsIntersect(upgrade.tags, buildTags) &&
+        advancesPartiallyBuiltSynergy(upgrade.tags, buildTags),
+      buildTags,
+    );
     if (!picked.some((upgrade) => !tagsIntersect(upgrade.tags, buildTags))) {
-      ensureDraftContains(
-        picked,
-        remaining,
-        (upgrade) =>
-          !tagsIntersect(upgrade.tags, buildTags) &&
-          advancesPartiallyBuiltSynergy(upgrade.tags, buildTags),
-        buildTags,
-      );
       ensureDraftContains(
         picked,
         remaining,

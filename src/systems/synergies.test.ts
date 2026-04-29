@@ -49,4 +49,27 @@ describe("build synergy calculation", () => {
       "magnet-storm",
     );
   });
+
+  it("refreshes every player trait from real upgrade and relic loadouts", () => {
+    const target = createPlayerState();
+    const upgradeLoadout = [
+      { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
+      { upgrade: findUpgrade("piercer"), tier, count: 1 },
+      { upgrade: findUpgrade("crit-array"), tier, count: 1 },
+      { upgrade: findUpgrade("orbital-drone"), tier, count: 1 },
+      { upgrade: findUpgrade("kinetic-shield"), tier, count: 1 },
+      { upgrade: findUpgrade("repair-bay"), tier, count: 1 },
+      { upgrade: findUpgrade("magnet-array"), tier, count: 1 },
+    ];
+    const relicLoadout = [{ relic: findRelic("magnetized-map"), count: 1 }];
+
+    refreshPlayerTraits(target, upgradeLoadout, relicLoadout);
+
+    expect(target.traits).toEqual({
+      railSplitter: true,
+      droneSwarm: true,
+      kineticRam: true,
+      magnetStorm: true,
+    });
+  });
 });

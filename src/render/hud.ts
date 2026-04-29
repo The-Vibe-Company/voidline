@@ -130,6 +130,20 @@ function renderSynergyBadges(synergies: readonly SynergyDefinition[]): string {
     .join("")}</span>`;
 }
 
+function buildInfoText(
+  tags: readonly BuildTag[],
+  synergies: readonly SynergyDefinition[],
+): string {
+  const segments: string[] = [];
+  if (tags.length > 0) {
+    segments.push(`Tags de build: ${tags.map((tag) => BUILD_TAG_META[tag].label).join(", ")}`);
+  }
+  if (synergies.length > 0) {
+    segments.push(`Synergies actives: ${synergies.map((synergy) => synergy.name).join(", ")}`);
+  }
+  return segments.join(". ");
+}
+
 function activeSynergiesForTags(tags: readonly BuildTag[]): SynergyDefinition[] {
   const active = activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values());
   return active.filter((synergy) =>
@@ -391,6 +405,8 @@ export function showUpgrade(): void {
     const titleId = `${choiceId}-title`;
     const descriptionId = `${choiceId}-description`;
     const effectId = `${choiceId}-effect`;
+    const buildInfoId = `${choiceId}-build-info`;
+    const activeSynergies = activeSynergiesForTags(upgrade.tags);
     const rank = tierRank(tier.id);
     const cipher = cipherFor(upgrade.id, tier.short, index);
     const card = document.createElement("button");
@@ -400,7 +416,7 @@ export function showUpgrade(): void {
     card.dataset.tier = tier.id;
     card.dataset.tierRank = String(rank);
     card.setAttribute("aria-labelledby", `${choiceId} ${titleId} ${tierId}`);
-    card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
+    card.setAttribute("aria-describedby", `${descriptionId} ${effectId} ${buildInfoId}`);
     card.style.setProperty("--tier-color", tier.color);
     card.style.setProperty("--tier-glow", tier.glow);
     card.style.setProperty("--card-delay", `${index * 70}ms`);
@@ -426,7 +442,8 @@ export function showUpgrade(): void {
         <span class="tier-name" aria-hidden="true">${tier.name}</span>
       </span>
       ${renderBuildTags(upgrade.tags)}
-      ${renderSynergyBadges(activeSynergiesForTags(upgrade.tags))}
+      ${renderSynergyBadges(activeSynergies)}
+      <span class="sr-only" id="${buildInfoId}">${buildInfoText(upgrade.tags, activeSynergies)}</span>
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${upgrade.icon}</span>
@@ -488,6 +505,8 @@ export function showChest(): void {
     const titleId = `${choiceId}-title`;
     const descriptionId = `${choiceId}-description`;
     const effectId = `${choiceId}-effect`;
+    const buildInfoId = `${choiceId}-build-info`;
+    const activeSynergies = activeSynergiesForTags(relic.tags);
     const cipher = cipherFor(relic.id, "R", index);
     const card = document.createElement("button");
     card.className = "upgrade-card relic-card";
@@ -496,7 +515,7 @@ export function showChest(): void {
     card.dataset.tier = "relic";
     card.dataset.tierRank = "2";
     card.setAttribute("aria-labelledby", `${choiceId} ${titleId}`);
-    card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
+    card.setAttribute("aria-describedby", `${descriptionId} ${effectId} ${buildInfoId}`);
     card.style.setProperty("--tier-color", relic.color);
     card.style.setProperty("--tier-glow", "rgba(255, 191, 71, 0.24)");
     card.style.setProperty("--card-delay", `${index * 70}ms`);
@@ -522,7 +541,8 @@ export function showChest(): void {
         <span class="tier-name">Relique de run</span>
       </span>
       ${renderBuildTags(relic.tags)}
-      ${renderSynergyBadges(activeSynergiesForTags(relic.tags))}
+      ${renderSynergyBadges(activeSynergies)}
+      <span class="sr-only" id="${buildInfoId}">${buildInfoText(relic.tags, activeSynergies)}</span>
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${relic.icon}</span>

@@ -139,4 +139,16 @@ describe("enemy synergy interactions", () => {
     expect(enemies.find((enemy) => enemy.id === 1)!.hp).toBeLessThan(1000);
     expect(enemies.find((enemy) => enemy.id === 2)!.hp).toBe(1000);
   });
+
+  it("keeps magnet storm charged when no enemy is in range", () => {
+    player.traits.magnetStorm = true;
+    player.magnetStormCharge = 30;
+    enemies.push({ ...makeEnemy(1, 35), x: player.x + 900, y: player.y, hp: 1000, maxHp: 1000 });
+
+    updateEnemies(0);
+
+    expect(player.magnetStormCharge).toBe(30);
+    expect(player.magnetStormTimer).toBe(0);
+    expect(enemies[0]!.hp).toBe(1000);
+  });
 });

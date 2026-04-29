@@ -269,12 +269,30 @@ describe("simulation performance helpers", () => {
       },
       count: 1,
     });
+    player.traits = {
+      railSplitter: true,
+      droneSwarm: true,
+      kineticRam: true,
+      magnetStorm: true,
+    };
+    player.ramTimer = 1;
+    player.magnetStormCharge = 40;
+    player.magnetStormTimer = 2;
 
     resetSimulation(123);
 
     expect(player.speed).toBeGreaterThan(265);
     expect(ownedUpgrades.size).toBe(0);
     expect(ownedRelics.size).toBe(0);
+    expect(player.traits).toEqual({
+      railSplitter: false,
+      droneSwarm: false,
+      kineticRam: false,
+      magnetStorm: false,
+    });
+    expect(player.ramTimer).toBe(0);
+    expect(player.magnetStormCharge).toBe(0);
+    expect(player.magnetStormTimer).toBe(0);
   });
 
   it("records gameplay challenge metrics from waves, kills, bosses, and XP", () => {

@@ -225,6 +225,13 @@ function triggerMagnetStorm(): void {
   const radius = 180 + Math.min(115, player.pickupRadius * 42);
   const radiusSq = radius * radius;
   const damage = player.damage * 2.15 + charge * 1.65;
+  const hasTarget = enemies.some(
+    (enemy) => distanceSq(player.x, player.y, enemy.x, enemy.y) <= radiusSq,
+  );
+  if (!hasTarget) {
+    return;
+  }
+
   player.magnetStormCharge = 0;
   player.magnetStormTimer = MAGNET_STORM_COOLDOWN;
 
