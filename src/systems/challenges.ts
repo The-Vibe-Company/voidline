@@ -21,6 +21,7 @@ export const challengeProgress: ChallengeProgress = createEmptyChallengeProgress
 
 let notifiedTierTotal = 0;
 let challengeTrackingEnabled = true;
+let pendingSave: ReturnType<typeof setTimeout> | null = null;
 
 function getStorage(): ChallengeStorage | null {
   try {
@@ -60,6 +61,10 @@ export function initializeChallenges(storage: ChallengeStorage | null = getStora
 }
 
 export function saveChallengeProgress(storage: ChallengeStorage | null = getStorage()): void {
+  if (pendingSave) {
+    clearTimeout(pendingSave);
+    pendingSave = null;
+  }
   if (!storage) return;
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(challengeProgress));
@@ -68,7 +73,23 @@ export function saveChallengeProgress(storage: ChallengeStorage | null = getStor
   }
 }
 
+function persistChallengeProgress(storage?: ChallengeStorage | null): void {
+  if (storage !== undefined) {
+    saveChallengeProgress(storage);
+    return;
+  }
+  if (pendingSave) return;
+  pendingSave = setTimeout(() => {
+    pendingSave = null;
+    saveChallengeProgress(getStorage());
+  }, 0);
+}
+
 export function resetChallengeProgress(storage: ChallengeStorage | null = getStorage()): void {
+  if (pendingSave) {
+    clearTimeout(pendingSave);
+    pendingSave = null;
+  }
   assignProgress(createEmptyChallengeProgress());
   notifiedTierTotal = 0;
   try {
@@ -86,7 +107,7 @@ export function restoreChallengeProgress(progress: ChallengeProgress): void {
 export function recordChallengeProgress(
   metric: ChallengeMetric,
   value: number,
-  storage: ChallengeStorage | null = getStorage(),
+  storage?: ChallengeStorage | null,
 ): boolean {
   if (!challengeTrackingEnabled) return false;
   const current = challengeProgress[metric] ?? 0;
@@ -95,7 +116,7 @@ export function recordChallengeProgress(
 
   const previousTierTotal = totalUnlockedTiers(challengeProgress);
   challengeProgress[metric] = next;
-  saveChallengeProgress(storage);
+  persistChallengeProgress(storage);
   announceNewChallengeTiers(previousTierTotal);
   return true;
 }
@@ -103,12 +124,16 @@ export function recordChallengeProgress(
 export function incrementChallengeProgress(
   metric: Extract<ChallengeMetric, "bossKills" | "totalKills">,
   amount = 1,
-  storage: ChallengeStorage | null = getStorage(),
+  storage?: ChallengeStorage | null,
 ): boolean {
   if (!challengeTrackingEnabled) return false;
+  if (amount <= 0) return false;
+  const current = challengeProgress[metric] ?? 0;
+  const next = Math.floor(current + amount);
+  if (next <= current) return false;
   const previousTierTotal = totalUnlockedTiers(challengeProgress);
-  challengeProgress[metric] = Math.max(0, Math.floor((challengeProgress[metric] ?? 0) + amount));
-  saveChallengeProgress(storage);
+  challengeProgress[metric] = next;
+  persistChallengeProgress(storage);
   announceNewChallengeTiers(previousTierTotal);
   return true;
 }

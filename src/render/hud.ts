@@ -302,7 +302,9 @@ export function updateHud(): void {
   }
   updateStats();
   updateItemBar();
-  updateChallengePanels();
+  if (state.mode !== "playing" && state.mode !== "paused") {
+    updateChallengePanels();
+  }
 }
 
 export function flushSimulationHud(force = false): void {

@@ -78,6 +78,15 @@ describe("challenge persistence", () => {
     expect(stored.totalKills).toBe(3);
   });
 
+  it("keeps cumulative counters monotonic", () => {
+    initializeChallenges(storage);
+    incrementChallengeProgress("totalKills", 3, storage);
+    incrementChallengeProgress("totalKills", -2, storage);
+    incrementChallengeProgress("totalKills", 0.5, storage);
+
+    expect(challengeProgress.totalKills).toBe(3);
+  });
+
   it("resets stored and in-memory progress", () => {
     initializeChallenges(storage);
     recordChallengeProgress("bestWave", 15, storage);
