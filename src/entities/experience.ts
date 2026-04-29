@@ -27,6 +27,7 @@ export function spawnExperience(enemy: EnemyEntity): void {
       radius: experienceOrbRadius(value),
       value,
       age: Math.random() * 0.4,
+      magnetized: false,
     });
   }
 }
@@ -43,7 +44,9 @@ export function updateExperience(dt: number): void {
     const dx = player.x - orb.x;
     const dy = player.y - orb.y;
     const distance = Math.hypot(dx, dy);
-    const pickupRadius = balance.xp.pickupBaseRadius * player.pickupRadius + state.magnetRadius;
+    const pickupRadius = orb.magnetized
+      ? Number.POSITIVE_INFINITY
+      : balance.xp.pickupBaseRadius * player.pickupRadius;
     if (distance < pickupRadius) {
       const pull = (1 - distance / pickupRadius) * 560;
       orb.vx += (dx / Math.max(1, distance)) * pull * dt;
