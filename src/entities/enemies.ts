@@ -57,6 +57,7 @@ export function spawnEnemy(): void {
   enemy.hp = scaled.hp;
   enemy.maxHp = scaled.hp;
   enemy.speed = scaled.speed;
+  enemy.damage = scaled.damage;
   enemy.age = 0;
   enemy.seed = random() * 100;
   enemy.wobble = type.id === "brute" ? 0.08 : 0.18;
@@ -78,7 +79,7 @@ function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
   enemy.maxHp = enemy.hp;
   enemy.speed = scaled.speed * tuning.speedMultiplier;
   enemy.radius = radius;
-  enemy.damage = type.damage * tuning.damageMultiplier;
+  enemy.damage = scaled.damage * tuning.damageMultiplier;
   enemy.color = role === "boss" ? "#ff5a69" : "#ffbf47";
   enemy.accent = role === "boss" ? "#ffffff" : "#fff0b8";
   enemy.sides = role === "boss" ? 8 : 6;

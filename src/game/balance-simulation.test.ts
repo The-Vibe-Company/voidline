@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
+import { keys, pointer, state } from "../state";
 import {
   challengeProgress,
   initializeChallenges,
@@ -15,13 +16,15 @@ import {
 } from "./balance-simulation";
 
 const BALANCE_SEEDS = Array.from({ length: 24 }, (_, index) => 1109 + index * 37);
+const FAST_BALANCE_SEEDS = BALANCE_SEEDS.slice(0, 12);
 
 function runPersona(
   persona: BalancePersonaId,
   maxWave: number,
   maxSeconds: number,
+  seeds = BALANCE_SEEDS,
 ): BalanceTrialResult[] {
-  return BALANCE_SEEDS.map((seed) =>
+  return seeds.map((seed) =>
     runBalanceTrial({
       seed,
       persona,
@@ -49,12 +52,37 @@ function formatSummary(
     `median wave=${summary.medianWave}`,
     `median hp=${summary.medianHp}`,
     `median time=${summary.medianTimeSeconds}s`,
+    `median level=${summary.medianLevel}`,
+    `wave variance=${summary.waveVariance}`,
+    `hp variance=${summary.hpVariance}`,
     `samples=[${samples}]`,
   ].join("; ");
 }
 
+function syntheticResult(
+  overrides: Partial<BalanceTrialResult>,
+): BalanceTrialResult {
+  return {
+    seed: 1,
+    persona: "optimizer",
+    died: false,
+    timeSeconds: 0,
+    finalWave: 1,
+    finalHp: 100,
+    lowestHp: 100,
+    kills: 0,
+    level: 1,
+    score: 0,
+    upgradesApplied: 0,
+    ...overrides,
+  };
+}
+
 describe("headless early-wave balance", () => {
   afterEach(() => {
+    keys.clear();
+    pointer.inside = false;
+    state.controlMode = "keyboard";
     resetChallengeProgress(null);
     setChallengeTrackingEnabled(true);
   });
@@ -62,13 +90,13 @@ describe("headless early-wave balance", () => {
   it("replays the same persona and seed deterministically", () => {
     const first = runBalanceTrial({
       seed: 4242,
-      persona: "kiter",
+      persona: "optimizer",
       maxWave: 4,
       maxSeconds: 100,
     });
     const second = runBalanceTrial({
       seed: 4242,
-      persona: "kiter",
+      persona: "optimizer",
       maxWave: 4,
       maxSeconds: 100,
     });
@@ -128,6 +156,95 @@ describe("headless early-wave balance", () => {
     expect(summary.reachedWave6, message).toBeLessThanOrEqual(20);
   }, 30_000);
 
+  it("summarizes balance trial metrics exactly for CI reporting", () => {
+    const summary = summarizeBalanceTrials([
+      syntheticResult({
+        seed: 1,
+        died: true,
+        finalWave: 2,
+        finalHp: 0,
+        timeSeconds: 50,
+        level: 1,
+      }),
+      syntheticResult({
+        seed: 2,
+        died: true,
+        finalWave: 4,
+        finalHp: 10,
+        timeSeconds: 70,
+        level: 2,
+      }),
+      syntheticResult({
+        seed: 3,
+        finalWave: 4,
+        finalHp: 30,
+        timeSeconds: 90,
+        level: 3,
+      }),
+      syntheticResult({
+        seed: 4,
+        finalWave: 8,
+        finalHp: 60,
+        timeSeconds: 110,
+        level: 6,
+      }),
+    ]);
+
+    expect(summary).toMatchObject({
+      persona: "optimizer",
+      runs: 4,
+      deaths: 2,
+      deathRate: 0.5,
+      reachedWave3: 3,
+      reachedWave6: 1,
+      medianWave: 4,
+      medianHp: 20,
+      medianTimeSeconds: 80,
+      medianLevel: 2.5,
+      waveVariance: 4.75,
+      hpVariance: 525,
+    });
+  });
+
+  it("reports CI-oriented balance summary metrics", () => {
+    const results = runPersona("optimizer", 5, 130, FAST_BALANCE_SEEDS);
+    const summary = summarizeBalanceTrials(results);
+    const message = formatSummary(summary, results);
+
+    expect(summary.deathRate, message).toBeGreaterThanOrEqual(0);
+    expect(summary.deathRate, message).toBeLessThanOrEqual(1);
+    expect(summary.medianLevel, message).toBeGreaterThanOrEqual(1);
+    expect(summary.waveVariance, message).toBeGreaterThanOrEqual(0);
+    expect(summary.hpVariance, message).toBeGreaterThanOrEqual(0);
+  }, 30_000);
+
+  it("lets the optimizer outperform panic movement", () => {
+    const panicResults = runPersona("panic", 4, 110, FAST_BALANCE_SEEDS);
+    const optimizerResults = runPersona("optimizer", 4, 110, FAST_BALANCE_SEEDS);
+    const panicSummary = summarizeBalanceTrials(panicResults);
+    const optimizerSummary = summarizeBalanceTrials(optimizerResults);
+    const message = [
+      formatSummary(panicSummary, panicResults),
+      formatSummary(optimizerSummary, optimizerResults),
+    ].join(" | ");
+
+    expect(optimizerSummary.reachedWave3, message).toBeGreaterThan(
+      panicSummary.reachedWave3,
+    );
+    expect(optimizerSummary.medianWave, message).toBeGreaterThanOrEqual(
+      panicSummary.medianWave,
+    );
+  }, 30_000);
+
+  it("keeps the optimizer from trivializing early waves", () => {
+    const results = runPersona("optimizer", 7, 190, FAST_BALANCE_SEEDS);
+    const summary = summarizeBalanceTrials(results);
+    const message = formatSummary(summary, results);
+
+    expect(summary.reachedWave3, message).toBeGreaterThanOrEqual(8);
+    expect(summary.reachedWave6, message).toBeLessThanOrEqual(11);
+  }, 30_000);
+
   it("restores challenge progress and tracking after headless trials", () => {
     resetChallengeProgress(null);
     initializeChallenges(null);
@@ -144,5 +261,29 @@ describe("headless early-wave balance", () => {
     expect(challengeProgress.bestWave).toBe(20);
     recordChallengeProgress("bestScore", 2_000, null);
     expect(challengeProgress.bestScore).toBe(2_000);
+  });
+
+  it("restores input state after optimizer headless trials", () => {
+    keys.clear();
+    keys.add("KeyA");
+    pointer.x = 321;
+    pointer.y = 654;
+    pointer.inside = true;
+    state.controlMode = "trackpad";
+
+    runBalanceTrial({
+      seed: 4242,
+      persona: "optimizer",
+      maxWave: 3,
+      maxSeconds: 60,
+    });
+
+    expect([...keys]).toEqual(["KeyA"]);
+    expect(pointer).toMatchObject({
+      x: 321,
+      y: 654,
+      inside: true,
+    });
+    expect(state.controlMode).toBe("trackpad");
   });
 });
