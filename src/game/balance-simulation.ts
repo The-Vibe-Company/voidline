@@ -57,6 +57,7 @@ interface PersonaRuntime {
 }
 
 const DEFAULT_STEP_SECONDS = 1 / 60;
+const MAX_STEP_SECONDS = 0.033;
 const OFFENSIVE_UPGRADE_PRIORITY = [
   "twin-cannon",
   "rail-slug",
@@ -202,6 +203,9 @@ function validateTrialOptions(
   }
   if (!Number.isFinite(stepSeconds) || stepSeconds <= 0) {
     throw new Error("Balance trial stepSeconds must be finite and greater than 0.");
+  }
+  if (stepSeconds > MAX_STEP_SECONDS) {
+    throw new Error(`Balance trial stepSeconds must be at most ${MAX_STEP_SECONDS}.`);
   }
 }
 

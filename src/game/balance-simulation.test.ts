@@ -74,6 +74,15 @@ describe("headless early-wave balance", () => {
         stepSeconds: 0,
       }),
     ).toThrow("stepSeconds");
+    expect(() =>
+      runBalanceTrial({
+        seed: 4242,
+        persona: "idle",
+        maxWave: 2,
+        maxSeconds: 60,
+        stepSeconds: 1,
+      }),
+    ).toThrow("stepSeconds");
   });
 
   it("kills an idle player before wave 2", () => {
