@@ -3,6 +3,7 @@ import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
 import { upgradeTiers } from "../game/balance";
 import type { ControlMode } from "../types";
+import { consumeSimulationEvents } from "../simulation/events";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -108,18 +109,26 @@ export function getUpgradeGrid(): HTMLElement {
   return hud.upgradeGrid;
 }
 
+type OverlayId = "startOverlay" | "upgradeOverlay" | "pauseOverlay" | "gameOverOverlay";
+
+export function initOverlayFocusScope(): void {
+  const active = document.querySelector<HTMLElement>(".overlay.active");
+  setOverlayFocusScope(active?.id as OverlayId | undefined);
+}
+
 export function hideOverlays(): void {
   hud.startOverlay.classList.remove("active");
   hud.upgradeOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
-  setUpgradeFocusScope(false);
+  setOverlayFocusScope();
 }
 
-function setUpgradeFocusScope(active: boolean): void {
+function setOverlayFocusScope(activeOverlay?: OverlayId): void {
   for (const element of document.querySelectorAll<HTMLElement>(
-    ".game-shell > :not(#upgradeOverlay)",
+    ".game-shell > *",
   )) {
+    const active = activeOverlay !== undefined && element.id !== activeOverlay;
     element.toggleAttribute("inert", active);
     if (active) {
       element.setAttribute("aria-hidden", "true");
@@ -204,6 +213,24 @@ export function updateHud(): void {
   updateItemBar();
 }
 
+export function flushSimulationHud(force = false): void {
+  const events = consumeSimulationEvents();
+  if (events.gameOver) {
+    showGameOver();
+    return;
+  }
+  if (events.loadout) {
+    updateLoadout();
+  }
+  if (events.upgrade && state.pendingUpgrades > 0 && state.mode === "playing") {
+    showUpgrade();
+    return;
+  }
+  if (force || events.hud) {
+    updateHud();
+  }
+}
+
 export function showUpgrade(): void {
   if (state.mode !== "upgrade") {
     rememberFocusBeforeUpgrade();
@@ -283,7 +310,7 @@ export function showUpgrade(): void {
   }
 
   hud.upgradeOverlay.classList.add("active");
-  setUpgradeFocusScope(true);
+  setOverlayFocusScope("upgradeOverlay");
   updateLoadout();
   requestAnimationFrame(() =>
     hud.upgradeGrid.querySelector<HTMLButtonElement>("button")?.focus(),
@@ -312,6 +339,7 @@ export function showGameOver(): void {
   hud.finalScore.textContent = Math.floor(state.score).toLocaleString("fr-FR");
   hud.finalWave.textContent = String(state.wave);
   hud.gameOverOverlay.classList.add("active");
+  setOverlayFocusScope("gameOverOverlay");
   requestAnimationFrame(() =>
     document.querySelector<HTMLButtonElement>("#restartButton")?.focus(),
   );
@@ -323,6 +351,7 @@ export function pauseGame(): void {
   player.vx = 0;
   player.vy = 0;
   hud.pauseOverlay.classList.add("active");
+  setOverlayFocusScope("pauseOverlay");
   requestAnimationFrame(() =>
     document.querySelector<HTMLButtonElement>("#resumeButton")?.focus(),
   );
@@ -332,6 +361,7 @@ export function resumeGame(): void {
   if (state.mode !== "paused") return;
   state.mode = "playing";
   hud.pauseOverlay.classList.remove("active");
+  setOverlayFocusScope();
 }
 
 export function setControlMode(mode: ControlMode): void {
