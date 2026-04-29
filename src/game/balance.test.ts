@@ -143,3 +143,64 @@ describe("upgrade effects", () => {
     expect(nearCapPlayer.pierce).toBe(balance.upgrade.caps.pierce);
   });
 });
+
+describe("multiplicative upgrade additivity", () => {
+  it("stacks the same percentage upgrade additively across N applications", () => {
+    const target = createPlayerState();
+    const upgrade = findUpgrade("plasma-core");
+    const standardTier = tier("standard");
+    const effect = balance.upgrade.effects.fireRate;
+
+    for (let n = 1; n <= 5; n += 1) {
+      upgrade.apply(standardTier, target);
+      const expectedAdditive = balance.player.stats.fireRate * (1 + n * effect);
+      const wrongMultiplicative = balance.player.stats.fireRate * (1 + effect) ** n;
+      expect(target.fireRate).toBeCloseTo(expectedAdditive);
+      if (n >= 2) expect(target.fireRate).not.toBeCloseTo(wrongMultiplicative);
+    }
+  });
+
+  it("sums contributions from different upgrades sharing the same stat", () => {
+    const target = createPlayerState();
+    findUpgrade("rail-slug").apply(tier("standard"), target);
+    findUpgrade("piercer").apply(tier("standard"), target);
+
+    const expected =
+      balance.player.stats.damage *
+      (1 + balance.upgrade.effects.damage + balance.upgrade.effects.pierceDamage);
+    expect(target.damage).toBeCloseTo(expected);
+  });
+
+  it("is order-independent for multiplicative upgrades (commutativity)", () => {
+    const a = createPlayerState();
+    const b = createPlayerState();
+    findUpgrade("plasma-core").apply(tier("standard"), a);
+    findUpgrade("plasma-core").apply(tier("prototype"), a);
+
+    findUpgrade("plasma-core").apply(tier("prototype"), b);
+    findUpgrade("plasma-core").apply(tier("standard"), b);
+
+    expect(a.fireRate).toBeCloseTo(b.fireRate);
+  });
+
+  it("applies the additive rule to all six percentage upgrades", () => {
+    const cases = [
+      { id: "plasma-core", stat: "fireRate", effect: balance.upgrade.effects.fireRate },
+      { id: "ion-engine", stat: "speed", effect: balance.upgrade.effects.speed },
+      { id: "magnet-array", stat: "pickupRadius", effect: balance.upgrade.effects.pickupRadius },
+      { id: "heavy-caliber", stat: "bulletRadius", effect: balance.upgrade.effects.bulletRadius },
+    ] as const;
+    const t = tier("standard");
+
+    for (const { id, stat, effect } of cases) {
+      const target = createPlayerState();
+      findUpgrade(id).apply(t, target);
+      findUpgrade(id).apply(t, target);
+
+      const expectedAdditive = balance.player.stats[stat] * (1 + 2 * effect);
+      const wrongMultiplicative = balance.player.stats[stat] * (1 + effect) ** 2;
+      expect(target[stat]).toBeCloseTo(expectedAdditive);
+      expect(target[stat]).not.toBeCloseTo(wrongMultiplicative);
+    }
+  });
+});

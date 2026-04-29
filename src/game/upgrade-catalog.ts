@@ -5,6 +5,7 @@ import {
   maxHpGain,
   pierceGain,
   projectileGain,
+  recomputeMultiplicativeStats,
   shieldGain,
   shieldRegenGain,
 } from "./balance";
@@ -39,7 +40,8 @@ export const upgradePool: Upgrade[] = [
       return `+${percent(balance.upgrade.effects.fireRate * tier.power)} cadence`;
     },
     apply(tier, target) {
-      target.fireRate *= 1 + balance.upgrade.effects.fireRate * tier.power;
+      target.bonus.fireRatePct += balance.upgrade.effects.fireRate * tier.power;
+      recomputeMultiplicativeStats(target);
     },
   },
   {
@@ -53,8 +55,9 @@ export const upgradePool: Upgrade[] = [
       )} vitesse`;
     },
     apply(tier, target) {
-      target.damage *= 1 + balance.upgrade.effects.damage * tier.power;
-      target.bulletSpeed *= 1 + balance.upgrade.effects.bulletSpeed * tier.power;
+      target.bonus.damagePct += balance.upgrade.effects.damage * tier.power;
+      target.bonus.bulletSpeedPct += balance.upgrade.effects.bulletSpeed * tier.power;
+      recomputeMultiplicativeStats(target);
     },
   },
   {
@@ -66,7 +69,8 @@ export const upgradePool: Upgrade[] = [
       return `+${percent(balance.upgrade.effects.speed * tier.power)} vitesse`;
     },
     apply(tier, target) {
-      target.speed *= 1 + balance.upgrade.effects.speed * tier.power;
+      target.bonus.speedPct += balance.upgrade.effects.speed * tier.power;
+      recomputeMultiplicativeStats(target);
     },
   },
   {
@@ -121,7 +125,8 @@ export const upgradePool: Upgrade[] = [
     },
     apply(tier, target) {
       target.pierce = Math.min(balance.upgrade.caps.pierce, target.pierce + pierceGain(tier));
-      target.damage *= 1 + balance.upgrade.effects.pierceDamage * tier.power;
+      target.bonus.damagePct += balance.upgrade.effects.pierceDamage * tier.power;
+      recomputeMultiplicativeStats(target);
     },
   },
   {
@@ -160,7 +165,8 @@ export const upgradePool: Upgrade[] = [
       return `+${percent(balance.upgrade.effects.pickupRadius * tier.power)} portee de ramassage`;
     },
     apply(tier, target) {
-      target.pickupRadius *= 1 + balance.upgrade.effects.pickupRadius * tier.power;
+      target.bonus.pickupRadiusPct += balance.upgrade.effects.pickupRadius * tier.power;
+      recomputeMultiplicativeStats(target);
     },
   },
   {
@@ -172,7 +178,8 @@ export const upgradePool: Upgrade[] = [
       return `+${percent(balance.upgrade.effects.bulletRadius * tier.power)} taille de projectile`;
     },
     apply(tier, target) {
-      target.bulletRadius *= 1 + balance.upgrade.effects.bulletRadius * tier.power;
+      target.bonus.bulletRadiusPct += balance.upgrade.effects.bulletRadius * tier.power;
+      recomputeMultiplicativeStats(target);
     },
   },
 ];

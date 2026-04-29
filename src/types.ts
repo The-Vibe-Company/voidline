@@ -40,6 +40,15 @@ export interface GameState {
   showPickupZones: boolean;
 }
 
+export interface PlayerBonus {
+  fireRatePct: number;
+  damagePct: number;
+  bulletSpeedPct: number;
+  speedPct: number;
+  pickupRadiusPct: number;
+  bulletRadiusPct: number;
+}
+
 export interface Player {
   x: number;
   y: number;
@@ -66,6 +75,7 @@ export interface Player {
   aimAngle: number;
   vx: number;
   vy: number;
+  bonus: PlayerBonus;
 }
 
 export interface EnemyType {
