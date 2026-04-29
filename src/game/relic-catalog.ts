@@ -1,5 +1,7 @@
 import type { Player, Relic, RelicChoice } from "../types";
 import { balance, recomputeMultiplicativeStats } from "./balance";
+import { STARTER_BUILD_TAGS, hasUnlockedTags } from "./shop-catalog";
+import type { BuildTag } from "../types";
 
 export const DEFAULT_RELIC_IDS = [
   "rail-focus",
@@ -165,8 +167,14 @@ export function availableRelicsForRun(
   ownedIds: ReadonlySet<string>,
   unlockedIds: ReadonlySet<string>,
   source: readonly Relic[] = relicPool,
+  unlockedTags: ReadonlySet<BuildTag> = new Set(STARTER_BUILD_TAGS),
 ): Relic[] {
-  return source.filter((relic) => unlockedIds.has(relic.id) && !ownedIds.has(relic.id));
+  return source.filter(
+    (relic) =>
+      unlockedIds.has(relic.id) &&
+      !ownedIds.has(relic.id) &&
+      hasUnlockedTags(relic.tags, unlockedTags),
+  );
 }
 
 export function pickChestRelics(
@@ -175,8 +183,9 @@ export function pickChestRelics(
   unlockedIds: ReadonlySet<string>,
   source: readonly Relic[] = relicPool,
   random: () => number = Math.random,
+  unlockedTags: ReadonlySet<BuildTag> = new Set(STARTER_BUILD_TAGS),
 ): RelicChoice[] {
-  const candidates = [...availableRelicsForRun(ownedIds, unlockedIds, source)];
+  const candidates = [...availableRelicsForRun(ownedIds, unlockedIds, source, unlockedTags)];
   for (let i = candidates.length - 1; i > 0; i -= 1) {
     const j = Math.floor(random() * (i + 1));
     [candidates[i]!, candidates[j]!] = [candidates[j]!, candidates[i]!];

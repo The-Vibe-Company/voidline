@@ -3,7 +3,13 @@ import { createPlayerState, upgradeTiers } from "../game/balance";
 import { findRelic } from "../game/relic-catalog";
 import { findUpgrade } from "../game/upgrade-catalog";
 import { ownedRelics, ownedUpgrades, player, unlockedRelics } from "../state";
-import { applyRelicChoice, initializeRelicUnlocks, unlockRelicsForBossWave } from "./relics";
+import {
+  applyRelicChoice,
+  initializeRelicUnlocks,
+  resetRelicUnlocks,
+  unlockRelicsForBossWave,
+} from "./relics";
+import { resetAccountProgress } from "./account";
 
 const tier = upgradeTiers[0]!;
 
@@ -17,6 +23,10 @@ class MemoryStorage {
   setItem(key: string, value: string): void {
     this.values.set(key, value);
   }
+
+  removeItem(key: string): void {
+    this.values.delete(key);
+  }
 }
 
 describe("relic unlock persistence", () => {
@@ -25,6 +35,7 @@ describe("relic unlock persistence", () => {
     ownedRelics.clear();
     ownedUpgrades.clear();
     unlockedRelics.clear();
+    resetAccountProgress(null);
   });
 
   it("loads default and stored relic unlocks", () => {
@@ -45,6 +56,18 @@ describe("relic unlock persistence", () => {
 
     expect(unlocked).toEqual(["splitter-matrix"]);
     expect(storage.getItem("voidline:unlockedRelics")).toContain("splitter-matrix");
+  });
+
+  it("resets stored boss milestone unlocks to starter relics", () => {
+    const storage = new MemoryStorage();
+
+    initializeRelicUnlocks(storage);
+    unlockRelicsForBossWave(10, storage);
+    resetRelicUnlocks(storage);
+
+    expect(unlockedRelics.has("rail-focus")).toBe(true);
+    expect(unlockedRelics.has("splitter-matrix")).toBe(false);
+    expect(storage.getItem("voidline:unlockedRelics")).toBeNull();
   });
 
   it("refreshes player traits after applying a relic choice", () => {

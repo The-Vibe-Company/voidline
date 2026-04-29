@@ -14,6 +14,27 @@ export type EnemyRole = "normal" | "mini-boss" | "boss";
 
 export type TierId = "standard" | "rare" | "prototype" | "singularity";
 
+export type CharacterId = "pilot" | "runner" | "tank";
+
+export type WeaponId = "pulse" | "scatter" | "lance" | "drone";
+
+export type UnlockRequirement =
+  | "available"
+  | "reach-10m"
+  | "clear-stage-1"
+  | "reach-stage-2"
+  | "boss-kill";
+
+export type ShopItemId =
+  | "character:runner"
+  | "character:tank"
+  | "weapon:scatter"
+  | "weapon:lance"
+  | "weapon:drone"
+  | "technology:kinetic-shield"
+  | "technology:crit-array"
+  | "technology:heavy-caliber";
+
 export interface World {
   width: number;
   height: number;
@@ -29,6 +50,13 @@ export interface World {
 export interface GameState {
   mode: GameMode;
   wave: number;
+  stage: number;
+  startStage: number;
+  stageElapsedSeconds: number;
+  runElapsedSeconds: number;
+  stageBossSpawned: boolean;
+  stageBossActive: boolean;
+  highestStageReached: number;
   score: number;
   waveKills: number;
   waveTarget: number;
@@ -49,6 +77,9 @@ export interface GameState {
   magnetsCarried: number;
   bombsCarried: number;
   showPickupZones: boolean;
+  runBossWaves: number[];
+  runBossStages: number[];
+  runRewardClaimed: boolean;
 }
 
 export interface PlayerBonus {
@@ -67,17 +98,8 @@ export type ChallengeMetric =
   | "bestScore"
   | "bestLevel";
 
-export interface PermanentBonus {
-  fireRatePct?: number;
-  damagePct?: number;
-  speedPct?: number;
-  pickupRadiusPct?: number;
-  maxHpFlat?: number;
-}
-
 export interface ChallengeTier {
   threshold: number;
-  bonus: PermanentBonus;
 }
 
 export interface Challenge {
@@ -149,6 +171,68 @@ export interface Player {
   ramTimer: number;
   magnetStormCharge: number;
   magnetStormTimer: number;
+}
+
+export interface AccountProgress {
+  crystals: number;
+  spentCrystals: number;
+  purchasedUnlockIds: ShopItemId[];
+  selectedCharacterId: CharacterId;
+  selectedWeaponId: WeaponId;
+  selectedStartStage: number;
+  highestStageCleared: number;
+  highestStartStageUnlocked: number;
+  records: AccountRecords;
+  lastRunReward: AccountReward | null;
+}
+
+export interface AccountRecords {
+  bestStage: number;
+  bestTimeSeconds: number;
+  bestScore: number;
+  bestRunLevel: number;
+  bossKills: number;
+}
+
+export interface AccountRunSummary {
+  stage: number;
+  startStage: number;
+  elapsedSeconds: number;
+  runLevel: number;
+  score: number;
+  bossStages: readonly number[];
+}
+
+export interface AccountRewardBreakdown {
+  durationCrystals: number;
+  stageCrystals: number;
+  bossCrystals: number;
+  scoreCrystals: number;
+  recordCrystals: number;
+  startStageBonusCrystals: number;
+}
+
+export interface AccountReward {
+  source: "run" | "shop";
+  crystalsGained: number;
+  newlyUnlockedStartStage: number | null;
+  newRecords: string[];
+  breakdown: AccountRewardBreakdown;
+}
+
+export type ShopItemKind = "character" | "weapon" | "technology";
+
+export interface ShopItem {
+  id: ShopItemId;
+  kind: ShopItemKind;
+  name: string;
+  description: string;
+  cost: number;
+  tags: readonly BuildTag[];
+  requirement: UnlockRequirement;
+  characterId?: CharacterId;
+  weaponId?: WeaponId;
+  technologyId?: string;
 }
 
 export interface EnemyType {
@@ -293,8 +377,28 @@ export interface SynergyDefinition {
   requiredTags: Partial<Record<BuildTag, number>>;
 }
 
+export interface Weapon {
+  id: WeaponId;
+  name: string;
+  icon: string;
+  description: string;
+  tags: readonly BuildTag[];
+  apply: (target: Player) => void;
+}
+
+export interface Character {
+  id: CharacterId;
+  name: string;
+  icon: string;
+  description: string;
+  bonusLabel: string;
+  apply: (target: Player) => void;
+}
+
 export interface Upgrade {
   id: string;
+  kind: "technology" | "weapon";
+  weaponId?: WeaponId;
   icon: string;
   name: string;
   description: string;

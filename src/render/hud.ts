@@ -3,17 +3,36 @@ import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
 import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
-import type { BuildTag, ControlMode, RelicChoice, SynergyDefinition } from "../types";
+import { characterCatalog } from "../game/character-catalog";
+import { bossBalance } from "../game/roguelike";
+import { canPurchaseShopItem, isShopItemRevealed, shopCatalog } from "../game/shop-catalog";
+import { weaponCatalog } from "../game/weapon-catalog";
+import type {
+  BuildTag,
+  Character,
+  ControlMode,
+  RelicChoice,
+  ShopItem,
+  SynergyDefinition,
+  Weapon,
+} from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
 import { activeSynergiesForLoadout, BUILD_TAG_META } from "../systems/synergies";
 import {
   challengeCatalog,
   challengeValueLabel,
   nextChallengeThreshold,
-  totalPermanentBonus,
   unlockedTierCount,
 } from "../game/challenge-catalog";
 import { challengeProgress, challengeSummary } from "../systems/challenges";
+import {
+  accountProgress,
+  awardRunAccountProgress,
+  equipWeapon,
+  purchaseShopItem,
+  selectCharacter,
+  selectStartStage,
+} from "../systems/account";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -69,6 +88,16 @@ const hud = {
   startChallengeSummary: document.querySelector<HTMLElement>("#startChallengeSummary")!,
   gameOverChallengeList: document.querySelector<HTMLElement>("#gameOverChallengeList")!,
   gameOverChallengeSummary: document.querySelector<HTMLElement>("#gameOverChallengeSummary")!,
+  runRecapGrid: document.querySelector<HTMLElement>("#runRecapGrid")!,
+  runRewardBreakdown: document.querySelector<HTMLElement>("#runRewardBreakdown")!,
+  runRecapBadges: document.querySelector<HTMLElement>("#runRecapBadges")!,
+  accountCrystals: [...document.querySelectorAll<HTMLElement>("[data-account-crystals]")],
+  accountRecords: [...document.querySelectorAll<HTMLElement>("[data-account-record]")],
+  accountReward: [...document.querySelectorAll<HTMLElement>("[data-account-reward]")],
+  shopGrids: [...document.querySelectorAll<HTMLElement>("[data-shop-grid]")],
+  weaponGrids: [...document.querySelectorAll<HTMLElement>("[data-weapon-grid]")],
+  characterGrids: [...document.querySelectorAll<HTMLElement>("[data-character-grid]")],
+  stageGrids: [...document.querySelectorAll<HTMLElement>("[data-stage-grid]")],
 };
 
 const PICKUP_ZONES_KEY = "voidline:showPickupZones";
@@ -280,15 +309,31 @@ function updateStats(): void {
   hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
 }
 
-function bonusLabel(): string {
-  const bonus = totalPermanentBonus(challengeProgress);
-  const labels: string[] = [];
-  if (bonus.damagePct) labels.push(`Degats +${Math.round(bonus.damagePct * 100)}%`);
-  if (bonus.fireRatePct) labels.push(`Cadence +${Math.round(bonus.fireRatePct * 100)}%`);
-  if (bonus.speedPct) labels.push(`Vitesse +${Math.round(bonus.speedPct * 100)}%`);
-  if (bonus.pickupRadiusPct) labels.push(`Aimant +${Math.round(bonus.pickupRadiusPct * 100)}%`);
-  if (bonus.maxHpFlat) labels.push(`Coque +${bonus.maxHpFlat}`);
-  return labels.length > 0 ? labels.join(" - ") : "Aucun bonus actif";
+function accountRewardLabel(): string {
+  const reward = accountProgress.lastRunReward;
+  if (!reward || reward.crystalsGained <= 0) return "Aucun cristal gagne";
+  const parts = [`+${reward.crystalsGained.toLocaleString("fr-FR")} cristaux`];
+  if (reward.newlyUnlockedStartStage) parts.push(`depart N${reward.newlyUnlockedStartStage}`);
+  if (reward.newRecords.length > 0) parts.push("record");
+  return parts.join(" - ");
+}
+
+function formatNumber(value: number): string {
+  return Math.floor(value).toLocaleString("fr-FR");
+}
+
+function accountRecordLabel(): string {
+  const bestTime = formatTime(accountProgress.records.bestTimeSeconds);
+  return `Record N${accountProgress.records.bestStage} - ${bestTime} - score ${formatNumber(
+    accountProgress.records.bestScore,
+  )} - niv ${accountProgress.records.bestRunLevel}`;
+}
+
+function formatTime(seconds: number): string {
+  const safe = Math.max(0, Math.floor(seconds));
+  const minutes = Math.floor(safe / 60);
+  const rest = safe % 60;
+  return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
 function renderChallengeList(target: HTMLElement): void {
@@ -313,6 +358,7 @@ function renderChallengeList(target: HTMLElement): void {
       <span class="challenge-progress">
         <strong>${unlocked}/${total}</strong>
         <span>${challengeValueLabel(challenge.metric, value)}${nextThreshold === null ? "" : `/${challengeValueLabel(challenge.metric, nextThreshold)}`}</span>
+        <span>${nextThreshold === null ? "Complete" : "Objectif"}</span>
       </span>
     `;
     target.appendChild(row);
@@ -320,15 +366,285 @@ function renderChallengeList(target: HTMLElement): void {
 }
 
 export function updateChallengePanels(): void {
-  const summary = `${challengeSummary()} - ${bonusLabel()}`;
+  const summary = `${challengeSummary()} - objectifs d'unlocks`;
   hud.startChallengeSummary.textContent = summary;
   hud.gameOverChallengeSummary.textContent = summary;
   renderChallengeList(hud.startChallengeList);
   renderChallengeList(hud.gameOverChallengeList);
 }
 
+export function updateHangarPanels(): void {
+  for (const element of hud.accountCrystals) {
+    element.textContent = formatNumber(accountProgress.crystals);
+  }
+  for (const element of hud.accountRecords) {
+    element.textContent = accountRecordLabel();
+  }
+  for (const element of hud.accountReward) {
+    element.textContent = accountRewardLabel();
+  }
+  for (const grid of hud.shopGrids) {
+    renderShopGrid(grid);
+  }
+  for (const grid of hud.weaponGrids) {
+    renderWeaponGrid(grid);
+  }
+  for (const grid of hud.characterGrids) {
+    renderCharacterGrid(grid);
+  }
+  for (const grid of hud.stageGrids) {
+    renderStageGrid(grid);
+  }
+}
+
+function renderShopGrid(target: HTMLElement): void {
+  target.innerHTML = "";
+  for (const item of shopCatalog.filter((candidate) => candidate.kind === "technology")) {
+    target.appendChild(shopButton(item));
+  }
+}
+
+function shopButton(item: ShopItem): HTMLButtonElement {
+  const button = document.createElement("button");
+  const purchased = accountProgress.purchasedUnlockIds.includes(item.id);
+  const purchaseState = canPurchaseShopItem(accountProgress, item);
+  const revealed = isShopItemRevealed(accountProgress, item);
+  button.className = "hangar-card";
+  button.type = "button";
+  button.disabled = purchased || !purchaseState.ok;
+  button.dataset.owned = purchased ? "true" : "false";
+  button.dataset.locked = revealed ? "false" : "true";
+  button.innerHTML = `
+    <span class="hangar-card-title">${item.name}</span>
+    ${renderBuildTags(item.tags)}
+    <span class="hangar-card-copy">${item.description}</span>
+    <span class="hangar-card-price">${
+      purchased
+        ? "Acquis"
+        : revealed
+          ? `${item.cost} cristaux`
+          : requirementLabel(item.requirement)
+    }</span>
+  `;
+  button.addEventListener("click", () => {
+    const result = purchaseShopItem(item.id);
+    if (result.ok) {
+      updateHangarPanels();
+    }
+  });
+  return button;
+}
+
+function renderWeaponGrid(target: HTMLElement): void {
+  target.innerHTML = "";
+  for (const weapon of weaponCatalog) {
+    target.appendChild(weaponButton(weapon));
+  }
+}
+
+function weaponButton(weapon: Weapon): HTMLButtonElement {
+  const button = document.createElement("button");
+  const shopItem = shopCatalog.find((item) => item.weaponId === weapon.id);
+  const owned =
+    weapon.id === "pulse" ||
+    (shopItem !== undefined && accountProgress.purchasedUnlockIds.includes(shopItem.id));
+  const equipped = accountProgress.selectedWeaponId === weapon.id;
+  const purchaseState = shopItem ? canPurchaseShopItem(accountProgress, shopItem) : { ok: false };
+  const revealed = shopItem ? isShopItemRevealed(accountProgress, shopItem) : true;
+  button.className = "hangar-card weapon-card";
+  button.type = "button";
+  button.disabled = !owned && !purchaseState.ok;
+  button.dataset.owned = owned ? "true" : "false";
+  button.dataset.equipped = equipped ? "true" : "false";
+  button.dataset.locked = revealed ? "false" : "true";
+  button.innerHTML = `
+    <span class="hangar-card-title">${weapon.icon} ${weapon.name}</span>
+    ${renderBuildTags(weapon.tags)}
+    <span class="hangar-card-copy">${weapon.description}</span>
+    <span class="hangar-card-price">${
+      equipped
+        ? "Selectionnee"
+        : owned
+          ? "Selectionner"
+          : shopItem
+            ? revealed
+              ? `${shopItem.cost} cristaux`
+              : requirementLabel(shopItem.requirement)
+            : "Verrouille"
+    }</span>
+  `;
+  button.addEventListener("click", () => {
+    if (!owned && shopItem) {
+      const result = purchaseShopItem(shopItem.id);
+      if (result.ok) updateHangarPanels();
+      return;
+    }
+    if (owned && equipWeapon(weapon.id)) {
+      updateHangarPanels();
+    }
+  });
+  return button;
+}
+
+function renderCharacterGrid(target: HTMLElement): void {
+  target.innerHTML = "";
+  for (const character of characterCatalog) {
+    target.appendChild(characterButton(character));
+  }
+}
+
+function characterButton(character: Character): HTMLButtonElement {
+  const button = document.createElement("button");
+  const shopItem = shopCatalog.find((item) => item.characterId === character.id);
+  const owned =
+    character.id === "pilot" ||
+    (shopItem !== undefined && accountProgress.purchasedUnlockIds.includes(shopItem.id));
+  const selected = accountProgress.selectedCharacterId === character.id;
+  const purchaseState = shopItem ? canPurchaseShopItem(accountProgress, shopItem) : { ok: false };
+  const revealed = shopItem ? isShopItemRevealed(accountProgress, shopItem) : true;
+  button.className = "hangar-card character-card";
+  button.type = "button";
+  button.disabled = !owned && !purchaseState.ok;
+  button.dataset.owned = owned ? "true" : "false";
+  button.dataset.equipped = selected ? "true" : "false";
+  button.dataset.locked = revealed ? "false" : "true";
+  button.innerHTML = `
+    <span class="hangar-card-title">${character.icon} ${character.name}</span>
+    <span class="hangar-card-copy">${character.description}</span>
+    <span class="hangar-card-copy">${character.bonusLabel}</span>
+    <span class="hangar-card-price">${
+      selected
+        ? "Selectionne"
+        : owned
+          ? "Selectionner"
+          : shopItem
+            ? revealed
+              ? `${shopItem.cost} cristaux`
+              : requirementLabel(shopItem.requirement)
+            : "Verrouille"
+    }</span>
+  `;
+  button.addEventListener("click", () => {
+    if (!owned && shopItem) {
+      const result = purchaseShopItem(shopItem.id);
+      if (result.ok) updateHangarPanels();
+      return;
+    }
+    if (owned && selectCharacter(character.id)) {
+      updateHangarPanels();
+    }
+  });
+  return button;
+}
+
+function renderStageGrid(target: HTMLElement): void {
+  target.innerHTML = "";
+  for (let stage = 1; stage <= accountProgress.highestStartStageUnlocked; stage += 1) {
+    target.appendChild(stageButton(stage));
+  }
+}
+
+function stageButton(stage: number): HTMLButtonElement {
+  const button = document.createElement("button");
+  const unlocked = stage <= accountProgress.highestStartStageUnlocked;
+  const selected = accountProgress.selectedStartStage === stage;
+  button.className = "hangar-card stage-card";
+  button.type = "button";
+  button.disabled = !unlocked;
+  button.dataset.owned = unlocked ? "true" : "false";
+  button.dataset.equipped = selected ? "true" : "false";
+  button.innerHTML = `
+    <span class="hangar-card-title">Niveau ${stage}</span>
+    <span class="hangar-card-copy">${
+      stage === 1
+        ? "Depart standard."
+        : "+35% cristaux, sans bonus de puissance."
+    }</span>
+    <span class="hangar-card-price">${
+      selected ? "Selectionne" : unlocked ? "Selectionner" : "Bats le boss N1"
+    }</span>
+  `;
+  button.addEventListener("click", () => {
+    if (selectStartStage(stage)) {
+      updateHangarPanels();
+    }
+  });
+  return button;
+}
+
+function requirementLabel(requirement: ShopItem["requirement"]): string {
+  switch (requirement) {
+    case "available":
+      return "Disponible";
+    case "reach-10m":
+      return "Atteins 10:00";
+    case "clear-stage-1":
+      return "Bats le boss N1";
+    case "reach-stage-2":
+      return "Debloque le depart N2";
+    case "boss-kill":
+      return "Bats un boss";
+  }
+}
+
+function renderRunRecap(): void {
+  const reward = accountProgress.lastRunReward;
+  const bossCount = state.runBossStages.length;
+  const breakdown = reward?.breakdown;
+  hud.runRecapGrid.innerHTML = "";
+  hud.runRewardBreakdown.innerHTML = "";
+
+  const stats = [
+    { label: "Score", value: formatNumber(state.score) },
+    { label: "Temps", value: formatTime(state.runElapsedSeconds) },
+    { label: "Niveau atteint", value: String(state.highestStageReached) },
+    { label: "Niveau run", value: String(state.level) },
+    { label: "Boss", value: String(bossCount) },
+    { label: "Cristaux", value: `+${formatNumber(reward?.crystalsGained ?? 0)}` },
+  ];
+
+  for (const stat of stats) {
+    const item = document.createElement("article");
+    item.className = "recap-stat";
+    item.innerHTML = `<span>${stat.label}</span><strong>${stat.value}</strong>`;
+    hud.runRecapGrid.appendChild(item);
+  }
+
+  const badges: string[] = [];
+  if ((reward?.newRecords.length ?? 0) > 0) badges.push("Record battu");
+  if (reward?.newlyUnlockedStartStage) badges.push(`Depart N${reward.newlyUnlockedStartStage}`);
+  if (bossCount > 0) badges.push("Boss vaincu");
+  hud.runRecapBadges.textContent = badges.length > 0 ? badges.join(" - ") : "Run terminee";
+
+  const rows = [
+    ["Temps survecu", breakdown?.durationCrystals ?? 0],
+    ["Niveau atteint", breakdown?.stageCrystals ?? 0],
+    ["Boss detruits", breakdown?.bossCrystals ?? 0],
+    ["Score", breakdown?.scoreCrystals ?? 0],
+    ["Records", breakdown?.recordCrystals ?? 0],
+    ["Depart avance", breakdown?.startStageBonusCrystals ?? 0],
+  ] as const;
+
+  for (const [label, value] of rows.filter(([, value]) => value > 0)) {
+    const row = document.createElement("div");
+    row.className = "breakdown-row";
+    row.innerHTML = `<span>${label}</span><strong>+${formatNumber(value)} C</strong>`;
+    hud.runRewardBreakdown.appendChild(row);
+  }
+
+  if (!hud.runRewardBreakdown.childElementCount) {
+    const row = document.createElement("div");
+    row.className = "breakdown-row";
+    row.innerHTML = "<span>Progression</span><strong>Aucun gain</strong>";
+    hud.runRewardBreakdown.appendChild(row);
+  }
+}
+
 export function updateHud(): void {
-  hud.wave.textContent = String(state.wave);
+  const stageRemaining = Math.max(0, bossBalance.stageDurationSeconds - state.stageElapsedSeconds);
+  hud.wave.textContent = state.stageBossActive
+    ? `N${state.stage} BOSS`
+    : `N${state.stage} ${formatTime(stageRemaining)}`;
   hud.kills.textContent = String(state.waveKills);
   hud.target.textContent = String(state.waveTarget);
   hud.level.textContent = String(state.level);
@@ -344,7 +660,7 @@ export function updateHud(): void {
   const boss = enemies.find((enemy) => enemy.role === "boss");
   hud.bossPanel.dataset.active = boss ? "true" : "false";
   if (boss) {
-    hud.bossName.textContent = `Boss vague ${state.wave}`;
+    hud.bossName.textContent = `Boss niveau ${state.stage}`;
     hud.bossBar.style.width = `${clamp(boss.hp / boss.maxHp, 0, 1) * 100}%`;
   } else {
     hud.bossBar.style.width = "0%";
@@ -353,6 +669,7 @@ export function updateHud(): void {
   updateItemBar();
   if (state.mode !== "playing" && state.mode !== "paused") {
     updateChallengePanels();
+    updateHangarPanels();
   }
 }
 
@@ -590,9 +907,22 @@ function onRelicChoice(choice: RelicChoice): void {
 
 export function showGameOver(): void {
   state.mode = "gameover";
+  if (!state.runRewardClaimed) {
+    state.runRewardClaimed = true;
+    awardRunAccountProgress({
+      stage: state.highestStageReached,
+      startStage: state.startStage,
+      elapsedSeconds: state.runElapsedSeconds,
+      runLevel: state.level,
+      score: state.score,
+      bossStages: state.runBossStages,
+    });
+  }
   hud.finalScore.textContent = Math.floor(state.score).toLocaleString("fr-FR");
-  hud.finalWave.textContent = String(state.wave);
+  hud.finalWave.textContent = String(state.highestStageReached);
+  renderRunRecap();
   updateChallengePanels();
+  updateHangarPanels();
   hud.gameOverOverlay.classList.add("active");
   setOverlayFocusScope("gameOverOverlay");
   requestAnimationFrame(() =>

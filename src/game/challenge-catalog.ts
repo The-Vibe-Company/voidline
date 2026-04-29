@@ -1,4 +1,4 @@
-import type { Challenge, ChallengeMetric, ChallengeProgress, PermanentBonus } from "../types";
+import type { Challenge, ChallengeMetric, ChallengeProgress } from "../types";
 
 export const challengeCatalog: Challenge[] = [
   {
@@ -9,10 +9,10 @@ export const challengeCatalog: Challenge[] = [
     metric: "bestWave",
     unit: "vague",
     tiers: [
-      { threshold: 5, bonus: { speedPct: 0.03 } },
-      { threshold: 10, bonus: { speedPct: 0.03 } },
-      { threshold: 15, bonus: { speedPct: 0.04 } },
-      { threshold: 20, bonus: { speedPct: 0.05 } },
+      { threshold: 5 },
+      { threshold: 10 },
+      { threshold: 15 },
+      { threshold: 20 },
     ],
   },
   {
@@ -23,9 +23,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "bossKills",
     unit: "boss",
     tiers: [
-      { threshold: 1, bonus: { damagePct: 0.04 } },
-      { threshold: 2, bonus: { damagePct: 0.04 } },
-      { threshold: 3, bonus: { damagePct: 0.05 } },
+      { threshold: 1 },
+      { threshold: 2 },
+      { threshold: 3 },
     ],
   },
   {
@@ -36,9 +36,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "totalKills",
     unit: "kills",
     tiers: [
-      { threshold: 100, bonus: { fireRatePct: 0.03 } },
-      { threshold: 300, bonus: { fireRatePct: 0.04 } },
-      { threshold: 600, bonus: { fireRatePct: 0.05 } },
+      { threshold: 100 },
+      { threshold: 300 },
+      { threshold: 600 },
     ],
   },
   {
@@ -49,9 +49,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "bestScore",
     unit: "score",
     tiers: [
-      { threshold: 2_000, bonus: { maxHpFlat: 10 } },
-      { threshold: 8_000, bonus: { maxHpFlat: 10 } },
-      { threshold: 20_000, bonus: { maxHpFlat: 10 } },
+      { threshold: 2_000 },
+      { threshold: 8_000 },
+      { threshold: 20_000 },
     ],
   },
   {
@@ -62,9 +62,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "bestLevel",
     unit: "niveau",
     tiers: [
-      { threshold: 5, bonus: { pickupRadiusPct: 0.05 } },
-      { threshold: 10, bonus: { pickupRadiusPct: 0.05 } },
-      { threshold: 15, bonus: { pickupRadiusPct: 0.06 } },
+      { threshold: 5 },
+      { threshold: 10 },
+      { threshold: 15 },
     ],
   },
 ];
@@ -91,15 +91,8 @@ export function totalUnlockedTiers(progress: ChallengeProgress): number {
   );
 }
 
-export function totalPermanentBonus(progress: ChallengeProgress): PermanentBonus {
-  const total: PermanentBonus = {};
-  for (const challenge of challengeCatalog) {
-    const unlocked = unlockedTierCount(challenge, progress);
-    for (const tier of challenge.tiers.slice(0, unlocked)) {
-      addBonus(total, tier.bonus);
-    }
-  }
-  return total;
+export function challengeTierId(challengeId: string, tierIndex: number): string {
+  return `${challengeId}:${tierIndex + 1}`;
 }
 
 export function nextChallengeThreshold(
@@ -113,12 +106,4 @@ export function nextChallengeThreshold(
 export function challengeValueLabel(metric: ChallengeMetric, value: number): string {
   if (metric === "bestScore") return Math.floor(value).toLocaleString("fr-FR");
   return String(Math.floor(value));
-}
-
-function addBonus(target: PermanentBonus, source: PermanentBonus): void {
-  target.fireRatePct = (target.fireRatePct ?? 0) + (source.fireRatePct ?? 0);
-  target.damagePct = (target.damagePct ?? 0) + (source.damagePct ?? 0);
-  target.speedPct = (target.speedPct ?? 0) + (source.speedPct ?? 0);
-  target.pickupRadiusPct = (target.pickupRadiusPct ?? 0) + (source.pickupRadiusPct ?? 0);
-  target.maxHpFlat = (target.maxHpFlat ?? 0) + (source.maxHpFlat ?? 0);
 }

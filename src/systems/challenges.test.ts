@@ -78,6 +78,14 @@ describe("challenge persistence", () => {
     expect(stored.totalKills).toBe(3);
   });
 
+  it("does not mutate meta progression when objectives advance", () => {
+    initializeChallenges(storage);
+
+    recordChallengeProgress("bestWave", 5, storage);
+
+    expect(storage.getItem("voidline:metaProgress:v1")).toBeNull();
+  });
+
   it("keeps cumulative counters monotonic", () => {
     initializeChallenges(storage);
     incrementChallengeProgress("totalKills", 3, storage);

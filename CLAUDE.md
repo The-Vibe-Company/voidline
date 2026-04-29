@@ -1,5 +1,23 @@
 # Voidline — Agent Guide
 
+## Concept du jeu
+
+Voidline est un rogue-lite spatial browser-first: le joueur lance une run courte, survit dans une arene suivie par camera, ramasse de l'XP, choisit des armes/technologies de run, puis meurt ou bat un boss pour alimenter une progression a cristaux.
+
+La boucle principale est volontairement simple:
+
+1. **Run**: le vaisseau tire automatiquement sur l'ennemi le plus proche; le joueur se concentre sur le deplacement, le positionnement, les choix d'upgrades et les reliques temporaires.
+2. **Objectif**: chaque niveau dure 10 minutes; a la fin du timer, un boss apparait. Le battre fait passer au niveau suivant dans la meme run.
+3. **Resultat**: a la mort, l'ecran de recap montre temps, niveau atteint, niveau de run, boss battus, records et cristaux gagnes.
+4. **Hangar**: les cristaux achetent des unlocks permanents: personnages, armes de depart et technologies.
+5. **Nouvelle run**: les achats ouvrent de nouveaux chemins de build; battre le boss du niveau 1 debloque gratuitement le depart direct niveau 2, avec bonus de cristaux mais sans puissance gratuite.
+
+Le fun doit venir du buildcraft, pas d'une inflation brute de stats permanentes. Les synergies de `src/systems/synergies.ts` sont le coeur du jeu: armes, technologies et reliques portent des tags de build (`cannon`, `salvage`, `magnet`, `shield`, `pierce`, `drone`, `crit`) qui orientent les drafts. Une nouvelle feature doit donc, par defaut, renforcer des chemins de build lisibles plutot qu'ajouter une ressource ou un systeme parallele.
+
+Les challenges ne donnent pas de bonus permanents directs. Ils servent d'objectifs lisibles et de gates d'unlocks; les cristaux restent la seule monnaie meta. Les reliques restent des rewards temporaires de run, mais leur disponibilite passe par les tags de build et les unlocks de boss.
+
+La home est un hangar jouable, pas une landing page: le premier ecran doit permettre de lancer une run, voir les cristaux, choisir personnage/arme/niveau de depart, acheter des technologies et lire les objectifs. L'ecran de mort doit aider le joueur a comprendre ce qu'il a gagne et quoi acheter ensuite.
+
 ## Architecture (rappel)
 
 - **Logique pure** (testable): `src/game/`, `src/entities/`, `src/systems/`, `src/simulation/`, `src/utils.ts`

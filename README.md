@@ -25,11 +25,15 @@ npm run preview
 - Explore une arene plus grande que l'ecran avec une camera qui suit le vaisseau.
 - Le vaisseau cible et tire automatiquement sur l'ennemi le plus proche.
 - Les ennemis lachent des fragments d'XP a recuperer dans l'arene.
-- Monte de niveau en ramassant assez d'XP pour choisir une amelioration avec le trackpad ou les touches 1 a 5.
+- Monte de niveau en ramassant assez d'XP pour choisir une arme level-up ou une technologie.
+- Les technologies remplacent les tomes: degats, cadence, projectiles, calibre, aimant, crit, defense, vitesse.
+- Survis 10 minutes pour faire apparaitre le boss du niveau; le battre fait passer au niveau suivant.
+- Les cristaux gagnes a la fin d'une run achetent personnages, armes et technologies.
+- Battre le boss du niveau 1 debloque le depart direct niveau 2, avec bonus de cristaux mais sans bonus de puissance.
 - Les ameliorations existent en tiers Standard, Rare, Prototype et Singularity.
 - Consulte les stats globales du vaisseau dans le panneau de gauche.
 - Mets en pause avec Esc ou P.
-- Survis le plus longtemps possible et maximise le score.
+- Survis le plus longtemps possible, bats les boss et reinvestis tes cristaux dans le hangar.
 
 ## Structure
 

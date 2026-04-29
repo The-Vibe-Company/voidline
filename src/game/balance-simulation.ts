@@ -19,6 +19,11 @@ import {
   restoreChallengeProgress,
   setChallengeTrackingEnabled,
 } from "../systems/challenges";
+import {
+  currentAccountProgress,
+  resetAccountProgress,
+  restoreAccountProgress,
+} from "../systems/account";
 
 export type BalancePersonaId = "idle" | "panic" | "kiter" | "optimizer";
 
@@ -71,27 +76,25 @@ const MAX_STEP_SECONDS = 0.033;
 const OFFENSIVE_UPGRADE_PRIORITY = [
   "twin-cannon",
   "rail-slug",
-  "piercer",
+  "pulse-overdrive",
+  "lance-capacitor",
   "crit-array",
-  "orbital-drone",
+  "drone-uplink",
   "plasma-core",
   "heavy-caliber",
-  "vampire-coil",
   "ion-engine",
   "kinetic-shield",
-  "repair-bay",
   "magnet-array",
 ];
 const OPTIMIZER_UPGRADE_PRIORITY = [
   "twin-cannon",
   "plasma-core",
   "rail-slug",
+  "pulse-overdrive",
   "ion-engine",
   "kinetic-shield",
-  "vampire-coil",
-  "repair-bay",
-  "piercer",
-  "orbital-drone",
+  "lance-capacitor",
+  "drone-uplink",
   "heavy-caliber",
   "crit-array",
   "magnet-array",
@@ -132,6 +135,7 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
   validateTrialOptions(options, stepSeconds);
   const savedChallengeProgress = currentChallengeProgress();
   const savedChallengeTracking = isChallengeTrackingEnabled();
+  const savedAccountProgress = currentAccountProgress();
   const savedInput = {
     keys: new Set(keys),
     pointerX: pointer.x,
@@ -196,6 +200,7 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
     pointer.inside = savedInput.pointerInside;
     state.controlMode = savedInput.controlMode;
     restoreChallengeProgress(savedChallengeProgress);
+    restoreAccountProgress(savedAccountProgress);
     setChallengeTrackingEnabled(savedChallengeTracking);
   }
 }
@@ -244,6 +249,7 @@ function prepareHeadlessWorld(seed: number): void {
   world.shake = 0;
   setChallengeTrackingEnabled(false);
   resetChallengeProgress(null);
+  resetAccountProgress(null);
   resetSimulation(seed);
   state.controlMode = "keyboard";
 }

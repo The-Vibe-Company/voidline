@@ -1,5 +1,6 @@
 export const bossBalance = {
-  bossInterval: 10,
+  stageDurationSeconds: 600,
+  waveOffsetPerStage: 9,
   boss: {
     hpMultiplier: 22,
     speedMultiplier: 0.54,
@@ -21,12 +22,16 @@ export const bossBalance = {
   },
 };
 
-export function isBossWave(wave: number): boolean {
-  return wave > 0 && wave % bossBalance.bossInterval === 0;
+export function startingWaveForStage(stage: number): number {
+  return 1 + Math.max(0, Math.floor(stage) - 1) * bossBalance.waveOffsetPerStage;
+}
+
+export function bossUnlockWaveForStage(stage: number): number {
+  return Math.max(1, Math.floor(stage)) * 10;
 }
 
 export function isMiniBossEligibleWave(wave: number): boolean {
-  return wave >= bossBalance.miniBoss.startWave && !isBossWave(wave);
+  return wave >= bossBalance.miniBoss.startWave;
 }
 
 export function shouldSpawnMiniBoss(

@@ -4,6 +4,8 @@ import { createPlayerState, upgradeTiers } from "../game/balance";
 import { findUpgrade } from "../game/upgrade-catalog";
 import { setSimulationSeed } from "../simulation/random";
 import type { BuildTag, Upgrade } from "../types";
+import { createDefaultAccountProgress } from "../game/account-progression";
+import { resetAccountProgress, restoreAccountProgress } from "./account";
 import { pickUpgradeDraft, pickUpgrades } from "./upgrades";
 
 const tier = upgradeTiers[0]!;
@@ -13,12 +15,14 @@ function resetDraftState(): void {
   Object.assign(player, createPlayerState());
   ownedUpgrades.clear();
   ownedRelics.clear();
+  resetAccountProgress(null);
   state.wave = 1;
 }
 
 function draftUpgrade(id: string, tags: BuildTag[]): Upgrade {
   return {
     id,
+    kind: "technology",
     icon: id.slice(0, 2).toUpperCase(),
     name: id,
     description: id,
@@ -106,5 +110,36 @@ describe("upgrade draft", () => {
     expect(choices).toHaveLength(3);
     expect(supportsCannon).toBe(true);
     expect(offersOffBuild).toBe(true);
+  });
+
+  it("does not offer locked technologies until bought", () => {
+    let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+    expect(ids).not.toContain("kinetic-shield");
+    expect(ids).not.toContain("crit-array");
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      purchasedUnlockIds: ["technology:kinetic-shield", "technology:crit-array"],
+    });
+    ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+
+    expect(ids).toContain("kinetic-shield");
+    expect(ids).toContain("crit-array");
+  });
+
+  it("offers level-ups only for the selected weapon", () => {
+    let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+    expect(ids).toContain("pulse-overdrive");
+    expect(ids).not.toContain("lance-capacitor");
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      purchasedUnlockIds: ["weapon:lance"],
+      selectedWeaponId: "lance",
+    });
+    ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+
+    expect(ids).toContain("lance-capacitor");
+    expect(ids).not.toContain("pulse-overdrive");
   });
 });

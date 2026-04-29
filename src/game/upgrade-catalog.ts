@@ -1,7 +1,6 @@
 import {
   balance,
   droneGain,
-  healGain,
   maxHpGain,
   pierceGain,
   projectileGain,
@@ -9,7 +8,8 @@ import {
   shieldGain,
   shieldRegenGain,
 } from "./balance";
-import type { Player, Upgrade } from "../types";
+import { STARTER_BUILD_TAGS, STARTER_TECHNOLOGY_IDS, hasUnlockedTags } from "./shop-catalog";
+import type { BuildTag, Player, Upgrade, WeaponId } from "../types";
 
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
@@ -18,9 +18,10 @@ function percent(value: number): string {
 export const upgradePool: Upgrade[] = [
   {
     id: "twin-cannon",
+    kind: "technology",
     icon: "II",
-    name: "Canon jumele",
-    description: "Elargit les salves principales.",
+    name: "Technologie salves",
+    description: "Elargit les tirs de l'arme active.",
     tags: ["cannon"],
     effect(tier) {
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve`;
@@ -34,8 +35,9 @@ export const upgradePool: Upgrade[] = [
   },
   {
     id: "plasma-core",
+    kind: "technology",
     icon: "Hz",
-    name: "Coeur plasma",
+    name: "Technologie cadence",
     description: "Accorde le reacteur au rythme des canons.",
     tags: ["cannon"],
     effect(tier) {
@@ -48,8 +50,9 @@ export const upgradePool: Upgrade[] = [
   },
   {
     id: "rail-slug",
+    kind: "technology",
     icon: "DMG",
-    name: "Ogive railgun",
+    name: "Technologie degats",
     description: "Charge les impacts avec une masse cinetique.",
     tags: ["cannon"],
     effect(tier) {
@@ -65,8 +68,9 @@ export const upgradePool: Upgrade[] = [
   },
   {
     id: "ion-engine",
+    kind: "technology",
     icon: "SPD",
-    name: "Moteurs ioniques",
+    name: "Technologie moteurs",
     description: "Rend les corrections de trajectoire plus nerveuses.",
     tags: ["salvage"],
     effect(tier) {
@@ -78,11 +82,27 @@ export const upgradePool: Upgrade[] = [
     },
   },
   {
+    id: "magnet-array",
+    kind: "technology",
+    icon: "MAG",
+    name: "Technologie aimant",
+    description: "Etend la portee d'attraction des fragments d'XP.",
+    tags: ["magnet"],
+    effect(tier) {
+      return `+${percent(balance.upgrade.effects.pickupRadius * tier.power)} portee de ramassage`;
+    },
+    apply(tier, target) {
+      target.bonus.pickupRadiusPct += balance.upgrade.effects.pickupRadius * tier.power;
+      recomputeMultiplicativeStats(target);
+    },
+  },
+  {
     id: "kinetic-shield",
+    kind: "technology",
     icon: "SHD",
-    name: "Ecran cinetique",
+    name: "Technologie defense",
     description: "Ajoute une couche regenerante autour de la coque.",
-    tags: ["shield"],
+    tags: ["shield", "salvage"],
     effect(tier) {
       return `+${shieldGain(tier)} bouclier, +${shieldRegenGain(tier).toFixed(1)}/s regen`;
     },
@@ -91,56 +111,15 @@ export const upgradePool: Upgrade[] = [
       target.shieldMax += shield;
       target.shield = Math.min(target.shieldMax, target.shield + shield);
       target.shieldRegen += shieldRegenGain(tier);
-    },
-  },
-  {
-    id: "repair-bay",
-    icon: "HP",
-    name: "Baie de reparation",
-    description: "Renforce la coque et injecte des nanoreparations.",
-    tags: ["salvage"],
-    effect(tier) {
-      return `+${maxHpGain(tier)} integrite max, +${healGain(tier)} soin`;
-    },
-    apply(tier, target) {
       target.maxHp += maxHpGain(tier);
-      target.hp = Math.min(target.maxHp, target.hp + healGain(tier));
-    },
-  },
-  {
-    id: "orbital-drone",
-    icon: "O",
-    name: "Drone orbital",
-    description: "Deploie une tourelle autonome en orbite proche.",
-    tags: ["drone"],
-    effect(tier) {
-      return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
-    },
-    apply(tier, target) {
-      target.drones = Math.min(balance.upgrade.caps.drones, target.drones + droneGain(tier));
-    },
-  },
-  {
-    id: "piercer",
-    icon: ">>",
-    name: "Munition perce-coque",
-    description: "Permet aux tirs de traverser les blindages.",
-    tags: ["pierce", "cannon"],
-    effect(tier) {
-      return `+${pierceGain(tier)} penetration, +${percent(
-        balance.upgrade.effects.pierceDamage * tier.power,
-      )} degats`;
-    },
-    apply(tier, target) {
-      target.pierce = Math.min(balance.upgrade.caps.pierce, target.pierce + pierceGain(tier));
-      target.bonus.damagePct += balance.upgrade.effects.pierceDamage * tier.power;
-      recomputeMultiplicativeStats(target);
+      target.hp = Math.min(target.maxHp, target.hp + Math.round(maxHpGain(tier) * 0.65));
     },
   },
   {
     id: "crit-array",
+    kind: "technology",
     icon: "X2",
-    name: "Reseau critique",
+    name: "Technologie critique",
     description: "Calibre les tirs pour des coups doubles aleatoires.",
     tags: ["crit"],
     effect(tier) {
@@ -154,36 +133,10 @@ export const upgradePool: Upgrade[] = [
     },
   },
   {
-    id: "vampire-coil",
-    icon: "VMP",
-    name: "Bobine vampire",
-    description: "Convertit chaque elimination en regeneration de coque.",
-    tags: ["salvage"],
-    effect(tier) {
-      return `+${(balance.upgrade.effects.lifesteal * tier.power).toFixed(1)} PV par kill`;
-    },
-    apply(tier, target) {
-      target.lifesteal += balance.upgrade.effects.lifesteal * tier.power;
-    },
-  },
-  {
-    id: "magnet-array",
-    icon: "MAG",
-    name: "Aimant orbital",
-    description: "Etend la portee d'attraction des fragments d'XP.",
-    tags: ["magnet"],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.pickupRadius * tier.power)} portee de ramassage`;
-    },
-    apply(tier, target) {
-      target.bonus.pickupRadiusPct += balance.upgrade.effects.pickupRadius * tier.power;
-      recomputeMultiplicativeStats(target);
-    },
-  },
-  {
     id: "heavy-caliber",
+    kind: "technology",
     icon: "CAL",
-    name: "Calibre lourd",
+    name: "Technologie calibre",
     description: "Elargit les projectiles pour mieux toucher.",
     tags: ["cannon"],
     effect(tier) {
@@ -192,6 +145,77 @@ export const upgradePool: Upgrade[] = [
     apply(tier, target) {
       target.bonus.bulletRadiusPct += balance.upgrade.effects.bulletRadius * tier.power;
       recomputeMultiplicativeStats(target);
+    },
+  },
+  {
+    id: "pulse-overdrive",
+    kind: "weapon",
+    weaponId: "pulse",
+    icon: "PUL",
+    name: "Pulse overdrive",
+    description: "Level-up du Pulse Rifle: cadence et degats stables.",
+    tags: ["cannon"],
+    effect(tier) {
+      return `+${percent(0.15 * tier.power)} cadence, +${percent(0.12 * tier.power)} degats`;
+    },
+    apply(tier, target) {
+      target.bonus.fireRatePct += 0.15 * tier.power;
+      target.bonus.damagePct += 0.12 * tier.power;
+      recomputeMultiplicativeStats(target);
+    },
+  },
+  {
+    id: "scatter-loader",
+    kind: "weapon",
+    weaponId: "scatter",
+    icon: "SCT",
+    name: "Scatter loader",
+    description: "Level-up du Scatter: densifie la salve et compense les impacts.",
+    tags: ["cannon", "crit"],
+    effect(tier) {
+      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, +${percent(
+        0.08 * tier.power,
+      )} degats`;
+    },
+    apply(tier, target) {
+      target.projectileCount = Math.min(
+        balance.upgrade.caps.projectiles,
+        target.projectileCount + projectileGain(tier),
+      );
+      target.bonus.damagePct += 0.08 * tier.power;
+      recomputeMultiplicativeStats(target);
+    },
+  },
+  {
+    id: "lance-capacitor",
+    kind: "weapon",
+    weaponId: "lance",
+    icon: "RLG",
+    name: "Lance capacitor",
+    description: "Level-up du Rail Lance: penetration et charge de tir.",
+    tags: ["pierce", "cannon"],
+    effect(tier) {
+      return `+${pierceGain(tier)} penetration, +${percent(0.18 * tier.power)} degats`;
+    },
+    apply(tier, target) {
+      target.pierce = Math.min(balance.upgrade.caps.pierce, target.pierce + pierceGain(tier));
+      target.bonus.damagePct += 0.18 * tier.power;
+      recomputeMultiplicativeStats(target);
+    },
+  },
+  {
+    id: "drone-uplink",
+    kind: "weapon",
+    weaponId: "drone",
+    icon: "DRN",
+    name: "Drone uplink",
+    description: "Level-up du Drone Core: ajoute des tourelles autonomes.",
+    tags: ["drone", "salvage"],
+    effect(tier) {
+      return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
+    },
+    apply(tier, target) {
+      target.drones = Math.min(balance.upgrade.caps.drones, target.drones + droneGain(tier));
     },
   },
 ];
@@ -206,19 +230,31 @@ export function findUpgrade(id: string): Upgrade {
 
 export function availableUpgradesForPlayer(
   target: Player,
-  source: Upgrade[] = upgradePool,
+  selectedWeaponId: WeaponId = "pulse",
+  unlockedTechnologyIds: ReadonlySet<string> = new Set(STARTER_TECHNOLOGY_IDS),
+  source: Upgrade[] | undefined = upgradePool,
+  unlockedTags: ReadonlySet<BuildTag> = new Set(STARTER_BUILD_TAGS),
 ): Upgrade[] {
-  return source.filter((upgrade) => {
-    if (upgrade.id === "orbital-drone" && target.drones >= balance.upgrade.caps.drones) {
+  return (source ?? upgradePool).filter((upgrade) => {
+    if (upgrade.kind === "technology" && !unlockedTechnologyIds.has(upgrade.id)) {
+      return false;
+    }
+    if (upgrade.kind === "weapon" && upgrade.weaponId !== selectedWeaponId) {
+      return false;
+    }
+    if (!hasUnlockedTags(upgrade.tags, unlockedTags)) {
+      return false;
+    }
+    if (upgrade.id === "drone-uplink" && target.drones >= balance.upgrade.caps.drones) {
       return false;
     }
     if (
-      upgrade.id === "twin-cannon" &&
+      (upgrade.id === "twin-cannon" || upgrade.id === "scatter-loader") &&
       target.projectileCount >= balance.upgrade.caps.projectiles
     ) {
       return false;
     }
-    if (upgrade.id === "piercer" && target.pierce >= balance.upgrade.caps.pierce) {
+    if (upgrade.id === "lance-capacitor" && target.pierce >= balance.upgrade.caps.pierce) {
       return false;
     }
     return true;
