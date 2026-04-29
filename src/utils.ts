@@ -1,5 +1,4 @@
 import { world } from "./state";
-import { xpToNextLevel as balancedXpToNextLevel } from "./game/balance";
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -34,19 +33,4 @@ export function shuffle<T>(list: T[]): void {
     const j = Math.floor(Math.random() * (i + 1));
     [list[i]!, list[j]!] = [list[j]!, list[i]!];
   }
-}
-
-export function removeById<T extends { id: string }>(list: T[], id: string): void {
-  const index = list.findIndex((item) => item.id === id);
-  if (index >= 0) {
-    list.splice(index, 1);
-  }
-}
-
-export function percent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-export function xpToNextLevel(level: number): number {
-  return balancedXpToNextLevel(level);
 }

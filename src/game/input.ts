@@ -67,6 +67,12 @@ export function bindInput(): void {
     }
 
     if (state.mode === "upgrade") {
+      if (event.code === "Tab") {
+        event.preventDefault();
+        moveUpgradeFocus(event.shiftKey ? -1 : 1);
+        return;
+      }
+
       const choiceIndex = choiceIndexFromKey(event.code);
       if (choiceIndex && selectUpgradeByIndex(choiceIndex)) {
         return;

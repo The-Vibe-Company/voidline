@@ -125,7 +125,7 @@ export function update(dt: number): void {
     state.mode === "playing"
   ) {
     state.waveDelay += dt;
-    if (state.waveDelay > 1.1) {
+    if (state.waveDelay > balance.wave.waveDelay) {
       startWave(state.wave + 1);
     }
   }

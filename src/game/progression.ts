@@ -1,7 +1,7 @@
 import { player, state } from "../state";
 import { pulseText } from "../entities/particles";
 import { showUpgrade, updateHud } from "../render/hud";
-import { xpToNextLevel } from "../utils";
+import { xpToNextLevel } from "./balance";
 
 export function collectExperience(amount: number): void {
   state.xp += amount;

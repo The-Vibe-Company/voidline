@@ -128,5 +128,18 @@ describe("upgrade effects", () => {
     const critPlayer = createPlayerState({ critChance: 0.94 });
     findUpgrade("crit-array").apply(tier("singularity"), critPlayer);
     expect(critPlayer.critChance).toBe(balance.upgrade.caps.critChance);
+
+    const nearCapPlayer = createPlayerState({
+      drones: balance.upgrade.caps.drones - 1,
+      projectileCount: balance.upgrade.caps.projectiles - 1,
+      pierce: balance.upgrade.caps.pierce - 1,
+    });
+    findUpgrade("orbital-drone").apply(tier("singularity"), nearCapPlayer);
+    findUpgrade("twin-cannon").apply(tier("singularity"), nearCapPlayer);
+    findUpgrade("piercer").apply(tier("singularity"), nearCapPlayer);
+
+    expect(nearCapPlayer.drones).toBe(balance.upgrade.caps.drones);
+    expect(nearCapPlayer.projectileCount).toBe(balance.upgrade.caps.projectiles);
+    expect(nearCapPlayer.pierce).toBe(balance.upgrade.caps.pierce);
   });
 });

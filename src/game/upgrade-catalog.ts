@@ -24,7 +24,10 @@ export const upgradePool: Upgrade[] = [
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve`;
     },
     apply(tier, target) {
-      target.projectileCount += projectileGain(tier);
+      target.projectileCount = Math.min(
+        balance.upgrade.caps.projectiles,
+        target.projectileCount + projectileGain(tier),
+      );
     },
   },
   {
@@ -103,7 +106,7 @@ export const upgradePool: Upgrade[] = [
       return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
     },
     apply(tier, target) {
-      target.drones += droneGain(tier);
+      target.drones = Math.min(balance.upgrade.caps.drones, target.drones + droneGain(tier));
     },
   },
   {
@@ -117,7 +120,7 @@ export const upgradePool: Upgrade[] = [
       )} degats`;
     },
     apply(tier, target) {
-      target.pierce += pierceGain(tier);
+      target.pierce = Math.min(balance.upgrade.caps.pierce, target.pierce + pierceGain(tier));
       target.damage *= 1 + balance.upgrade.effects.pierceDamage * tier.power;
     },
   },
