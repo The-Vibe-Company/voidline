@@ -139,6 +139,16 @@ describe("balance curves", () => {
     expect(selectUpgradeTier(1, 0).id).toBe("standard");
   });
 
+  it("lets account rarity ranks tilt tier odds without early singularities", () => {
+    const baseWaveFive = upgradeTierWeights(5, 0);
+    const boostedWaveFive = upgradeTierWeights(5, 3);
+    const baseRare = baseWaveFive.find((item) => item.tier.id === "rare")!.weight;
+    const boostedRare = boostedWaveFive.find((item) => item.tier.id === "rare")!.weight;
+
+    expect(boostedRare).toBeGreaterThan(baseRare);
+    expect(upgradeTierWeights(4, 3).find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+  });
+
   it("keeps enemy and XP formulas valid", () => {
     for (const wave of [1, 6, 20]) {
       const weights = enemyTypeWeights(wave);

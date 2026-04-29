@@ -145,44 +145,86 @@
       </aside>
 
       <section class="overlay active" id="startOverlay">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="startTitle">
-          <p class="eyebrow">Rogue-lite orbital</p>
-          <h1 id="startTitle">Voidline</h1>
-          <p class="tagline">
-            Survis aux essaims orbitaux, vide chaque vague et transforme ton
-            vaisseau en arsenal.
-          </p>
-          <div class="pilot-card">
-            <div class="mode-switch large">
-              <button class="mode-button" type="button" data-control-mode="keyboard">Clavier</button>
-              <button class="mode-button" type="button" data-control-mode="trackpad">Trackpad</button>
+        <div class="modal home-modal" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+          <header class="home-hero">
+            <div>
+              <p class="eyebrow">Hangar de lancement</p>
+              <h1 id="startTitle">Voidline</h1>
+              <p class="tagline">
+                Lance une run, forge un build, puis reinvestis tes jetons dans de nouveaux modules.
+              </p>
             </div>
-            <dl class="control-map">
-              <div>
-                <dt>Fleches / WASD / ZQSD</dt>
-                <dd>Deplacement</dd>
-              </div>
-              <div>
-                <dt>1 / 2 / 3 &middot; Espace</dt>
-                <dd>Upgrade</dd>
-              </div>
-              <div>
-                <dt>Esc / P</dt>
-                <dd>Pause</dd>
-              </div>
-            </dl>
-          </div>
-          <section class="challenge-panel" aria-labelledby="startChallengesTitle">
-            <div class="challenge-panel-header">
-              <h2 id="startChallengesTitle">Challenges permanents</h2>
-              <span id="startChallengeSummary">0/16</span>
-            </div>
-            <div class="challenge-list" id="startChallengeList"></div>
-            <button class="secondary-action" id="resetChallengesButton" type="button">
-              Reinitialiser progression
+            <button class="primary-action launch-action" id="startButton" type="button">
+              Lancer la run
             </button>
-          </section>
-          <button class="primary-action" id="startButton" type="button">Lancer la vague</button>
+          </header>
+
+          <div class="home-grid">
+            <section class="home-launch" aria-labelledby="homeLaunchTitle">
+              <div class="home-section-header">
+                <div>
+                  <h2 id="homeLaunchTitle">Vaisseau pret</h2>
+                  <span data-account-reward>Aucun gain de compte</span>
+                </div>
+                <div class="hangar-counters">
+                  <span>Niv. <strong data-account-level>1</strong></span>
+                  <span><strong data-account-tokens>0</strong> jetons</span>
+                  <span data-account-rarity>Rarete 0/3</span>
+                </div>
+              </div>
+              <div class="meter account-meter" aria-hidden="true">
+                <span data-account-xp-bar></span>
+              </div>
+              <span class="account-xp-readout" data-account-xp>0/147 XP</span>
+
+              <div class="home-section-block">
+                <h3>Arme equipee</h3>
+                <div class="hangar-grid weapon-grid" data-weapon-grid></div>
+              </div>
+
+              <div class="home-controls">
+                <div class="mode-switch large">
+                  <button class="mode-button" type="button" data-control-mode="keyboard">Clavier</button>
+                  <button class="mode-button" type="button" data-control-mode="trackpad">Trackpad</button>
+                </div>
+                <dl class="control-map">
+                  <div>
+                    <dt>Fleches / WASD / ZQSD</dt>
+                    <dd>Deplacement</dd>
+                  </div>
+                  <div>
+                    <dt>1 / 2 / 3 &middot; Espace</dt>
+                    <dd>Choix</dd>
+                  </div>
+                  <div>
+                    <dt>Esc / P</dt>
+                    <dd>Pause</dd>
+                  </div>
+                </dl>
+              </div>
+            </section>
+
+            <section class="hangar-panel home-shop" aria-labelledby="startHangarTitle">
+              <div class="hangar-header">
+                <div>
+                  <h2 id="startHangarTitle">Modules de build</h2>
+                  <span>Debloque de nouvelles familles d'upgrades.</span>
+                </div>
+              </div>
+              <div class="hangar-grid" data-shop-grid></div>
+            </section>
+
+            <section class="challenge-panel home-objectives" aria-labelledby="startChallengesTitle">
+              <div class="challenge-panel-header">
+                <h2 id="startChallengesTitle">Objectifs compte</h2>
+                <span id="startChallengeSummary">0/16</span>
+              </div>
+              <div class="challenge-list" id="startChallengeList"></div>
+              <button class="secondary-action" id="resetChallengesButton" type="button">
+                Reinitialiser compte
+              </button>
+            </section>
+          </div>
         </div>
       </section>
 
@@ -248,21 +290,60 @@
       </section>
 
       <section class="overlay" id="gameOverOverlay">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
-          <p class="eyebrow">Signal perdu</p>
-          <h2 id="gameOverTitle">Vaisseau detruit</h2>
-          <p class="tagline">
-            Score final <strong id="finalScore">0</strong> -
-            vague <strong id="finalWave">1</strong>
-          </p>
+        <div class="modal gameover-modal" role="dialog" aria-modal="true" aria-labelledby="gameOverTitle">
+          <header class="recap-hero">
+            <div>
+              <p class="eyebrow">Signal perdu</p>
+              <h2 id="gameOverTitle">Debrief de run</h2>
+              <p class="tagline">
+                Score final <strong id="finalScore">0</strong> -
+                vague <strong id="finalWave">1</strong>
+              </p>
+            </div>
+            <button class="primary-action" id="restartButton" type="button">Relancer</button>
+          </header>
+
+          <section class="run-recap-panel" aria-labelledby="runRecapTitle">
+            <div class="recap-section-header">
+              <h2 id="runRecapTitle">Recapitulatif</h2>
+              <span id="runRecapBadges">Run terminee</span>
+            </div>
+            <div class="run-recap-grid" id="runRecapGrid"></div>
+            <div class="run-breakdown" id="runRewardBreakdown"></div>
+          </section>
+
+          <section class="hangar-panel compact-hangar" aria-labelledby="gameOverHangarTitle">
+            <div class="hangar-header">
+              <div>
+                <h2 id="gameOverHangarTitle">Compte / Hangar</h2>
+                <span data-account-reward>Aucun gain de compte</span>
+              </div>
+              <div class="hangar-counters">
+                <span>Niv. <strong data-account-level>1</strong></span>
+                <span><strong data-account-tokens>0</strong> jetons</span>
+                <span data-account-rarity>Rarete 0/3</span>
+              </div>
+            </div>
+            <div class="meter account-meter" aria-hidden="true">
+              <span data-account-xp-bar></span>
+            </div>
+            <span class="account-xp-readout" data-account-xp>0/147 XP</span>
+            <div class="hangar-section">
+              <h3>Arme</h3>
+              <div class="hangar-grid weapon-grid" data-weapon-grid></div>
+            </div>
+            <div class="hangar-section">
+              <h3>Modules</h3>
+              <div class="hangar-grid" data-shop-grid></div>
+            </div>
+          </section>
           <section class="challenge-panel compact-challenges" aria-labelledby="gameOverChallengesTitle">
             <div class="challenge-panel-header">
-              <h2 id="gameOverChallengesTitle">Bonus permanents</h2>
+              <h2 id="gameOverChallengesTitle">Objectifs compte</h2>
               <span id="gameOverChallengeSummary">0/16</span>
             </div>
             <div class="challenge-list" id="gameOverChallengeList"></div>
           </section>
-          <button class="primary-action" id="restartButton" type="button">Reinitialiser</button>
         </div>
       </section>
     </main>

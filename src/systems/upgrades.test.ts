@@ -4,6 +4,8 @@ import { createPlayerState, upgradeTiers } from "../game/balance";
 import { findUpgrade } from "../game/upgrade-catalog";
 import { setSimulationSeed } from "../simulation/random";
 import type { BuildTag, Upgrade } from "../types";
+import { createDefaultAccountProgress } from "../game/account-progression";
+import { resetAccountProgress, restoreAccountProgress } from "./account";
 import { pickUpgradeDraft, pickUpgrades } from "./upgrades";
 
 const tier = upgradeTiers[0]!;
@@ -13,6 +15,7 @@ function resetDraftState(): void {
   Object.assign(player, createPlayerState());
   ownedUpgrades.clear();
   ownedRelics.clear();
+  resetAccountProgress(null);
   state.wave = 1;
 }
 
@@ -106,5 +109,20 @@ describe("upgrade draft", () => {
     expect(choices).toHaveLength(3);
     expect(supportsCannon).toBe(true);
     expect(offersOffBuild).toBe(true);
+  });
+
+  it("does not offer locked module upgrades until bought", () => {
+    let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+    expect(ids).not.toContain("orbital-drone");
+    expect(ids).not.toContain("crit-array");
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      purchasedIds: ["module:drone", "module:crit"],
+    });
+    ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+
+    expect(ids).toContain("orbital-drone");
+    expect(ids).toContain("crit-array");
   });
 });

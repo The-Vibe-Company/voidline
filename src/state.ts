@@ -63,6 +63,8 @@ export const state: GameState = {
   magnetsCarried: 0,
   bombsCarried: 0,
   showPickupZones: false,
+  runBossWaves: [],
+  runRewardClaimed: false,
 };
 
 export const player: Player = createPlayerState();

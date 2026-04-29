@@ -14,6 +14,19 @@ export type EnemyRole = "normal" | "mini-boss" | "boss";
 
 export type TierId = "standard" | "rare" | "prototype" | "singularity";
 
+export type WeaponId = "standard" | "scatter" | "lance";
+
+export type ShopItemId =
+  | "module:shield"
+  | "module:pierce"
+  | "module:drone"
+  | "module:crit"
+  | "weapon:scatter"
+  | "weapon:lance"
+  | "rarity:1"
+  | "rarity:2"
+  | "rarity:3";
+
 export interface World {
   width: number;
   height: number;
@@ -49,6 +62,8 @@ export interface GameState {
   magnetsCarried: number;
   bombsCarried: number;
   showPickupZones: boolean;
+  runBossWaves: number[];
+  runRewardClaimed: boolean;
 }
 
 export interface PlayerBonus {
@@ -67,17 +82,9 @@ export type ChallengeMetric =
   | "bestScore"
   | "bestLevel";
 
-export interface PermanentBonus {
-  fireRatePct?: number;
-  damagePct?: number;
-  speedPct?: number;
-  pickupRadiusPct?: number;
-  maxHpFlat?: number;
-}
-
 export interface ChallengeTier {
   threshold: number;
-  bonus: PermanentBonus;
+  accountXp: number;
 }
 
 export interface Challenge {
@@ -149,6 +156,58 @@ export interface Player {
   ramTimer: number;
   magnetStormCharge: number;
   magnetStormTimer: number;
+}
+
+export interface AccountProgress {
+  level: number;
+  xp: number;
+  tokens: number;
+  spentTokens: number;
+  purchasedIds: ShopItemId[];
+  equippedWeaponId: WeaponId;
+  bestWave: number;
+  bestRunLevel: number;
+  bossWavesDefeated: number[];
+  claimedChallengeTierIds: string[];
+  lastRunReward: AccountReward | null;
+}
+
+export interface AccountRunSummary {
+  wave: number;
+  runLevel: number;
+  score: number;
+  bossWaves: readonly number[];
+}
+
+export interface AccountRewardBreakdown {
+  runLevelXp: number;
+  waveXp: number;
+  bossXp: number;
+  firstBossXp: number;
+  recordXp: number;
+  challengeXp: number;
+}
+
+export interface AccountReward {
+  source: "run" | "challenge" | "shop";
+  xpGained: number;
+  tokensGained: number;
+  levelsGained: number;
+  breakdown: AccountRewardBreakdown;
+}
+
+export type ShopItemKind = "module" | "weapon" | "rarity";
+
+export interface ShopItem {
+  id: ShopItemId;
+  kind: ShopItemKind;
+  name: string;
+  description: string;
+  cost: number;
+  tags: readonly BuildTag[];
+  moduleTag?: BuildTag;
+  weaponId?: WeaponId;
+  rarityRank?: number;
 }
 
 export interface EnemyType {
@@ -291,6 +350,15 @@ export interface SynergyDefinition {
   description: string;
   color: string;
   requiredTags: Partial<Record<BuildTag, number>>;
+}
+
+export interface Weapon {
+  id: WeaponId;
+  name: string;
+  icon: string;
+  description: string;
+  tags: readonly BuildTag[];
+  apply: (target: Player) => void;
 }
 
 export interface Upgrade {

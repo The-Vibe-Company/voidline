@@ -9,7 +9,8 @@ import {
   shieldGain,
   shieldRegenGain,
 } from "./balance";
-import type { Player, Upgrade } from "../types";
+import { STARTER_BUILD_TAGS, hasUnlockedTags } from "./shop-catalog";
+import type { BuildTag, Player, Upgrade } from "../types";
 
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
@@ -206,9 +207,13 @@ export function findUpgrade(id: string): Upgrade {
 
 export function availableUpgradesForPlayer(
   target: Player,
-  source: Upgrade[] = upgradePool,
+  source: Upgrade[] | undefined = upgradePool,
+  unlockedTags: ReadonlySet<BuildTag> = new Set(STARTER_BUILD_TAGS),
 ): Upgrade[] {
-  return source.filter((upgrade) => {
+  return (source ?? upgradePool).filter((upgrade) => {
+    if (!hasUnlockedTags(upgrade.tags, unlockedTags)) {
+      return false;
+    }
     if (upgrade.id === "orbital-drone" && target.drones >= balance.upgrade.caps.drones) {
       return false;
     }

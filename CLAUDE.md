@@ -1,5 +1,23 @@
 # Voidline — Agent Guide
 
+## Concept du jeu
+
+Voidline est un rogue-lite spatial browser-first: le joueur lance une run courte, survit a des vagues ennemies dans une arene suivie par camera, ramasse de l'XP, choisit des upgrades de run, puis meurt ou pousse le plus loin possible pour alimenter la progression de compte.
+
+La boucle principale est volontairement simple:
+
+1. **Run**: le vaisseau tire automatiquement sur l'ennemi le plus proche; le joueur se concentre sur le deplacement, le positionnement, les choix d'upgrades et les reliques temporaires.
+2. **Resultat**: a la mort, l'ecran de recap montre score, vague, niveau de run, boss battus, records et XP de compte gagnee.
+3. **Compte**: l'XP de compte donne des niveaux; certains niveaux jalons donnent des jetons.
+4. **Hangar**: les jetons achetent des modules de build, des armes de depart ou des rangs de rarete.
+5. **Nouvelle run**: les achats ouvrent de nouveaux chemins d'upgrades/reliques sans donner de gros bonus permanents automatiques.
+
+Le fun doit venir du buildcraft, pas d'une inflation brute de stats permanentes. Les synergies de `src/systems/synergies.ts` sont le coeur du jeu: le hangar debloque des tags de build (`cannon`, `salvage`, `magnet`, `shield`, `pierce`, `drone`, `crit`) et ces tags filtrent les upgrades/reliques disponibles pendant la run. Une nouvelle feature doit donc, par defaut, renforcer des chemins de build lisibles plutot qu'ajouter une ressource ou un systeme parallele.
+
+Les challenges ne donnent plus de bonus permanents directs. Ils servent d'objectifs de compte et donnent de l'XP de compte une seule fois par palier reclame. Les reliques restent des rewards temporaires de run, mais leur disponibilite passe aussi par les modules de build et les unlocks de boss.
+
+La home est un hangar jouable, pas une landing page: le premier ecran doit permettre de lancer une run, voir le niveau/XP/jetons, acheter des modules, equiper une arme et lire les objectifs compte. L'ecran de mort doit aider le joueur a comprendre ce qu'il a gagne et quoi acheter ensuite.
+
 ## Architecture (rappel)
 
 - **Logique pure** (testable): `src/game/`, `src/entities/`, `src/systems/`, `src/simulation/`, `src/utils.ts`

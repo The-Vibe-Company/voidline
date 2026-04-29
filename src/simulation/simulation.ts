@@ -41,7 +41,8 @@ import { random, setSimulationSeed } from "./random";
 import type { SimulationConfig, SimulationInputState } from "../types";
 import { clamp } from "../utils";
 import { isBossWave, nextMiniBossMisses, shouldSpawnMiniBoss } from "../game/roguelike";
-import { applyPermanentBonuses, recordChallengeProgress } from "../systems/challenges";
+import { recordChallengeProgress } from "../systems/challenges";
+import { applyEquippedWeapon } from "../systems/account";
 
 export function createSimulation(config: SimulationConfig = {}): {
   resetSimulation: typeof resetSimulation;
@@ -131,6 +132,8 @@ export function resetSimulation(seed?: number): void {
   state.heartsCarried = 0;
   state.magnetsCarried = 0;
   state.bombsCarried = 0;
+  state.runBossWaves = [];
+  state.runRewardClaimed = false;
 
   Object.assign(
     player,
@@ -140,7 +143,7 @@ export function resetSimulation(seed?: number): void {
       invuln: balance.player.resetInvulnerability,
     }),
   );
-  applyPermanentBonuses(player);
+  applyEquippedWeapon(player);
   ownedUpgrades.clear();
   ownedRelics.clear();
   resetEntityCounters();

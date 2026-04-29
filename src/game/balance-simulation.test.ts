@@ -151,7 +151,7 @@ describe("headless early-wave balance", () => {
     const summary = summarizeBalanceTrials(results);
     const message = formatSummary(summary, results);
 
-    // Baseline measured with permanent challenge tracking isolated from headless trials.
+    // Baseline measured with account/challenge tracking isolated from headless trials.
     expect(summary.reachedWave3, message).toBeGreaterThanOrEqual(15);
     expect(summary.reachedWave6, message).toBeLessThanOrEqual(20);
   }, 30_000);

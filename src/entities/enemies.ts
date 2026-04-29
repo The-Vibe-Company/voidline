@@ -129,6 +129,9 @@ export function killEnemy(index: number): void {
   }
   if (role === "boss") {
     incrementChallengeProgress("bossKills");
+    if (!state.runBossWaves.includes(state.wave)) {
+      state.runBossWaves.push(state.wave);
+    }
     const unlocked = unlockRelicsForBossWave(state.wave);
     if (unlocked.length > 0) {
       pulseText(enemy.x, enemy.y - enemy.radius - 22, "NOUVELLES RELIQUES", "#72ffb1");
