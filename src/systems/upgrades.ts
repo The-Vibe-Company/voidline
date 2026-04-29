@@ -7,7 +7,7 @@ import type { BuildTag, Upgrade, UpgradeChoice, UpgradeTier } from "../types";
 import { markLoadoutDirty } from "../simulation/events";
 import { random } from "../simulation/random";
 import {
-  ownedBuildTags,
+  buildTagCountsFromLoadout,
   refreshPlayerTraits,
   SYNERGY_DEFINITIONS,
   tagsIntersect,
@@ -19,8 +19,8 @@ export function rollUpgradeTier(wave: number): UpgradeTier {
 
 export function pickUpgrades(count: number): UpgradeChoice[] {
   const candidates = availableUpgradesForPlayer(player);
-  const buildTags = ownedBuildTags(ownedUpgrades.values(), ownedRelics.values());
-  const upgrades = pickUpgradeDraft(candidates, count, buildTags);
+  const buildTagCounts = buildTagCountsFromLoadout(ownedUpgrades.values(), ownedRelics.values());
+  const upgrades = pickUpgradeDraft(candidates, count, buildTagCounts);
 
   return upgrades.map((upgrade) => ({
     upgrade,
@@ -31,26 +31,25 @@ export function pickUpgrades(count: number): UpgradeChoice[] {
 export function pickUpgradeDraft(
   candidates: Upgrade[],
   count: number,
-  buildTags: ReadonlySet<BuildTag>,
+  buildTagCounts: ReadonlyMap<BuildTag, number>,
 ): Upgrade[] {
   if (count <= 0) return [];
   const remaining = [...candidates];
   shuffle(remaining);
   const picked = remaining.splice(0, count);
+  const buildTags = new Set(buildTagCounts.keys());
 
   if (buildTags.size > 0) {
     ensureDraftContains(
       picked,
       remaining,
-      (upgrade) => tagsIntersect(upgrade.tags, buildTags),
+      (upgrade) => advancesPartiallyBuiltSynergy(upgrade.tags, buildTagCounts),
       buildTags,
     );
     ensureDraftContains(
       picked,
       remaining,
-      (upgrade) =>
-        !tagsIntersect(upgrade.tags, buildTags) &&
-        advancesPartiallyBuiltSynergy(upgrade.tags, buildTags),
+      (upgrade) => tagsIntersect(upgrade.tags, buildTags),
       buildTags,
     );
     if (!picked.some((upgrade) => !tagsIntersect(upgrade.tags, buildTags))) {
@@ -109,13 +108,20 @@ function replacementSlot(picked: Upgrade[], buildTags: ReadonlySet<BuildTag>): n
 
 function advancesPartiallyBuiltSynergy(
   tags: readonly BuildTag[],
-  buildTags: ReadonlySet<BuildTag>,
+  buildTagCounts: ReadonlyMap<BuildTag, number>,
 ): boolean {
   for (const synergy of SYNERGY_DEFINITIONS) {
     const required = Object.keys(synergy.requiredTags) as BuildTag[];
-    const hasCurrentTag = required.some((tag) => buildTags.has(tag));
-    const addsMissingTag = required.some((tag) => !buildTags.has(tag) && tags.includes(tag));
-    if (hasCurrentTag && addsMissingTag) return true;
+    const hasCurrentProgress = required.some((tag) => (buildTagCounts.get(tag) ?? 0) > 0);
+    const hasMissingRequirement = required.some(
+      (tag) => (buildTagCounts.get(tag) ?? 0) < (synergy.requiredTags[tag] ?? 0),
+    );
+    const fillsMissingRequirement = required.some(
+      (tag) =>
+        (buildTagCounts.get(tag) ?? 0) < (synergy.requiredTags[tag] ?? 0) &&
+        tags.includes(tag),
+    );
+    if (hasCurrentProgress && hasMissingRequirement && fillsMissingRequirement) return true;
   }
   return false;
 }

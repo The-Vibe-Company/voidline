@@ -28,6 +28,10 @@ function draftUpgrade(id: string, tags: BuildTag[]): Upgrade {
   };
 }
 
+function tagCounts(entries: [BuildTag, number][] = []): ReadonlyMap<BuildTag, number> {
+  return new Map(entries);
+}
+
 describe("upgrade draft", () => {
   beforeEach(resetDraftState);
 
@@ -37,7 +41,7 @@ describe("upgrade draft", () => {
       draftUpgrade("two", ["crit"]),
     ];
 
-    const draft = pickUpgradeDraft(candidates, 3, new Set());
+    const draft = pickUpgradeDraft(candidates, 3, tagCounts());
 
     expect(draft).toHaveLength(2);
     expect(new Set(draft.map((upgrade) => upgrade.id))).toEqual(new Set(["one", "two"]));
@@ -50,7 +54,7 @@ describe("upgrade draft", () => {
       draftUpgrade("cannon-three", ["cannon"]),
     ];
 
-    const draft = pickUpgradeDraft(candidates, 3, new Set<BuildTag>(["cannon"]));
+    const draft = pickUpgradeDraft(candidates, 3, tagCounts([["cannon", 1]]));
 
     expect(draft).toHaveLength(3);
     expect(draft.every((upgrade) => upgrade.tags.includes("cannon"))).toBe(true);
@@ -66,10 +70,26 @@ describe("upgrade draft", () => {
       draftUpgrade("generic", ["salvage"]),
     ];
 
-    const draft = pickUpgradeDraft(candidates, 3, new Set<BuildTag>(["cannon"]));
+    const draft = pickUpgradeDraft(candidates, 3, tagCounts([["cannon", 1]]));
 
     expect(draft.some((upgrade) => upgrade.tags.includes("cannon"))).toBe(true);
     expect(draft.map((upgrade) => upgrade.id)).toContain("crit-bridge");
+  });
+
+  it("adds repeated tags that advance stacked synergy requirements", () => {
+    setSimulationSeed(2);
+    const candidates = [
+      draftUpgrade("shield-support", ["shield"]),
+      draftUpgrade("salvage-support", ["salvage"]),
+      draftUpgrade("cannon-offbuild", ["cannon"]),
+      draftUpgrade("drone-offbuild", ["drone"]),
+      draftUpgrade("magnet-bridge", ["magnet"]),
+    ];
+
+    const draft = pickUpgradeDraft(candidates, 3, tagCounts([["magnet", 1], ["shield", 1]]));
+
+    expect(draft.some((upgrade) => upgrade.tags.includes("shield"))).toBe(true);
+    expect(draft.map((upgrade) => upgrade.id)).toContain("magnet-bridge");
   });
 
   it("offers both build support and off-build options once a build starts", () => {
