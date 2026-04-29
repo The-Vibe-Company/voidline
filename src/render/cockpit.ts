@@ -1,4 +1,5 @@
 import { characterCatalog } from "../game/character-catalog";
+import { START_STAGE_CRYSTAL_BONUS_PER_STAGE } from "../game/account-progression";
 import {
   canPurchaseShopItem,
   isShopItemRevealed,
@@ -197,12 +198,18 @@ function stagePill(stage: number): HTMLButtonElement {
   button.dataset.locked = unlocked ? "false" : "true";
   button.dataset.selected = selected ? "true" : "false";
   button.disabled = !unlocked;
-  button.textContent =
-    stage === 1 ? "N1" : unlocked ? `N${stage} · skip +35%¢` : `N${stage} verrouillé`;
+  button.textContent = stagePillLabel(stage, unlocked);
   button.addEventListener("click", () => {
     if (selectStartStage(stage)) renderCockpit();
   });
   return button;
+}
+
+function stagePillLabel(stage: number, unlocked: boolean): string {
+  if (stage === 1) return "N1";
+  if (!unlocked) return `N${stage} verrouillé`;
+  const bonusPct = Math.round((stage - 1) * START_STAGE_CRYSTAL_BONUS_PER_STAGE * 100);
+  return `N${stage} · skip +${bonusPct}%¢`;
 }
 
 function cardBody(title: string, copy: string): HTMLSpanElement {

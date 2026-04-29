@@ -426,6 +426,10 @@ function selectNode(itemId: string): void {
   selectedNodeId = itemId;
   renderOrbitalTree();
   updateDetailPanel();
+  const focused = document.querySelector<SVGGElement>(
+    `.tree-node[data-focused="true"]`,
+  );
+  focused?.focus();
 }
 
 function updateDetailPanel(): void {

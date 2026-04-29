@@ -894,10 +894,15 @@ h2 {
   cursor: pointer;
 }
 
-.cockpit-link:hover,
+.cockpit-link:hover {
+  color: var(--mint);
+}
+
 .cockpit-link:focus-visible {
   color: var(--mint);
-  outline: none;
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 .cockpit-stack-list {
@@ -1206,10 +1211,15 @@ h2 {
   cursor: pointer;
 }
 
-.cockpit-foot-link:hover,
+.cockpit-foot-link:hover {
+  color: var(--mint);
+}
+
 .cockpit-foot-link:focus-visible {
   color: var(--mint);
-  outline: none;
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* ───────── Cockpit recap (gameover) ───────── */
@@ -1448,6 +1458,10 @@ h2 {
 
 .tree-node:focus {
   outline: none;
+}
+
+.tree-node:focus-visible {
+  filter: drop-shadow(0 0 6px var(--cyan));
 }
 
 .run-recap-panel {
