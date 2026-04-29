@@ -6,6 +6,7 @@ import { spawnChest } from "./chests";
 import { enemies, player, state, world } from "../state";
 import { circleHit, clamp } from "../utils";
 import { scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
+import { bossVariantForWave, bossVisualForVariant } from "../game/boss-visuals";
 import { bossBalance } from "../game/roguelike";
 import { unlockRelicsForBossWave } from "../systems/relics";
 import { incrementChallengeProgress, recordChallengeProgress } from "../systems/challenges";
@@ -57,10 +58,13 @@ export function spawnEnemy(): void {
   enemy.wobbleRate = 2 + random() * 2;
   enemy.hit = 0;
   enemy.role = "normal";
+  enemy.bossVariant = undefined;
 }
 
 function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
   const tuning = role === "boss" ? bossBalance.boss : bossBalance.miniBoss;
+  const bossVariant = role === "boss" ? bossVariantForWave(state.wave) : undefined;
+  const bossVisual = bossVariant === undefined ? undefined : bossVisualForVariant(bossVariant);
   const scaled = scaledEnemyStats(type, state.wave);
   const radius = Math.round(type.radius * tuning.radiusMultiplier);
   const { x, y } = spawnPointForRadius(radius);
@@ -73,7 +77,7 @@ function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
   enemy.speed = scaled.speed * tuning.speedMultiplier;
   enemy.radius = radius;
   enemy.damage = type.damage * tuning.damageMultiplier;
-  enemy.color = role === "boss" ? "#ff5a69" : "#ffbf47";
+  enemy.color = role === "boss" ? bossVisual!.accent : "#ffbf47";
   enemy.accent = role === "boss" ? "#ffffff" : "#fff0b8";
   enemy.sides = role === "boss" ? 8 : 6;
   enemy.age = 0;
@@ -82,6 +86,7 @@ function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
   enemy.wobbleRate = role === "boss" ? 1.1 : 1.7;
   enemy.hit = 0;
   enemy.role = role;
+  enemy.bossVariant = bossVariant;
   enemy.contactTimer = 0;
   enemy.contactCooldown = tuning.contactCooldown;
 

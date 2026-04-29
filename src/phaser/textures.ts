@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { balance } from "../game/balance";
+import { bossVisuals } from "../game/boss-visuals";
 import { colorToNumber } from "../utils";
 
 export const textureKeys = {
@@ -19,7 +20,24 @@ export const textureKeys = {
     hunter: "voidline-enemy-hunter",
     brute: "voidline-enemy-brute",
   },
+  miniBosses: {
+    scout: "voidline-mini-boss-scout",
+    hunter: "voidline-mini-boss-hunter",
+    brute: "voidline-mini-boss-brute",
+  },
+  bosses: bossVisuals.map((boss) => boss.texture),
 } as const;
+
+export const spriteAssets = [
+  { key: textureKeys.player, path: "/assets/sprites/player-ship.png" },
+  { key: textureKeys.enemies.scout, path: "/assets/sprites/enemy-scout.png" },
+  { key: textureKeys.enemies.hunter, path: "/assets/sprites/enemy-hunter.png" },
+  { key: textureKeys.enemies.brute, path: "/assets/sprites/enemy-brute.png" },
+  { key: textureKeys.miniBosses.scout, path: "/assets/sprites/mini-boss-scout.png" },
+  { key: textureKeys.miniBosses.hunter, path: "/assets/sprites/mini-boss-hunter.png" },
+  { key: textureKeys.miniBosses.brute, path: "/assets/sprites/mini-boss-brute.png" },
+  ...bossVisuals.map((boss) => ({ key: boss.texture, path: boss.path })),
+] as const;
 
 export function createGeneratedTextures(scene: Phaser.Scene): void {
   const graphics = scene.add.graphics();
@@ -38,6 +56,10 @@ export function createGeneratedTextures(scene: Phaser.Scene): void {
 
   for (const enemy of balance.enemies) {
     generateEnemy(graphics, scene, textureKeys.enemies[enemy.id], enemy.id);
+    generateEliteEnemy(graphics, scene, textureKeys.miniBosses[enemy.id], enemy.id);
+  }
+  for (let index = 0; index < textureKeys.bosses.length; index += 1) {
+    generateBoss(graphics, scene, textureKeys.bosses[index]!, index);
   }
 
   graphics.destroy();
@@ -131,6 +153,68 @@ function generateEnemy(
     graphics.strokeCircle(30, 30, 25);
   }
   graphics.generateTexture(key, 60, 60);
+}
+
+function generateEliteEnemy(
+  graphics: Phaser.GameObjects.Graphics,
+  scene: Phaser.Scene,
+  key: string,
+  kind: "scout" | "hunter" | "brute",
+): void {
+  if (skipExisting(scene, key)) return;
+  const enemy = balance.enemies.find((item) => item.id === kind)!;
+  const fill = colorToNumber(enemy.color);
+  const stroke = colorToNumber(enemy.accent);
+  graphics.clear();
+  graphics.fillStyle(fill, 1);
+  graphics.lineStyle(4, stroke, 1);
+  if (kind === "scout") {
+    graphics.fillTriangle(40, 4, 74, 76, 6, 76);
+    graphics.strokeTriangle(40, 4, 74, 76, 6, 76);
+    graphics.fillTriangle(40, 22, 78, 66, 48, 62);
+    graphics.fillTriangle(40, 22, 2, 66, 32, 62);
+  } else if (kind === "hunter") {
+    graphics.fillRect(13, 13, 54, 54);
+    graphics.strokeRect(13, 13, 54, 54);
+    graphics.fillTriangle(40, 2, 72, 34, 40, 24);
+    graphics.fillTriangle(40, 2, 8, 34, 40, 24);
+  } else {
+    graphics.fillCircle(40, 40, 35);
+    graphics.strokeCircle(40, 40, 35);
+    graphics.fillCircle(40, 40, 14);
+  }
+  graphics.generateTexture(key, 80, 80);
+}
+
+function generateBoss(
+  graphics: Phaser.GameObjects.Graphics,
+  scene: Phaser.Scene,
+  key: string,
+  index: number,
+): void {
+  if (skipExisting(scene, key)) return;
+  const visual = bossVisuals[index]!;
+  const fill = colorToNumber(visual.accent);
+  graphics.clear();
+  graphics.fillStyle(fill, 1);
+  graphics.lineStyle(5, 0xffffff, 1);
+  const center = 56;
+  const points = 7 + index;
+  graphics.beginPath();
+  for (let i = 0; i < points; i += 1) {
+    const angle = -Math.PI / 2 + (Math.PI * 2 * i) / points;
+    const radius = i % 2 === 0 ? 50 : 28 + index * 2;
+    const x = center + Math.cos(angle) * radius;
+    const y = center + Math.sin(angle) * radius;
+    if (i === 0) graphics.moveTo(x, y);
+    else graphics.lineTo(x, y);
+  }
+  graphics.closePath();
+  graphics.fillPath();
+  graphics.strokePath();
+  graphics.fillStyle(0x05060b, 1);
+  graphics.fillCircle(center, center, 13);
+  graphics.generateTexture(key, 112, 112);
 }
 
 function generateChest(

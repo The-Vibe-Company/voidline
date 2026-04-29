@@ -179,6 +179,7 @@ export interface EnemyEntity {
   wobbleRate: number;
   hit: number;
   role?: EnemyRole;
+  bossVariant?: number;
   contactTimer?: number;
   contactCooldown?: number;
 }

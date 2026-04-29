@@ -3,6 +3,7 @@ import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
 import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
+import { bossVisualForVariant } from "../game/boss-visuals";
 import type { ControlMode, RelicChoice } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
 import {
@@ -295,7 +296,7 @@ export function updateHud(): void {
   const boss = enemies.find((enemy) => enemy.role === "boss");
   hud.bossPanel.dataset.active = boss ? "true" : "false";
   if (boss) {
-    hud.bossName.textContent = `Boss vague ${state.wave}`;
+    hud.bossName.textContent = bossVisualForVariant(boss.bossVariant ?? 0).name;
     hud.bossBar.style.width = `${clamp(boss.hp / boss.maxHp, 0, 1) * 100}%`;
   } else {
     hud.bossBar.style.width = "0%";

@@ -11,10 +11,11 @@ import {
   world,
 } from "../state";
 import { scoreAward } from "../game/balance";
+import { bossVisualForVariant, bossVisuals } from "../game/boss-visuals";
 import { clearEntityPools, resetEntityCounters } from "../simulation/pools";
 import { setSimulationSeed } from "../simulation/random";
 import type { EnemyEntity } from "../types";
-import { killEnemy } from "./enemies";
+import { killEnemy, spawnWaveBoss } from "./enemies";
 
 function makeEnemy(id: number, score = 35): EnemyEntity {
   return {
@@ -88,5 +89,33 @@ describe("enemy kill rewards", () => {
       `+${awardedScore}`,
       "SERIE x5",
     ]);
+  });
+});
+
+describe("boss visuals", () => {
+  beforeEach(resetWorld);
+
+  it("assigns deterministic boss variants from boss wave milestones", () => {
+    for (const [wave, variant] of [
+      [10, 0],
+      [20, 1],
+      [60, 5],
+      [70, 6],
+    ] as const) {
+      enemies.length = 0;
+      state.wave = wave;
+
+      spawnWaveBoss();
+
+      expect(enemies).toHaveLength(1);
+      expect(enemies[0]!.role).toBe("boss");
+      expect(enemies[0]!.bossVariant).toBe(variant);
+      expect(enemies[0]!.color).toBe(bossVisualForVariant(variant).accent);
+    }
+  });
+
+  it("cycles boss visual identities after the first six unique bosses", () => {
+    expect(bossVisualForVariant(0).name).toBe("Crimson Needle");
+    expect(bossVisualForVariant(bossVisuals.length).name).toBe("Crimson Needle");
   });
 });
