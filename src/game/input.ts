@@ -9,10 +9,13 @@ import {
   selectUpgradeByIndex,
   setControlMode,
   updateChallengePanels,
+  updateHangarPanels,
   updateHud,
 } from "../render/hud";
 import { resetGame } from "../systems/waves";
-import { resetChallengeProgress, resetPlayerPermanentBonuses } from "../systems/challenges";
+import { resetChallengeProgress } from "../systems/challenges";
+import { resetAccountProgress } from "../systems/account";
+import { resetRelicUnlocks } from "../systems/relics";
 
 function choiceIndexFromKey(code: string): number {
   if (code.startsWith("Digit")) return Number(code.slice(5));
@@ -203,10 +206,12 @@ export function bindInput(): void {
   document
     .querySelector<HTMLButtonElement>("#resetChallengesButton")
     ?.addEventListener("click", () => {
-      if (!window.confirm("Reinitialiser tous les challenges permanents ?")) return;
+      if (!window.confirm("Reinitialiser la progression de compte ?")) return;
       resetChallengeProgress();
-      resetPlayerPermanentBonuses();
+      resetAccountProgress();
+      resetRelicUnlocks();
       updateChallengePanels();
+      updateHangarPanels();
       updateHud();
     });
   document

@@ -6,6 +6,7 @@ import {
   recordChallengeProgress,
   resetChallengeProgress,
 } from "./challenges";
+import { resetAccountProgress } from "./account";
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -29,6 +30,7 @@ describe("challenge persistence", () => {
   beforeEach(() => {
     storage = new MemoryStorage();
     resetChallengeProgress(storage);
+    resetAccountProgress(null);
   });
 
   it("loads empty progress by default", () => {

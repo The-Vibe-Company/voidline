@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  claimableChallengeTierRewards,
   challengeCatalog,
   createEmptyChallengeProgress,
-  totalPermanentBonus,
   unlockedTierCount,
 } from "./challenge-catalog";
 
@@ -22,7 +22,7 @@ describe("challenge catalog", () => {
     expect(unlockedTierCount(survivor, progress)).toBe(2);
   });
 
-  it("sums permanent bonuses from unlocked tiers", () => {
+  it("returns unclaimed account XP rewards from unlocked tiers", () => {
     const progress = createEmptyChallengeProgress();
     progress.bestWave = 20;
     progress.bossKills = 3;
@@ -30,15 +30,14 @@ describe("challenge catalog", () => {
     progress.bestScore = 20_000;
     progress.bestLevel = 15;
 
-    const bonus = totalPermanentBonus(progress);
-    expect(bonus.speedPct).toBeCloseTo(0.15);
-    expect(bonus.damagePct).toBeCloseTo(0.13);
-    expect(bonus.fireRatePct).toBeCloseTo(0.12);
-    expect(bonus.maxHpFlat).toBe(30);
-    expect(bonus.pickupRadiusPct).toBeCloseTo(0.16);
+    const rewards = claimableChallengeTierRewards(progress, new Set(["survivor:1"]));
+
+    expect(rewards).toHaveLength(15);
+    expect(rewards.map((reward) => reward.id)).not.toContain("survivor:1");
+    expect(rewards.reduce((sum, reward) => sum + reward.accountXp, 0)).toBeGreaterThan(0);
   });
 
-  it("does not grant bonuses beyond the last tier", () => {
+  it("does not grant rewards beyond the last tier", () => {
     const capped = createEmptyChallengeProgress();
     capped.bestWave = 99;
     capped.bossKills = 99;
@@ -53,6 +52,8 @@ describe("challenge catalog", () => {
     exact.bestScore = 20_000;
     exact.bestLevel = 15;
 
-    expect(totalPermanentBonus(capped)).toEqual(totalPermanentBonus(exact));
+    expect(claimableChallengeTierRewards(capped, new Set())).toEqual(
+      claimableChallengeTierRewards(exact, new Set()),
+    );
   });
 });

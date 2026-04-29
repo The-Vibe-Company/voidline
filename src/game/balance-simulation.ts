@@ -19,6 +19,11 @@ import {
   restoreChallengeProgress,
   setChallengeTrackingEnabled,
 } from "../systems/challenges";
+import {
+  currentAccountProgress,
+  resetAccountProgress,
+  restoreAccountProgress,
+} from "../systems/account";
 
 export type BalancePersonaId = "idle" | "panic" | "kiter";
 
@@ -95,6 +100,7 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
   validateTrialOptions(options, stepSeconds);
   const savedChallengeProgress = currentChallengeProgress();
   const savedChallengeTracking = isChallengeTrackingEnabled();
+  const savedAccountProgress = currentAccountProgress();
 
   try {
     prepareHeadlessWorld(options.seed);
@@ -146,6 +152,7 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
   } finally {
     cleanupHeadlessWorld();
     restoreChallengeProgress(savedChallengeProgress);
+    restoreAccountProgress(savedAccountProgress);
     setChallengeTrackingEnabled(savedChallengeTracking);
   }
 }
@@ -191,6 +198,7 @@ function prepareHeadlessWorld(seed: number): void {
   world.shake = 0;
   setChallengeTrackingEnabled(false);
   resetChallengeProgress(null);
+  resetAccountProgress(null);
   resetSimulation(seed);
   state.controlMode = "keyboard";
 }

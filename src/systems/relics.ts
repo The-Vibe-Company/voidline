@@ -9,12 +9,14 @@ import {
 import { markLoadoutDirty } from "../simulation/events";
 import type { RelicChoice } from "../types";
 import { refreshPlayerTraits } from "./synergies";
+import { currentUnlockedBuildTags } from "./account";
 
 const STORAGE_KEY = "voidline:unlockedRelics";
 
 interface RelicStorage {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
+  removeItem(key: string): void;
 }
 
 function getStorage(): RelicStorage | null {
@@ -54,6 +56,18 @@ export function saveRelicUnlocks(storage: RelicStorage | null = getStorage()): v
   }
 }
 
+export function resetRelicUnlocks(storage: RelicStorage | null = getStorage()): void {
+  unlockedRelics.clear();
+  for (const id of defaultUnlockedRelicIds()) {
+    unlockedRelics.add(id);
+  }
+  try {
+    storage?.removeItem(STORAGE_KEY);
+  } catch {
+    // Keep the in-memory reset even when storage is blocked.
+  }
+}
+
 export function unlockRelicsForBossWave(
   wave: number,
   storage: RelicStorage | null = getStorage(),
@@ -71,7 +85,14 @@ export function unlockRelicsForBossWave(
 }
 
 export function pickRelicChoices(count: number): RelicChoice[] {
-  return pickChestRelics(count, new Set(ownedRelics.keys()), unlockedRelics);
+  return pickChestRelics(
+    count,
+    new Set(ownedRelics.keys()),
+    unlockedRelics,
+    undefined,
+    Math.random,
+    currentUnlockedBuildTags(),
+  );
 }
 
 export function applyRelicChoice(choice: RelicChoice): void {

@@ -24,10 +24,11 @@ import { SpatialGrid } from "./spatial-grid";
 import {
   challengeProgress,
   initializeChallenges,
-  recordChallengeProgress,
   resetChallengeProgress,
   setChallengeTrackingEnabled,
 } from "../systems/challenges";
+import { createDefaultAccountProgress } from "../game/account-progression";
+import { resetAccountProgress, restoreAccountProgress } from "../systems/account";
 
 const defaultParticleBudget = simulationPerfConfig.budgets.maxParticles;
 const defaultFloaterBudget = simulationPerfConfig.budgets.maxFloaters;
@@ -76,6 +77,7 @@ function prepareWorld(): void {
 
 afterEach(() => {
   resetChallengeProgress(null);
+  resetAccountProgress(null);
   setChallengeTrackingEnabled(true);
   simulationPerfConfig.budgets.maxParticles = defaultParticleBudget;
   simulationPerfConfig.budgets.maxFloaters = defaultFloaterBudget;
@@ -211,31 +213,35 @@ describe("simulation performance helpers", () => {
     expect(state.pendingChests).toBe(0);
   });
 
-  it("applies permanent challenge bonuses when a run resets", () => {
+  it("applies the equipped account weapon when a run resets", () => {
     prepareWorld();
-    resetChallengeProgress(null);
-    initializeChallenges(null);
-    recordChallengeProgress("bestWave", 20, null);
-    recordChallengeProgress("bestScore", 20_000, null);
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      purchasedIds: ["weapon:lance"],
+      equippedWeaponId: "lance",
+    });
 
     resetSimulation(123);
 
-    expect(player.speed).toBeGreaterThan(265);
-    expect(player.maxHp).toBe(130);
+    expect(player.pierce).toBe(1);
+    expect(player.damage).toBeGreaterThan(24);
+    expect(player.fireRate).toBeLessThan(3);
 
-    player.speed = 1;
-    player.maxHp = 1;
+    player.pierce = 0;
+    player.damage = 1;
     resetSimulation(123);
 
-    expect(player.speed).toBeGreaterThan(265);
-    expect(player.maxHp).toBe(130);
+    expect(player.pierce).toBe(1);
+    expect(player.damage).toBeGreaterThan(24);
   });
 
-  it("keeps run upgrades and relics reset while permanent bonuses persist", () => {
+  it("keeps run upgrades and relics reset while account weapon persists", () => {
     prepareWorld();
-    resetChallengeProgress(null);
-    initializeChallenges(null);
-    recordChallengeProgress("bestWave", 5, null);
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      purchasedIds: ["weapon:scatter"],
+      equippedWeaponId: "scatter",
+    });
     ownedUpgrades.set("fake", {
       upgrade: {
         id: "fake",
@@ -281,7 +287,7 @@ describe("simulation performance helpers", () => {
 
     resetSimulation(123);
 
-    expect(player.speed).toBeGreaterThan(265);
+    expect(player.projectileCount).toBe(2);
     expect(ownedUpgrades.size).toBe(0);
     expect(ownedRelics.size).toBe(0);
     expect(player.traits).toEqual({

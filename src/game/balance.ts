@@ -375,36 +375,40 @@ export function scaledEnemyStats(
   };
 }
 
-export function upgradeTierWeights(wave: number): WeightedTier[] {
+export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[] {
   const weights = upgradeBalance.tierWeights;
+  const rank = Math.max(0, Math.min(3, Math.floor(rarityRank)));
   return [
     {
       tier: upgradeTiers[0]!,
       weight: Math.max(
         weights.standardMin,
-        weights.standardBase - wave * weights.standardPerWave,
+        weights.standardBase - wave * weights.standardPerWave - rank * 8,
       ),
     },
     {
       tier: upgradeTiers[1]!,
-      weight: weights.rareBase + wave * weights.rarePerWave,
+      weight: weights.rareBase + wave * weights.rarePerWave + rank * 6,
     },
     {
       tier: upgradeTiers[2]!,
       weight:
         wave >= weights.prototypeUnlockWave
-          ? weights.prototypeBase + wave * weights.prototypePerWave
+          ? weights.prototypeBase + wave * weights.prototypePerWave + rank * 3
           : weights.prototypeLockedWeight,
     },
     {
       tier: upgradeTiers[3]!,
-      weight: wave >= weights.singularityUnlockWave ? wave * weights.singularityPerWave : 0,
+      weight:
+        wave >= weights.singularityUnlockWave
+          ? wave * weights.singularityPerWave + rank * 1.5
+          : 0,
     },
   ];
 }
 
-export function selectUpgradeTier(wave: number, roll: number): UpgradeTier {
-  const weights = upgradeTierWeights(wave);
+export function selectUpgradeTier(wave: number, roll: number, rarityRank = 0): UpgradeTier {
+  const weights = upgradeTierWeights(wave, rarityRank);
   const total = weights.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   let target = Math.min(Math.max(roll, 0), 0.999999999) * total;
 
