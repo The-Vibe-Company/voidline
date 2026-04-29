@@ -12,6 +12,7 @@ export const textureKeys = {
   powerHeart: "voidline-power-heart",
   powerMagnet: "voidline-power-magnet",
   powerBomb: "voidline-power-bomb",
+  chest: "voidline-chest",
   drone: "voidline-drone",
   enemies: {
     scout: "voidline-enemy-scout",
@@ -33,6 +34,7 @@ export function createGeneratedTextures(scene: Phaser.Scene): void {
   generateCircle(graphics, scene, textureKeys.powerHeart, 30, 0xff5a69, 0xffd0d5);
   generateCircle(graphics, scene, textureKeys.powerMagnet, 30, 0x39d9ff, 0xd9f6ff);
   generateCircle(graphics, scene, textureKeys.powerBomb, 30, 0xffbf47, 0xfff0b8);
+  generateChest(graphics, scene, textureKeys.chest);
 
   for (const enemy of balance.enemies) {
     generateEnemy(graphics, scene, textureKeys.enemies[enemy.id], enemy.id);
@@ -129,4 +131,23 @@ function generateEnemy(
     graphics.strokeCircle(30, 30, 25);
   }
   graphics.generateTexture(key, 60, 60);
+}
+
+function generateChest(
+  graphics: Phaser.GameObjects.Graphics,
+  scene: Phaser.Scene,
+  key: string,
+): void {
+  if (skipExisting(scene, key)) return;
+  graphics.clear();
+  graphics.fillStyle(0x201107, 1);
+  graphics.lineStyle(3, 0xfff0b8, 1);
+  graphics.fillRect(5, 12, 38, 26);
+  graphics.strokeRect(5, 12, 38, 26);
+  graphics.fillStyle(0xffbf47, 1);
+  graphics.fillRect(8, 23, 32, 5);
+  graphics.fillRect(21, 12, 6, 26);
+  graphics.fillStyle(0xfff0b8, 1);
+  graphics.fillRect(19, 20, 10, 10);
+  graphics.generateTexture(key, 48, 48);
 }

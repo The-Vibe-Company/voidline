@@ -1,8 +1,16 @@
-export type GameMode = "menu" | "playing" | "paused" | "upgrade" | "gameover";
+export type GameMode =
+  | "menu"
+  | "playing"
+  | "paused"
+  | "upgrade"
+  | "chest"
+  | "gameover";
 
 export type ControlMode = "keyboard" | "trackpad";
 
 export type EnemyKind = "scout" | "hunter" | "brute";
+
+export type EnemyRole = "normal" | "mini-boss" | "boss";
 
 export type TierId = "standard" | "rare" | "prototype" | "singularity";
 
@@ -29,11 +37,14 @@ export interface GameState {
   spawnGap: number;
   waveDelay: number;
   bestCombo: number;
+  miniBossEligibleMisses: number;
+  miniBossPending: boolean;
   controlMode: ControlMode;
   level: number;
   xp: number;
   xpTarget: number;
   pendingUpgrades: number;
+  pendingChests: number;
   heartsCarried: number;
   magnetsCarried: number;
   bombsCarried: number;
@@ -135,6 +146,9 @@ export interface EnemyEntity {
   wobble: number;
   wobbleRate: number;
   hit: number;
+  role?: EnemyRole;
+  contactTimer?: number;
+  contactCooldown?: number;
 }
 
 export interface Bullet {
@@ -252,4 +266,34 @@ export interface PowerupOrb {
   kind: PowerupKind;
   age: number;
   life: number;
+}
+
+export interface ChestEntity {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  age: number;
+}
+
+export interface Relic {
+  id: string;
+  icon: string;
+  name: string;
+  description: string;
+  color: string;
+  effect: string;
+  repeatable?: boolean;
+  apply: (target: Player) => void;
+}
+
+export interface RelicChoice {
+  relic: Relic;
+}
+
+export interface OwnedRelic {
+  relic: Relic;
+  count: number;
 }

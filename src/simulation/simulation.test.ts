@@ -188,4 +188,13 @@ describe("simulation performance helpers", () => {
 
     expect(snapshot(123)).toEqual(snapshot(123));
   });
+
+  it("clears queued chest rewards when a run resets", () => {
+    prepareWorld();
+    state.pendingChests = 2;
+
+    resetSimulation(123);
+
+    expect(state.pendingChests).toBe(0);
+  });
 });

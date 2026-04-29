@@ -1,8 +1,9 @@
-import { ownedUpgrades, player, state } from "../state";
+import { enemies, ownedRelics, ownedUpgrades, player, state } from "../state";
 import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
+import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
-import type { ControlMode } from "../types";
+import type { ControlMode, RelicChoice } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
 
 const hud = {
@@ -14,6 +15,9 @@ const hud = {
   xpBar: document.querySelector<HTMLElement>("#xpBar")!,
   score: document.querySelector<HTMLElement>("#scoreValue")!,
   health: document.querySelector<HTMLElement>("#healthBar")!,
+  bossPanel: document.querySelector<HTMLElement>("#bossPanel")!,
+  bossName: document.querySelector<HTMLElement>("#bossName")!,
+  bossBar: document.querySelector<HTMLElement>("#bossBar")!,
   stats: {
     level: document.querySelector<HTMLElement>("#statLevel")!,
     xp: document.querySelector<HTMLElement>("#statXp")!,
@@ -39,11 +43,13 @@ const hud = {
   itemBombCell: document.querySelector<HTMLElement>(".item-cell[data-kind='bomb']")!,
   startOverlay: document.querySelector<HTMLElement>("#startOverlay")!,
   upgradeOverlay: document.querySelector<HTMLElement>("#upgradeOverlay")!,
+  chestOverlay: document.querySelector<HTMLElement>("#chestOverlay")!,
   pauseOverlay: document.querySelector<HTMLElement>("#pauseOverlay")!,
   gameOverOverlay: document.querySelector<HTMLElement>("#gameOverOverlay")!,
   upgradeTitle: document.querySelector<HTMLElement>("#upgradeTitle")!,
   upgradeStep: document.querySelector<HTMLElement>("#upgradeStep")!,
   upgradeGrid: document.querySelector<HTMLElement>("#upgradeGrid")!,
+  chestGrid: document.querySelector<HTMLElement>("#chestGrid")!,
   controlButtons: [
     ...document.querySelectorAll<HTMLButtonElement>("[data-control-mode]"),
   ],
@@ -80,7 +86,7 @@ export function initPickupZonesToggle(): void {
   });
 }
 
-let upgradeReturnFocus: HTMLElement | null = null;
+let modalReturnFocus: HTMLElement | null = null;
 let upgradeRunTotal = 0;
 
 const TIER_RANK_LOOKUP = new Map<string, number>(
@@ -109,7 +115,12 @@ export function getUpgradeGrid(): HTMLElement {
   return hud.upgradeGrid;
 }
 
-type OverlayId = "startOverlay" | "upgradeOverlay" | "pauseOverlay" | "gameOverOverlay";
+type OverlayId =
+  | "startOverlay"
+  | "upgradeOverlay"
+  | "chestOverlay"
+  | "pauseOverlay"
+  | "gameOverOverlay";
 
 export function initOverlayFocusScope(): void {
   const active = document.querySelector<HTMLElement>(".overlay.active");
@@ -119,6 +130,7 @@ export function initOverlayFocusScope(): void {
 export function hideOverlays(): void {
   hud.startOverlay.classList.remove("active");
   hud.upgradeOverlay.classList.remove("active");
+  hud.chestOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
   setOverlayFocusScope();
@@ -138,16 +150,20 @@ function setOverlayFocusScope(activeOverlay?: OverlayId): void {
   }
 }
 
-function rememberFocusBeforeUpgrade(): void {
+function rememberFocusBeforeModal(activeOverlay: HTMLElement): void {
   const active = document.activeElement;
-  if (active instanceof HTMLElement && !hud.upgradeOverlay.contains(active)) {
-    upgradeReturnFocus = active;
+  if (
+    modalReturnFocus === null &&
+    active instanceof HTMLElement &&
+    !activeOverlay.contains(active)
+  ) {
+    modalReturnFocus = active;
   }
 }
 
-function restoreFocusAfterUpgrade(): void {
-  const target = upgradeReturnFocus;
-  upgradeReturnFocus = null;
+function restoreFocusAfterModal(): void {
+  const target = modalReturnFocus;
+  modalReturnFocus = null;
   if (target?.isConnected && target.getClientRects().length > 0) {
     target.focus({ preventScroll: true });
   }
@@ -162,6 +178,14 @@ export function updateLoadout(): void {
     chip.dataset.tier = tier.id;
     chip.style.setProperty("--tier-color", tier.color);
     chip.textContent = `${upgrade.icon} ${tier.short} x${count}`;
+    hud.loadout.appendChild(chip);
+  }
+  for (const owned of ownedRelics.values()) {
+    const { relic, count } = owned;
+    const chip = document.createElement("span");
+    chip.className = "loadout-chip relic-chip";
+    chip.style.setProperty("--tier-color", relic.color);
+    chip.textContent = `${relic.icon} R x${count}`;
     hud.loadout.appendChild(chip);
   }
 }
@@ -209,6 +233,14 @@ export function updateHud(): void {
     hpPct > 0.38
       ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
       : "linear-gradient(90deg, #ff5a69, #ffbf47)";
+  const boss = enemies.find((enemy) => enemy.role === "boss");
+  hud.bossPanel.dataset.active = boss ? "true" : "false";
+  if (boss) {
+    hud.bossName.textContent = `Boss vague ${state.wave}`;
+    hud.bossBar.style.width = `${clamp(boss.hp / boss.maxHp, 0, 1) * 100}%`;
+  } else {
+    hud.bossBar.style.width = "0%";
+  }
   updateStats();
   updateItemBar();
 }
@@ -226,6 +258,10 @@ export function flushSimulationHud(force = false): void {
     showUpgrade();
     return;
   }
+  if (events.chest && state.pendingChests > 0 && state.mode === "playing") {
+    showChest();
+    return;
+  }
   if (force || events.hud) {
     updateHud();
   }
@@ -233,7 +269,7 @@ export function flushSimulationHud(force = false): void {
 
 export function showUpgrade(): void {
   if (state.mode !== "upgrade") {
-    rememberFocusBeforeUpgrade();
+    rememberFocusBeforeModal(hud.upgradeOverlay);
     upgradeRunTotal = Math.max(1, state.pendingUpgrades);
   }
   state.mode = "upgrade";
@@ -329,9 +365,106 @@ function onUpgradeChoice(choice: Parameters<typeof applyUpgrade>[0]): void {
   hud.upgradeStep.textContent = "";
   hud.upgradeStep.dataset.active = "false";
   hideOverlays();
+  if (state.pendingChests > 0) {
+    showChest();
+    return;
+  }
+
   state.mode = "playing";
   updateHud();
-  restoreFocusAfterUpgrade();
+  restoreFocusAfterModal();
+}
+
+export function showChest(): void {
+  if (state.mode !== "chest") {
+    rememberFocusBeforeModal(hud.chestOverlay);
+  }
+  state.mode = "chest";
+  hud.chestGrid.innerHTML = "";
+
+  const choices = pickRelicChoices(3);
+  for (const [index, choice] of choices.entries()) {
+    const { relic } = choice;
+    const choiceId = `relic-choice-${index + 1}`;
+    const titleId = `${choiceId}-title`;
+    const descriptionId = `${choiceId}-description`;
+    const effectId = `${choiceId}-effect`;
+    const cipher = cipherFor(relic.id, "R", index);
+    const card = document.createElement("button");
+    card.className = "upgrade-card relic-card";
+    card.type = "button";
+    card.dataset.choiceIndex = String(index + 1);
+    card.dataset.tier = "relic";
+    card.dataset.tierRank = "2";
+    card.setAttribute("aria-labelledby", `${choiceId} ${titleId}`);
+    card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
+    card.style.setProperty("--tier-color", relic.color);
+    card.style.setProperty("--tier-glow", "rgba(255, 191, 71, 0.24)");
+    card.style.setProperty("--card-delay", `${index * 70}ms`);
+
+    card.innerHTML = `
+      <span class="sr-only" id="${choiceId}">Relique ${index + 1}</span>
+      <span class="lock-tick lt-tl" aria-hidden="true"></span>
+      <span class="lock-tick lt-tr" aria-hidden="true"></span>
+      <span class="lock-tick lt-bl" aria-hidden="true"></span>
+      <span class="lock-tick lt-br" aria-hidden="true"></span>
+      <span class="cipher-strip" aria-hidden="true">
+        <span class="cipher-dot"></span>
+        <span class="cipher-code">${cipher}</span>
+        <span class="choice-key">${index + 1}</span>
+      </span>
+      <span class="tier-row" aria-hidden="true">
+        <span class="tier-chevrons">
+          <span class="tier-chevron is-filled"></span>
+          <span class="tier-chevron is-filled"></span>
+          <span class="tier-chevron"></span>
+          <span class="tier-chevron"></span>
+        </span>
+        <span class="tier-name">Relique de run</span>
+      </span>
+      <span class="upgrade-stamp" aria-hidden="true">
+        <span class="upgrade-stamp-rivet"></span>
+        <span class="upgrade-stamp-glyph">${relic.icon}</span>
+      </span>
+      <span class="upgrade-copy">
+        <h3 id="${titleId}">${relic.name}</h3>
+        <p id="${descriptionId}">${relic.description}</p>
+      </span>
+      <strong class="upgrade-effect" id="${effectId}">
+        <span class="upgrade-effect-arrow" aria-hidden="true">&#9656;</span>
+        <span class="upgrade-effect-text">${relic.effect}</span>
+      </strong>
+    `;
+    card.addEventListener("click", () => onRelicChoice(choice));
+    hud.chestGrid.appendChild(card);
+  }
+
+  hud.chestOverlay.classList.add("active");
+  setOverlayFocusScope("chestOverlay");
+  updateLoadout();
+  requestAnimationFrame(() =>
+    hud.chestGrid.querySelector<HTMLButtonElement>("button")?.focus(),
+  );
+}
+
+function onRelicChoice(choice: RelicChoice): void {
+  applyRelicChoice(choice);
+  state.pendingChests = Math.max(0, state.pendingChests - 1);
+  updateLoadout();
+  if (state.pendingChests > 0) {
+    showChest();
+    return;
+  }
+
+  hideOverlays();
+  if (state.pendingUpgrades > 0) {
+    showUpgrade();
+    return;
+  }
+
+  state.mode = "playing";
+  updateHud();
+  restoreFocusAfterModal();
 }
 
 export function showGameOver(): void {
@@ -384,8 +517,30 @@ export function selectUpgradeByIndex(index: number): boolean {
   return true;
 }
 
+export function selectRelicByIndex(index: number): boolean {
+  if (state.mode !== "chest") return false;
+  const card = hud.chestGrid.querySelector<HTMLButtonElement>(
+    `[data-choice-index="${index}"]`,
+  );
+  if (!card) return false;
+  card.click();
+  return true;
+}
+
 export function moveUpgradeFocus(direction: number): void {
   const cards = [...hud.upgradeGrid.querySelectorAll<HTMLButtonElement>(".upgrade-card")];
+  if (!cards.length) return;
+
+  const currentIndex = Math.max(
+    0,
+    cards.indexOf(document.activeElement as HTMLButtonElement),
+  );
+  const nextIndex = (currentIndex + direction + cards.length) % cards.length;
+  cards[nextIndex]?.focus();
+}
+
+export function moveRelicFocus(direction: number): void {
+  const cards = [...hud.chestGrid.querySelectorAll<HTMLButtonElement>(".upgrade-card")];
   if (!cards.length) return;
 
   const currentIndex = Math.max(

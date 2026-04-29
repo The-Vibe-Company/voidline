@@ -69,9 +69,9 @@ button {
   top: 16px;
   left: 50%;
   display: grid;
-  grid-template-columns: auto auto minmax(150px, 210px) minmax(150px, 230px) auto;
+  grid-template-columns: auto auto minmax(150px, 210px) minmax(150px, 230px) minmax(150px, 230px) auto;
   gap: 8px;
-  width: min(940px, calc(100vw - 24px));
+  width: min(1120px, calc(100vw - 24px));
   transform: translateX(-50%);
   pointer-events: none;
 }
@@ -153,6 +153,25 @@ button {
   color: #d9edf4;
   font-family: "Share Tech Mono", ui-monospace, monospace;
   font-size: 0.72rem;
+}
+
+.boss-panel[data-active="false"] {
+  display: none;
+}
+
+.boss-panel {
+  border-color: rgba(255, 90, 105, 0.42);
+  background: linear-gradient(180deg, rgba(36, 9, 17, 0.82), rgba(8, 7, 12, 0.64));
+}
+
+.boss-meter {
+  border-color: rgba(255, 90, 105, 0.42);
+}
+
+.boss-meter span {
+  width: 0%;
+  background: linear-gradient(90deg, var(--red), var(--amber));
+  box-shadow: 0 0 18px rgba(255, 90, 105, 0.55);
 }
 
 .loadout {
@@ -396,12 +415,21 @@ button {
   width: min(480px, 100%);
 }
 
-#upgradeOverlay.active {
+#upgradeOverlay.active,
+#chestOverlay.active {
   background:
     radial-gradient(circle at 50% 42%, rgba(57, 217, 255, 0.08), transparent 36rem),
     linear-gradient(180deg, rgba(2, 4, 8, 0.42), rgba(2, 4, 8, 0.88)),
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 5px);
   animation: upgrade-overlay-in 220ms ease-out both;
+}
+
+.chest-modal {
+  border-color: color-mix(in srgb, var(--amber) 38%, rgba(7, 12, 18, 0.6));
+}
+
+.relic-card {
+  min-height: 318px;
 }
 
 .upgrade-modal {
@@ -1155,7 +1183,8 @@ h2 {
   .modal-scanline::before,
   .cipher-dot,
   .upgrade-modal::after,
-  #upgradeOverlay.active {
+  #upgradeOverlay.active,
+  #chestOverlay.active {
     animation: none !important;
   }
   .upgrade-card {

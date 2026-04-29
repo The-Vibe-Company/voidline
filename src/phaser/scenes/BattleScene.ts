@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import {
   bullets,
+  chests,
   enemies,
   experienceOrbs,
   floaters,
@@ -30,6 +31,7 @@ export class BattleScene extends Phaser.Scene {
   private readonly bulletPool = new ImageRenderPool(this, textureKeys.bullet, 30);
   private readonly xpPool = new ImageRenderPool(this, textureKeys.xp, 15);
   private readonly powerupPool = new ImageRenderPool(this, textureKeys.powerHeart, 18);
+  private readonly chestPool = new ImageRenderPool(this, textureKeys.chest, 24);
   private readonly particlePool = new ImageRenderPool(this, textureKeys.particle, 10);
   private readonly dronePool = new ImageRenderPool(this, textureKeys.drone, 34);
   private readonly floaterPool = new TextRenderPool(this);
@@ -160,6 +162,7 @@ export class BattleScene extends Phaser.Scene {
     const frame = this.renderFrame;
     this.syncExperience(frame);
     this.syncPowerups(frame);
+    this.syncChests(frame);
     this.syncBullets(frame);
     this.syncEnemies(frame);
     this.syncDrones(frame);
@@ -180,7 +183,13 @@ export class BattleScene extends Phaser.Scene {
       sprite.setRotation(enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
       sprite.setScale((enemy.radius * 2.25) / 60);
       sprite.setAlpha(1);
-      sprite.setTint(enemy.hit > 0 ? colorToNumber(enemy.accent) : 0xffffff);
+      sprite.setTint(
+        enemy.hit > 0
+          ? colorToNumber(enemy.accent)
+          : enemy.role === "boss" || enemy.role === "mini-boss"
+            ? colorToNumber(enemy.color)
+            : 0xffffff,
+      );
     }
     this.enemyPools.scout.sweep(frame);
     this.enemyPools.hunter.sweep(frame);
@@ -254,6 +263,23 @@ export class BattleScene extends Phaser.Scene {
       sprite.setAlpha(Math.min(1, orb.life));
     }
     this.powerupPool.sweep(frame);
+  }
+
+  private syncChests(frame: number): void {
+    for (const chest of chests) {
+      if (!this.inView(chest.x, chest.y, chest.radius + 14)) {
+        perfStats.culled += 1;
+        continue;
+      }
+      perfStats.drawn += 1;
+      const sprite = this.chestPool.sync(chest.id, frame);
+      sprite.setPosition(chest.x, chest.y);
+      sprite.setRotation(Math.sin(chest.age * 1.8) * 0.08);
+      sprite.setScale((chest.radius * 2) / 42);
+      sprite.setAlpha(0.96);
+      sprite.clearTint();
+    }
+    this.chestPool.sweep(frame);
   }
 
   private syncParticles(frame: number): void {

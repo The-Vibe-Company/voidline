@@ -1,5 +1,6 @@
 import {
   bullets,
+  chests,
   counters,
   enemies,
   experienceOrbs,
@@ -9,6 +10,7 @@ import {
 } from "../state";
 import type {
   Bullet,
+  ChestEntity,
   EnemyEntity,
   EnemyKind,
   EnemyType,
@@ -22,6 +24,7 @@ import { swapRemove } from "../utils";
 
 const enemyPool: EnemyEntity[] = [];
 const bulletPool: Bullet[] = [];
+const chestPool: ChestEntity[] = [];
 const experiencePool: ExperienceOrb[] = [];
 const powerupPool: PowerupOrb[] = [];
 const particlePool: Particle[] = [];
@@ -30,6 +33,7 @@ const floaterPool: Floater[] = [];
 export function clearEntityPools(): void {
   enemyPool.length = 0;
   bulletPool.length = 0;
+  chestPool.length = 0;
   experiencePool.length = 0;
   powerupPool.length = 0;
   particlePool.length = 0;
@@ -41,6 +45,7 @@ export function resetEntityCounters(): void {
   counters.nextBulletId = 1;
   counters.nextExperienceId = 1;
   counters.nextPowerupId = 1;
+  counters.nextChestId = 1;
   counters.nextParticleId = 1;
   counters.nextFloaterId = 1;
 }
@@ -77,6 +82,9 @@ export function acquireEnemy(type: EnemyType, kind: EnemyKind): EnemyEntity {
   enemy.color = type.color;
   enemy.accent = type.accent;
   enemy.sides = type.sides;
+  enemy.role = "normal";
+  enemy.contactTimer = 0;
+  enemy.contactCooldown = undefined;
   enemies.push(enemy);
   return enemy;
 }
@@ -116,6 +124,30 @@ export function releaseBullet(index: number): Bullet {
   bullet.hitIds.clear();
   bulletPool.push(bullet);
   return bullet;
+}
+
+export function acquireChest(): ChestEntity {
+  const chest =
+    chestPool.pop() ??
+    ({
+      id: 0,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius: 0,
+      age: 0,
+    } satisfies ChestEntity);
+  chest.id = counters.nextChestId;
+  counters.nextChestId += 1;
+  chests.push(chest);
+  return chest;
+}
+
+export function releaseChest(index: number): ChestEntity {
+  const chest = swapRemove(chests, index);
+  chestPool.push(chest);
+  return chest;
 }
 
 export function acquireExperienceOrb(): ExperienceOrb {

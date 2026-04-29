@@ -2,6 +2,7 @@ export interface SimulationEvents {
   hud: boolean;
   loadout: boolean;
   upgrade: boolean;
+  chest: boolean;
   gameOver: boolean;
 }
 
@@ -9,6 +10,7 @@ const pending: SimulationEvents = {
   hud: false,
   loadout: false,
   upgrade: false,
+  chest: false,
   gameOver: false,
 };
 
@@ -26,6 +28,11 @@ export function markUpgradeReady(): void {
   pending.hud = true;
 }
 
+export function markChestReady(): void {
+  pending.chest = true;
+  pending.hud = true;
+}
+
 export function markGameOver(): void {
   pending.gameOver = true;
   pending.hud = true;
@@ -36,6 +43,7 @@ export function consumeSimulationEvents(): SimulationEvents {
   pending.hud = false;
   pending.loadout = false;
   pending.upgrade = false;
+  pending.chest = false;
   pending.gameOver = false;
   return events;
 }

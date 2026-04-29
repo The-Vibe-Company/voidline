@@ -1,9 +1,11 @@
 import {
   bullets,
+  chests,
   counters,
   enemies,
   experienceOrbs,
   floaters,
+  ownedRelics,
   ownedUpgrades,
   particles,
   player,
@@ -21,7 +23,13 @@ import {
   xpToNextLevel,
 } from "../game/balance";
 import { updateBullets } from "../entities/bullets";
-import { spawnEnemy, updateEnemies } from "../entities/enemies";
+import {
+  spawnEnemy,
+  spawnMiniBoss,
+  spawnWaveBoss,
+  updateEnemies,
+} from "../entities/enemies";
+import { resetChests, updateChests } from "../entities/chests";
 import { updateExperience } from "../entities/experience";
 import { updateParticles, burst } from "../entities/particles";
 import { updatePlayer } from "../entities/player";
@@ -32,6 +40,7 @@ import { clearEntityPools, resetEntityCounters } from "./pools";
 import { random, setSimulationSeed } from "./random";
 import type { SimulationConfig, SimulationInputState } from "../types";
 import { clamp } from "../utils";
+import { isBossWave, nextMiniBossMisses, shouldSpawnMiniBoss } from "../game/roguelike";
 
 export function createSimulation(config: SimulationConfig = {}): {
   resetSimulation: typeof resetSimulation;
@@ -81,11 +90,24 @@ export function startSimulationWave(wave: number): void {
   state.mode = "playing";
   state.wave = wave;
   state.waveKills = 0;
-  state.waveTarget = waveTarget(wave);
-  state.spawnRemaining = state.waveTarget;
+  const bossWave = isBossWave(wave);
+  const baseTarget = waveTarget(wave);
+  const spawnMiniBossThisWave =
+    !bossWave && shouldSpawnMiniBoss(wave, state.miniBossEligibleMisses, random());
+  state.miniBossEligibleMisses = nextMiniBossMisses(
+    wave,
+    state.miniBossEligibleMisses,
+    spawnMiniBossThisWave,
+  );
+  state.miniBossPending = spawnMiniBossThisWave;
+  state.waveTarget = bossWave ? 1 : baseTarget + (spawnMiniBossThisWave ? 1 : 0);
+  state.spawnRemaining = bossWave ? 0 : baseTarget;
   state.spawnGap = spawnGap(wave);
   state.spawnTimer = balance.wave.spawnTimerStart;
   state.waveDelay = 0;
+  if (bossWave) {
+    spawnWaveBoss();
+  }
   markHudDirty();
 }
 
@@ -97,10 +119,13 @@ export function resetSimulation(seed?: number): void {
   state.score = 0;
   state.waveKills = 0;
   state.bestCombo = 0;
+  state.miniBossEligibleMisses = 0;
+  state.miniBossPending = false;
   state.level = 1;
   state.xp = 0;
   state.xpTarget = xpToNextLevel(state.level);
   state.pendingUpgrades = 0;
+  state.pendingChests = 0;
   state.heartsCarried = 0;
   state.magnetsCarried = 0;
   state.bombsCarried = 0;
@@ -114,6 +139,7 @@ export function resetSimulation(seed?: number): void {
     }),
   );
   ownedUpgrades.clear();
+  ownedRelics.clear();
   resetEntityCounters();
   enemies.length = 0;
   bullets.length = 0;
@@ -121,14 +147,22 @@ export function resetSimulation(seed?: number): void {
   particles.length = 0;
   floaters.length = 0;
   powerupOrbs.length = 0;
+  chests.length = 0;
   clearEntityPools();
   resetPowerups();
+  resetChests();
 
   updateCameraFromPlayer(true);
   startSimulationWave(1);
 }
 
 function updateWave(dt: number): void {
+  if (state.miniBossPending) {
+    spawnMiniBoss();
+    state.miniBossPending = false;
+    markHudDirty();
+  }
+
   state.spawnTimer -= dt;
   if (state.spawnRemaining > 0 && state.spawnTimer <= 0) {
     const pack = Math.min(
@@ -161,6 +195,7 @@ export function stepSimulation(dt: number, _input?: SimulationInputState): void 
   updateEnemies(cappedDt);
   updateExperience(cappedDt);
   updatePowerups(cappedDt);
+  updateChests(cappedDt);
   updateParticles(cappedDt);
   updateCameraFromPlayer(false);
 
@@ -208,6 +243,7 @@ export function getSimulationView(): {
   bullets: typeof bullets;
   experienceOrbs: typeof experienceOrbs;
   powerupOrbs: typeof powerupOrbs;
+  chests: typeof chests;
   particles: typeof particles;
   floaters: typeof floaters;
   counters: typeof counters;
@@ -220,6 +256,7 @@ export function getSimulationView(): {
     bullets,
     experienceOrbs,
     powerupOrbs,
+    chests,
     particles,
     floaters,
     counters,
