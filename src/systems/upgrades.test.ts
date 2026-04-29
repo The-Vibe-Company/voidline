@@ -22,6 +22,7 @@ function resetDraftState(): void {
 function draftUpgrade(id: string, tags: BuildTag[]): Upgrade {
   return {
     id,
+    kind: "technology",
     icon: id.slice(0, 2).toUpperCase(),
     name: id,
     description: id,
@@ -111,18 +112,34 @@ describe("upgrade draft", () => {
     expect(offersOffBuild).toBe(true);
   });
 
-  it("does not offer locked module upgrades until bought", () => {
+  it("does not offer locked technologies until bought", () => {
     let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
-    expect(ids).not.toContain("orbital-drone");
+    expect(ids).not.toContain("kinetic-shield");
     expect(ids).not.toContain("crit-array");
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      purchasedIds: ["module:drone", "module:crit"],
+      purchasedUnlockIds: ["technology:kinetic-shield", "technology:crit-array"],
     });
     ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
 
-    expect(ids).toContain("orbital-drone");
+    expect(ids).toContain("kinetic-shield");
     expect(ids).toContain("crit-array");
+  });
+
+  it("offers level-ups only for the selected weapon", () => {
+    let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+    expect(ids).toContain("pulse-overdrive");
+    expect(ids).not.toContain("lance-capacitor");
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      purchasedUnlockIds: ["weapon:lance"],
+      selectedWeaponId: "lance",
+    });
+    ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
+
+    expect(ids).toContain("lance-capacitor");
+    expect(ids).not.toContain("pulse-overdrive");
   });
 });

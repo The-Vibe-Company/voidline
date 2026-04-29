@@ -3,13 +3,13 @@ import { balance, recomputeMultiplicativeStats } from "./balance";
 
 export const weaponCatalog: readonly Weapon[] = [
   {
-    id: "standard",
-    name: "Standard",
-    icon: "STD",
-    description: "Salve stable, sans biais de build.",
+    id: "pulse",
+    name: "Pulse Rifle",
+    icon: "PUL",
+    description: "Arme standard, fiable, sans faiblesse majeure.",
     tags: ["cannon"],
     apply() {
-      // Baseline ship state already represents the standard weapon.
+      // Baseline ship state already represents the pulse rifle.
     },
   },
   {
@@ -39,6 +39,19 @@ export const weaponCatalog: readonly Weapon[] = [
       target.bonus.fireRatePct -= 0.34;
       target.bonus.damagePct += 0.48;
       target.bonus.bulletSpeedPct += 0.2;
+      recomputeMultiplicativeStats(target);
+    },
+  },
+  {
+    id: "drone",
+    name: "Drone Core",
+    icon: "DRN",
+    description: "Un drone autonome des le depart, faible burst principal.",
+    tags: ["drone", "salvage"],
+    apply(target) {
+      target.drones = Math.max(target.drones, 1);
+      target.bonus.fireRatePct -= 0.12;
+      target.bonus.damagePct -= 0.1;
       recomputeMultiplicativeStats(target);
     },
   },

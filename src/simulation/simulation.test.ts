@@ -15,7 +15,9 @@ import { updateExperience } from "../entities/experience";
 import { burst, pulseText } from "../entities/particles";
 import { nearestEnemy } from "../entities/player";
 import { killEnemy } from "../entities/enemies";
+import { balance } from "../game/balance";
 import { collectExperience } from "../game/progression";
+import { bossBalance } from "../game/roguelike";
 import type { EnemyEntity } from "../types";
 import { swapRemove } from "../utils";
 import { enemyGrid } from "./grids";
@@ -28,7 +30,7 @@ import {
   setChallengeTrackingEnabled,
 } from "../systems/challenges";
 import { createDefaultAccountProgress } from "../game/account-progression";
-import { resetAccountProgress, restoreAccountProgress } from "../systems/account";
+import { accountProgress, resetAccountProgress, restoreAccountProgress } from "../systems/account";
 
 const defaultParticleBudget = simulationPerfConfig.budgets.maxParticles;
 const defaultFloaterBudget = simulationPerfConfig.budgets.maxFloaters;
@@ -55,6 +57,17 @@ function makeEnemy(id: number, x: number, y: number): EnemyEntity {
     wobbleRate: 0,
     hit: 0,
   };
+}
+
+function completeCurrentWave(): void {
+  state.spawnRemaining = 0;
+  state.miniBossPending = false;
+  state.waveDelay = 0;
+  enemies.length = 0;
+  const frames = Math.ceil((balance.wave.waveDelay + 0.1) / 0.033);
+  for (let i = 0; i < frames; i += 1) {
+    stepSimulation(0.033);
+  }
 }
 
 function prepareWorld(): void {
@@ -213,12 +226,123 @@ describe("simulation performance helpers", () => {
     expect(state.pendingChests).toBe(0);
   });
 
+  it("pauses combat and stage timers while upgrade or chest choices are pending", () => {
+    prepareWorld();
+    resetSimulation(123);
+    enemies.length = 0;
+    state.spawnTimer = 0;
+    state.spawnRemaining = 4;
+    state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
+    state.pendingUpgrades = 1;
+
+    stepSimulation(0.02);
+
+    expect(state.stageElapsedSeconds).toBeCloseTo(bossBalance.stageDurationSeconds - 0.01);
+    expect(state.spawnRemaining).toBe(4);
+    expect(enemies).toHaveLength(0);
+    expect(state.stageBossActive).toBe(false);
+  });
+
+  it("starts from the selected unlocked stage without granting extra power", () => {
+    prepareWorld();
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      highestStageCleared: 1,
+      highestStartStageUnlocked: 2,
+      selectedStartStage: 2,
+    });
+
+    resetSimulation(123);
+
+    expect(state.stage).toBe(2);
+    expect(state.startStage).toBe(2);
+    expect(state.wave).toBe(10);
+    expect(player.damage).toBe(24);
+    expect(player.projectileCount).toBe(1);
+  });
+
+  it("clamps a mutated selected start stage at reset", () => {
+    prepareWorld();
+    restoreAccountProgress(createDefaultAccountProgress());
+    accountProgress.selectedStartStage = 99;
+    accountProgress.highestStartStageUnlocked = 1;
+
+    resetSimulation(123);
+
+    expect(state.stage).toBe(1);
+    expect(state.wave).toBe(1);
+  });
+
+  it("spawns a stage boss after ten minutes of stage time", () => {
+    prepareWorld();
+    resetSimulation(123);
+    enemies.length = 0;
+    state.waveKills = 2;
+    state.waveTarget = 10;
+    state.spawnRemaining = 4;
+    state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
+
+    stepSimulation(0.02);
+
+    expect(state.stageBossActive).toBe(true);
+    expect(state.spawnRemaining).toBe(0);
+    expect(state.waveTarget).toBe(3);
+    expect(enemies.some((enemy) => enemy.role === "boss")).toBe(true);
+  });
+
+  it("does not spawn a second stage boss while a boss is alive", () => {
+    prepareWorld();
+    resetSimulation(123);
+    enemies.length = 0;
+    const boss = makeEnemy(99, player.x + 100, player.y);
+    boss.role = "boss";
+    enemies.push(boss);
+    state.spawnRemaining = 0;
+    state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
+
+    stepSimulation(0.02);
+
+    expect(enemies.filter((enemy) => enemy.role === "boss")).toHaveLength(1);
+    expect(state.stageBossSpawned).toBe(false);
+  });
+
+  it("cancels pending mini-boss spawns when the stage boss phase starts", () => {
+    prepareWorld();
+    resetSimulation(123);
+    enemies.length = 0;
+    state.miniBossPending = true;
+    state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
+
+    stepSimulation(0.02);
+
+    expect(state.miniBossPending).toBe(false);
+    expect(enemies.filter((enemy) => enemy.role === "mini-boss")).toHaveLength(0);
+    expect(enemies.filter((enemy) => enemy.role === "boss")).toHaveLength(1);
+  });
+
+  it("starts the first wave of the next stage after a boss clear", () => {
+    prepareWorld();
+    resetSimulation(123);
+    const boss = makeEnemy(99, player.x + 100, player.y);
+    boss.role = "boss";
+    enemies.push(boss);
+
+    killEnemy(enemies.length - 1);
+    enemies.length = 0;
+    state.spawnRemaining = 0;
+    state.waveDelay = balance.wave.waveDelay + 0.01;
+    stepSimulation(0.02);
+
+    expect(state.stage).toBe(2);
+    expect(state.wave).toBe(10);
+  });
+
   it("applies the equipped account weapon when a run resets", () => {
     prepareWorld();
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      purchasedIds: ["weapon:lance"],
-      equippedWeaponId: "lance",
+      purchasedUnlockIds: ["weapon:lance"],
+      selectedWeaponId: "lance",
     });
 
     resetSimulation(123);
@@ -239,12 +363,13 @@ describe("simulation performance helpers", () => {
     prepareWorld();
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      purchasedIds: ["weapon:scatter"],
-      equippedWeaponId: "scatter",
+      purchasedUnlockIds: ["weapon:scatter"],
+      selectedWeaponId: "scatter",
     });
     ownedUpgrades.set("fake", {
       upgrade: {
         id: "fake",
+        kind: "technology",
         icon: "F",
         name: "Fake",
         description: "Fake",
@@ -312,6 +437,8 @@ describe("simulation performance helpers", () => {
     state.xpTarget = 1;
 
     startSimulationWave(5);
+    expect(challengeProgress.bestWave).toBe(0);
+    completeCurrentWave();
     expect(challengeProgress.bestWave).toBe(5);
 
     enemies.push(makeEnemy(1, player.x + 100, player.y));
@@ -324,8 +451,29 @@ describe("simulation performance helpers", () => {
     enemies.push(boss);
     killEnemy(enemies.length - 1);
     expect(challengeProgress.bossKills).toBe(1);
+    expect(state.runBossStages).toEqual([1]);
+    expect(state.stage).toBe(2);
 
     collectExperience(1);
     expect(challengeProgress.bestLevel).toBe(2);
+  });
+
+  it("records best-wave challenges relative to the selected start stage", () => {
+    prepareWorld();
+    resetChallengeProgress(null);
+    initializeChallenges(null);
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      highestStageCleared: 1,
+      highestStartStageUnlocked: 2,
+      selectedStartStage: 2,
+    });
+
+    resetSimulation(123);
+
+    expect(state.wave).toBe(10);
+    expect(challengeProgress.bestWave).toBe(0);
+    completeCurrentWave();
+    expect(challengeProgress.bestWave).toBe(1);
   });
 });

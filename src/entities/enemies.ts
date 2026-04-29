@@ -6,7 +6,7 @@ import { spawnChest } from "./chests";
 import { enemies, player, state, world } from "../state";
 import { circleHit, clamp, distanceSq } from "../utils";
 import { scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
-import { bossBalance } from "../game/roguelike";
+import { bossBalance, bossUnlockWaveForStage, startingWaveForStage } from "../game/roguelike";
 import { unlockRelicsForBossWave } from "../systems/relics";
 import { incrementChallengeProgress, recordChallengeProgress } from "../systems/challenges";
 import type { EnemyType } from "../types";
@@ -111,6 +111,11 @@ export function spawnWaveBoss(): void {
   spawnElite(type, "boss");
 }
 
+export function spawnStageBoss(): void {
+  const type = selectEnemyType(state.wave + state.stage * 4 + 8, 0.98);
+  spawnElite(type, "boss");
+}
+
 export function killEnemy(index: number): void {
   const enemy = enemies[index]!;
   const role = enemy.role ?? "normal";
@@ -132,10 +137,25 @@ export function killEnemy(index: number): void {
     if (!state.runBossWaves.includes(state.wave)) {
       state.runBossWaves.push(state.wave);
     }
-    const unlocked = unlockRelicsForBossWave(state.wave);
+    if (!state.runBossStages.includes(state.stage)) {
+      state.runBossStages.push(state.stage);
+    }
+    const clearedStage = state.stage;
+    const currentWave = state.wave;
+    const nextStage = clearedStage + 1;
+    const nextWave = Math.max(currentWave + 1, startingWaveForStage(nextStage));
+    state.stageBossActive = false;
+    state.stageBossSpawned = false;
+    state.stage = nextStage;
+    state.highestStageReached = Math.max(state.highestStageReached, state.stage);
+    state.stageElapsedSeconds = 0;
+    state.wave = nextWave - 1;
+    state.waveDelay = 0;
+    const unlocked = unlockRelicsForBossWave(bossUnlockWaveForStage(clearedStage));
     if (unlocked.length > 0) {
       pulseText(enemy.x, enemy.y - enemy.radius - 22, "NOUVELLES RELIQUES", "#72ffb1");
     }
+    pulseText(enemy.x, enemy.y - enemy.radius - 48, `NIVEAU ${state.stage}`, "#39d9ff");
   }
 
   burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);

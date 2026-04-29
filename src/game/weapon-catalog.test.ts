@@ -3,10 +3,10 @@ import { balance, createPlayerState } from "./balance";
 import { applyWeapon } from "./weapon-catalog";
 
 describe("weapon catalog", () => {
-  it("keeps standard weapon as the baseline", () => {
+  it("keeps pulse weapon as the baseline", () => {
     const target = createPlayerState();
 
-    applyWeapon("standard", target);
+    applyWeapon("pulse", target);
 
     expect(target.damage).toBe(balance.player.stats.damage);
     expect(target.projectileCount).toBe(balance.player.stats.projectileCount);
@@ -29,5 +29,14 @@ describe("weapon catalog", () => {
     expect(target.pierce).toBe(1);
     expect(target.damage).toBeGreaterThan(balance.player.stats.damage);
     expect(target.fireRate).toBeLessThan(balance.player.stats.fireRate);
+  });
+
+  it("applies drone as an autonomous low-burst start", () => {
+    const target = createPlayerState();
+
+    applyWeapon("drone", target);
+
+    expect(target.drones).toBe(1);
+    expect(target.damage).toBeLessThan(balance.player.stats.damage);
   });
 });

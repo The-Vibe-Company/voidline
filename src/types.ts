@@ -14,18 +14,26 @@ export type EnemyRole = "normal" | "mini-boss" | "boss";
 
 export type TierId = "standard" | "rare" | "prototype" | "singularity";
 
-export type WeaponId = "standard" | "scatter" | "lance";
+export type CharacterId = "pilot" | "runner" | "tank";
+
+export type WeaponId = "pulse" | "scatter" | "lance" | "drone";
+
+export type UnlockRequirement =
+  | "available"
+  | "reach-10m"
+  | "clear-stage-1"
+  | "reach-stage-2"
+  | "boss-kill";
 
 export type ShopItemId =
-  | "module:shield"
-  | "module:pierce"
-  | "module:drone"
-  | "module:crit"
+  | "character:runner"
+  | "character:tank"
   | "weapon:scatter"
   | "weapon:lance"
-  | "rarity:1"
-  | "rarity:2"
-  | "rarity:3";
+  | "weapon:drone"
+  | "technology:kinetic-shield"
+  | "technology:crit-array"
+  | "technology:heavy-caliber";
 
 export interface World {
   width: number;
@@ -42,6 +50,13 @@ export interface World {
 export interface GameState {
   mode: GameMode;
   wave: number;
+  stage: number;
+  startStage: number;
+  stageElapsedSeconds: number;
+  runElapsedSeconds: number;
+  stageBossSpawned: boolean;
+  stageBossActive: boolean;
+  highestStageReached: number;
   score: number;
   waveKills: number;
   waveTarget: number;
@@ -63,6 +78,7 @@ export interface GameState {
   bombsCarried: number;
   showPickupZones: boolean;
   runBossWaves: number[];
+  runBossStages: number[];
   runRewardClaimed: boolean;
 }
 
@@ -84,7 +100,6 @@ export type ChallengeMetric =
 
 export interface ChallengeTier {
   threshold: number;
-  accountXp: number;
 }
 
 export interface Challenge {
@@ -159,44 +174,53 @@ export interface Player {
 }
 
 export interface AccountProgress {
-  level: number;
-  xp: number;
-  tokens: number;
-  spentTokens: number;
-  purchasedIds: ShopItemId[];
-  equippedWeaponId: WeaponId;
-  bestWave: number;
-  bestRunLevel: number;
-  bossWavesDefeated: number[];
-  claimedChallengeTierIds: string[];
+  crystals: number;
+  spentCrystals: number;
+  purchasedUnlockIds: ShopItemId[];
+  selectedCharacterId: CharacterId;
+  selectedWeaponId: WeaponId;
+  selectedStartStage: number;
+  highestStageCleared: number;
+  highestStartStageUnlocked: number;
+  records: AccountRecords;
   lastRunReward: AccountReward | null;
 }
 
+export interface AccountRecords {
+  bestStage: number;
+  bestTimeSeconds: number;
+  bestScore: number;
+  bestRunLevel: number;
+  bossKills: number;
+}
+
 export interface AccountRunSummary {
-  wave: number;
+  stage: number;
+  startStage: number;
+  elapsedSeconds: number;
   runLevel: number;
   score: number;
-  bossWaves: readonly number[];
+  bossStages: readonly number[];
 }
 
 export interface AccountRewardBreakdown {
-  runLevelXp: number;
-  waveXp: number;
-  bossXp: number;
-  firstBossXp: number;
-  recordXp: number;
-  challengeXp: number;
+  durationCrystals: number;
+  stageCrystals: number;
+  bossCrystals: number;
+  scoreCrystals: number;
+  recordCrystals: number;
+  startStageBonusCrystals: number;
 }
 
 export interface AccountReward {
-  source: "run" | "challenge" | "shop";
-  xpGained: number;
-  tokensGained: number;
-  levelsGained: number;
+  source: "run" | "shop";
+  crystalsGained: number;
+  newlyUnlockedStartStage: number | null;
+  newRecords: string[];
   breakdown: AccountRewardBreakdown;
 }
 
-export type ShopItemKind = "module" | "weapon" | "rarity";
+export type ShopItemKind = "character" | "weapon" | "technology";
 
 export interface ShopItem {
   id: ShopItemId;
@@ -205,9 +229,10 @@ export interface ShopItem {
   description: string;
   cost: number;
   tags: readonly BuildTag[];
-  moduleTag?: BuildTag;
+  requirement: UnlockRequirement;
+  characterId?: CharacterId;
   weaponId?: WeaponId;
-  rarityRank?: number;
+  technologyId?: string;
 }
 
 export interface EnemyType {
@@ -361,8 +386,19 @@ export interface Weapon {
   apply: (target: Player) => void;
 }
 
+export interface Character {
+  id: CharacterId;
+  name: string;
+  icon: string;
+  description: string;
+  bonusLabel: string;
+  apply: (target: Player) => void;
+}
+
 export interface Upgrade {
   id: string;
+  kind: "technology" | "weapon";
+  weaponId?: WeaponId;
   icon: string;
   name: string;
   description: string;

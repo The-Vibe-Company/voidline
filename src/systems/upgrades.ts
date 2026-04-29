@@ -6,7 +6,12 @@ import { availableUpgradesForPlayer } from "../game/upgrade-catalog";
 import type { BuildTag, Upgrade, UpgradeChoice, UpgradeTier } from "../types";
 import { markLoadoutDirty } from "../simulation/events";
 import { random } from "../simulation/random";
-import { currentRarityRank, currentUnlockedBuildTags } from "./account";
+import {
+  accountProgress,
+  currentRarityRank,
+  currentUnlockedBuildTags,
+  currentUnlockedTechnologyIds,
+} from "./account";
 import {
   buildTagCountsFromLoadout,
   refreshPlayerTraits,
@@ -19,7 +24,13 @@ export function rollUpgradeTier(wave: number): UpgradeTier {
 }
 
 export function pickUpgrades(count: number): UpgradeChoice[] {
-  const candidates = availableUpgradesForPlayer(player, undefined, currentUnlockedBuildTags());
+  const candidates = availableUpgradesForPlayer(
+    player,
+    accountProgress.selectedWeaponId,
+    currentUnlockedTechnologyIds(),
+    undefined,
+    currentUnlockedBuildTags(),
+  );
   const buildTagCounts = buildTagCountsFromLoadout(ownedUpgrades.values(), ownedRelics.values());
   const upgrades = pickUpgradeDraft(candidates, count, buildTagCounts);
 

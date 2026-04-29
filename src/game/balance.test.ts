@@ -191,10 +191,8 @@ describe("upgrade effects", () => {
     expect(target.shieldMax).toBe(24);
     expect(target.shield).toBe(24);
     expect(target.shieldRegen).toBeCloseTo(2.4);
-
-    findUpgrade("repair-bay").apply(tier("standard"), target);
     expect(target.maxHp).toBe(120);
-    expect(target.hp).toBe(82);
+    expect(target.hp).toBe(53);
 
     findUpgrade("magnet-array").apply(tier("standard"), target);
     expect(target.pickupRadius).toBeCloseTo(1.35);
@@ -206,11 +204,28 @@ describe("upgrade effects", () => {
       projectileCount: balance.upgrade.caps.projectiles,
       pierce: balance.upgrade.caps.pierce,
     });
-    const ids = availableUpgradesForPlayer(cappedChoicePlayer).map((upgrade) => upgrade.id);
+    const allTechnologies = new Set([
+      "twin-cannon",
+      "plasma-core",
+      "rail-slug",
+      "ion-engine",
+      "magnet-array",
+      "kinetic-shield",
+      "crit-array",
+      "heavy-caliber",
+    ]);
+    const allTags = new Set(["cannon", "salvage", "magnet", "shield", "crit", "pierce", "drone"] as const);
+    const ids = availableUpgradesForPlayer(
+      cappedChoicePlayer,
+      "lance",
+      allTechnologies,
+      undefined,
+      allTags,
+    ).map((upgrade) => upgrade.id);
 
-    expect(ids).not.toContain("orbital-drone");
+    expect(ids).not.toContain("drone-uplink");
     expect(ids).not.toContain("twin-cannon");
-    expect(ids).not.toContain("piercer");
+    expect(ids).not.toContain("lance-capacitor");
 
     const critPlayer = createPlayerState({ critChance: 0.94 });
     findUpgrade("crit-array").apply(tier("singularity"), critPlayer);
@@ -221,9 +236,9 @@ describe("upgrade effects", () => {
       projectileCount: balance.upgrade.caps.projectiles - 1,
       pierce: balance.upgrade.caps.pierce - 1,
     });
-    findUpgrade("orbital-drone").apply(tier("singularity"), nearCapPlayer);
+    findUpgrade("drone-uplink").apply(tier("singularity"), nearCapPlayer);
     findUpgrade("twin-cannon").apply(tier("singularity"), nearCapPlayer);
-    findUpgrade("piercer").apply(tier("singularity"), nearCapPlayer);
+    findUpgrade("lance-capacitor").apply(tier("singularity"), nearCapPlayer);
 
     expect(nearCapPlayer.drones).toBe(balance.upgrade.caps.drones);
     expect(nearCapPlayer.projectileCount).toBe(balance.upgrade.caps.projectiles);
@@ -250,11 +265,11 @@ describe("multiplicative upgrade additivity", () => {
   it("sums contributions from different upgrades sharing the same stat", () => {
     const target = createPlayerState();
     findUpgrade("rail-slug").apply(tier("standard"), target);
-    findUpgrade("piercer").apply(tier("standard"), target);
+    findUpgrade("lance-capacitor").apply(tier("standard"), target);
 
     const expected =
       balance.player.stats.damage *
-      (1 + balance.upgrade.effects.damage + balance.upgrade.effects.pierceDamage);
+      (1 + balance.upgrade.effects.damage + 0.18);
     expect(target.damage).toBeCloseTo(expected);
   });
 
@@ -270,7 +285,7 @@ describe("multiplicative upgrade additivity", () => {
     expect(a.fireRate).toBeCloseTo(b.fireRate);
   });
 
-  it("applies the additive rule to all six percentage upgrades", () => {
+  it("applies the additive rule to percentage technologies", () => {
     const cases = [
       { id: "plasma-core", stat: "fireRate", effect: balance.upgrade.effects.fireRate },
       { id: "ion-engine", stat: "speed", effect: balance.upgrade.effects.speed },

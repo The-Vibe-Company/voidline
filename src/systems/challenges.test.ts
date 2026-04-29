@@ -6,7 +6,6 @@ import {
   recordChallengeProgress,
   resetChallengeProgress,
 } from "./challenges";
-import { accountProgress, resetAccountProgress } from "./account";
 
 class MemoryStorage {
   private values = new Map<string, string>();
@@ -30,7 +29,6 @@ describe("challenge persistence", () => {
   beforeEach(() => {
     storage = new MemoryStorage();
     resetChallengeProgress(storage);
-    resetAccountProgress(null);
   });
 
   it("loads empty progress by default", () => {
@@ -80,15 +78,12 @@ describe("challenge persistence", () => {
     expect(stored.totalKills).toBe(3);
   });
 
-  it("persists claimed account XP rewards to the same storage", () => {
+  it("does not mutate meta progression when objectives advance", () => {
     initializeChallenges(storage);
-    resetAccountProgress(storage);
 
     recordChallengeProgress("bestWave", 5, storage);
 
-    const storedAccount = JSON.parse(storage.getItem("voidline:accountProgress:v1") ?? "{}");
-    expect(accountProgress.claimedChallengeTierIds).toEqual(["survivor:1"]);
-    expect(storedAccount.claimedChallengeTierIds).toEqual(["survivor:1"]);
+    expect(storage.getItem("voidline:metaProgress:v1")).toBeNull();
   });
 
   it("keeps cumulative counters monotonic", () => {

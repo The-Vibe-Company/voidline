@@ -6,7 +6,6 @@ import {
   totalUnlockedTiers,
 } from "../game/challenge-catalog";
 import type { ChallengeMetric, ChallengeProgress } from "../types";
-import { claimChallengeRewards } from "./account";
 
 const STORAGE_KEY = "voidline:challengeProgress";
 
@@ -117,7 +116,6 @@ export function recordChallengeProgress(
   challengeProgress[metric] = next;
   persistChallengeProgress(storage);
   announceNewChallengeTiers(previousTierTotal);
-  claimChallengeRewards(challengeProgress, storage);
   return true;
 }
 
@@ -135,7 +133,6 @@ export function incrementChallengeProgress(
   challengeProgress[metric] = next;
   persistChallengeProgress(storage);
   announceNewChallengeTiers(previousTierTotal);
-  claimChallengeRewards(challengeProgress, storage);
   return true;
 }
 
@@ -157,7 +154,7 @@ function announceNewChallengeTiers(previousTierTotal: number): void {
   const gained = nextTierTotal - Math.max(previousTierTotal, notifiedTierTotal);
   notifiedTierTotal = nextTierTotal;
 
-  const label = gained > 1 ? `+${gained} objectifs XP` : "Objectif XP";
+  const label = gained > 1 ? `+${gained} objectifs` : "Objectif";
   pulseText(player.x, player.y - 72, label, "#72ffb1");
 }
 

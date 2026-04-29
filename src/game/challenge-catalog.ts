@@ -9,10 +9,10 @@ export const challengeCatalog: Challenge[] = [
     metric: "bestWave",
     unit: "vague",
     tiers: [
-      { threshold: 5, accountXp: 70 },
-      { threshold: 10, accountXp: 105 },
-      { threshold: 15, accountXp: 150 },
-      { threshold: 20, accountXp: 210 },
+      { threshold: 5 },
+      { threshold: 10 },
+      { threshold: 15 },
+      { threshold: 20 },
     ],
   },
   {
@@ -23,9 +23,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "bossKills",
     unit: "boss",
     tiers: [
-      { threshold: 1, accountXp: 120 },
-      { threshold: 2, accountXp: 170 },
-      { threshold: 3, accountXp: 230 },
+      { threshold: 1 },
+      { threshold: 2 },
+      { threshold: 3 },
     ],
   },
   {
@@ -36,9 +36,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "totalKills",
     unit: "kills",
     tiers: [
-      { threshold: 100, accountXp: 80 },
-      { threshold: 300, accountXp: 145 },
-      { threshold: 600, accountXp: 230 },
+      { threshold: 100 },
+      { threshold: 300 },
+      { threshold: 600 },
     ],
   },
   {
@@ -49,9 +49,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "bestScore",
     unit: "score",
     tiers: [
-      { threshold: 2_000, accountXp: 70 },
-      { threshold: 8_000, accountXp: 130 },
-      { threshold: 20_000, accountXp: 220 },
+      { threshold: 2_000 },
+      { threshold: 8_000 },
+      { threshold: 20_000 },
     ],
   },
   {
@@ -62,9 +62,9 @@ export const challengeCatalog: Challenge[] = [
     metric: "bestLevel",
     unit: "niveau",
     tiers: [
-      { threshold: 5, accountXp: 80 },
-      { threshold: 10, accountXp: 150 },
-      { threshold: 15, accountXp: 240 },
+      { threshold: 5 },
+      { threshold: 10 },
+      { threshold: 15 },
     ],
   },
 ];
@@ -91,36 +91,8 @@ export function totalUnlockedTiers(progress: ChallengeProgress): number {
   );
 }
 
-export interface ChallengeTierReward {
-  id: string;
-  challengeId: string;
-  tierIndex: number;
-  accountXp: number;
-}
-
 export function challengeTierId(challengeId: string, tierIndex: number): string {
   return `${challengeId}:${tierIndex + 1}`;
-}
-
-export function claimableChallengeTierRewards(
-  progress: ChallengeProgress,
-  claimedIds: ReadonlySet<string>,
-): ChallengeTierReward[] {
-  const rewards: ChallengeTierReward[] = [];
-  for (const challenge of challengeCatalog) {
-    const unlocked = unlockedTierCount(challenge, progress);
-    for (let tierIndex = 0; tierIndex < unlocked; tierIndex += 1) {
-      const id = challengeTierId(challenge.id, tierIndex);
-      if (claimedIds.has(id)) continue;
-      rewards.push({
-        id,
-        challengeId: challenge.id,
-        tierIndex,
-        accountXp: challenge.tiers[tierIndex]!.accountXp,
-      });
-    }
-  }
-  return rewards;
 }
 
 export function nextChallengeThreshold(

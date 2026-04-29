@@ -19,7 +19,7 @@
 
       <section class="hud" aria-live="polite">
         <div class="hud-panel">
-          <span class="hud-label">Vague</span>
+          <span class="hud-label">Niveau</span>
           <strong id="waveValue">1</strong>
         </div>
         <div class="hud-panel wide">
@@ -151,11 +151,11 @@
               <p class="eyebrow">Hangar de lancement</p>
               <h1 id="startTitle">Voidline</h1>
               <p class="tagline">
-                Lance une run, forge un build, puis reinvestis tes jetons dans de nouveaux modules.
+                Survis 10 minutes, bats le boss, puis depense tes cristaux dans de nouveaux builds.
               </p>
             </div>
             <button class="primary-action launch-action" id="startButton" type="button">
-              Lancer la run
+              Lancer
             </button>
           </header>
 
@@ -163,23 +163,28 @@
             <section class="home-launch" aria-labelledby="homeLaunchTitle">
               <div class="home-section-header">
                 <div>
-                  <h2 id="homeLaunchTitle">Vaisseau pret</h2>
-                  <span data-account-reward>Aucun gain de compte</span>
+                  <h2 id="homeLaunchTitle">Depart de run</h2>
+                  <span data-account-reward>Aucun cristal gagne</span>
                 </div>
                 <div class="hangar-counters">
-                  <span>Niv. <strong data-account-level>1</strong></span>
-                  <span><strong data-account-tokens>0</strong> jetons</span>
-                  <span data-account-rarity>Rarete 0/3</span>
+                  <span><strong data-account-crystals>0</strong> cristaux</span>
+                  <span data-account-record>Record N1</span>
                 </div>
               </div>
-              <div class="meter account-meter" aria-hidden="true">
-                <span data-account-xp-bar></span>
-              </div>
-              <span class="account-xp-readout" data-account-xp>0/147 XP</span>
 
               <div class="home-section-block">
-                <h3>Arme equipee</h3>
+                <h3>Personnage</h3>
+                <div class="hangar-grid character-grid" data-character-grid></div>
+              </div>
+
+              <div class="home-section-block">
+                <h3>Arme de depart</h3>
                 <div class="hangar-grid weapon-grid" data-weapon-grid></div>
+              </div>
+
+              <div class="home-section-block">
+                <h3>Niveau de depart</h3>
+                <div class="hangar-grid stage-grid" data-stage-grid></div>
               </div>
 
               <div class="home-controls">
@@ -207,8 +212,8 @@
             <section class="hangar-panel home-shop" aria-labelledby="startHangarTitle">
               <div class="hangar-header">
                 <div>
-                  <h2 id="startHangarTitle">Modules de build</h2>
-                  <span>Debloque de nouvelles familles d'upgrades.</span>
+                  <h2 id="startHangarTitle">Unlocks</h2>
+                  <span>Achats permanents avec les cristaux de fin de run.</span>
                 </div>
               </div>
               <div class="hangar-grid" data-shop-grid></div>
@@ -216,12 +221,12 @@
 
             <section class="challenge-panel home-objectives" aria-labelledby="startChallengesTitle">
               <div class="challenge-panel-header">
-                <h2 id="startChallengesTitle">Objectifs compte</h2>
+                <h2 id="startChallengesTitle">Objectifs</h2>
                 <span id="startChallengeSummary">0/16</span>
               </div>
               <div class="challenge-list" id="startChallengeList"></div>
               <button class="secondary-action" id="resetChallengesButton" type="button">
-                Reinitialiser compte
+                Reinitialiser progression
               </button>
             </section>
           </div>
@@ -297,7 +302,7 @@
               <h2 id="gameOverTitle">Debrief de run</h2>
               <p class="tagline">
                 Score final <strong id="finalScore">0</strong> -
-                vague <strong id="finalWave">1</strong>
+                niveau <strong id="finalWave">1</strong>
               </p>
             </div>
             <button class="primary-action" id="restartButton" type="button">Relancer</button>
@@ -315,31 +320,34 @@
           <section class="hangar-panel compact-hangar" aria-labelledby="gameOverHangarTitle">
             <div class="hangar-header">
               <div>
-                <h2 id="gameOverHangarTitle">Compte / Hangar</h2>
-                <span data-account-reward>Aucun gain de compte</span>
+                <h2 id="gameOverHangarTitle">Cristaux / Unlocks</h2>
+                <span data-account-reward>Aucun cristal gagne</span>
               </div>
               <div class="hangar-counters">
-                <span>Niv. <strong data-account-level>1</strong></span>
-                <span><strong data-account-tokens>0</strong> jetons</span>
-                <span data-account-rarity>Rarete 0/3</span>
+                <span><strong data-account-crystals>0</strong> cristaux</span>
+                <span data-account-record>Record N1</span>
               </div>
             </div>
-            <div class="meter account-meter" aria-hidden="true">
-              <span data-account-xp-bar></span>
+            <div class="hangar-section">
+              <h3>Personnage</h3>
+              <div class="hangar-grid character-grid" data-character-grid></div>
             </div>
-            <span class="account-xp-readout" data-account-xp>0/147 XP</span>
             <div class="hangar-section">
               <h3>Arme</h3>
               <div class="hangar-grid weapon-grid" data-weapon-grid></div>
             </div>
             <div class="hangar-section">
-              <h3>Modules</h3>
+              <h3>Niveau de depart</h3>
+              <div class="hangar-grid stage-grid" data-stage-grid></div>
+            </div>
+            <div class="hangar-section">
+              <h3>Unlocks</h3>
               <div class="hangar-grid" data-shop-grid></div>
             </div>
           </section>
           <section class="challenge-panel compact-challenges" aria-labelledby="gameOverChallengesTitle">
             <div class="challenge-panel-header">
-              <h2 id="gameOverChallengesTitle">Objectifs compte</h2>
+              <h2 id="gameOverChallengesTitle">Objectifs</h2>
               <span id="gameOverChallengeSummary">0/16</span>
             </div>
             <div class="challenge-list" id="gameOverChallengeList"></div>

@@ -1,68 +1,112 @@
 import { describe, expect, it } from "vitest";
 import {
-  accountXpToNextLevel,
-  applyAccountXp,
-  computeRunAccountXp,
+  applyCrystalReward,
+  computeRunCrystalBreakdown,
   createDefaultAccountProgress,
-  tokenRewardForLevel,
-  totalAccountXpBreakdown,
+  totalCrystalBreakdown,
 } from "./account-progression";
 
-describe("account progression", () => {
-  it("keeps account XP requirements monotonic", () => {
-    let previous = accountXpToNextLevel(1);
-
-    for (let level = 2; level <= 40; level += 1) {
-      const next = accountXpToNextLevel(level);
-      expect(next).toBeGreaterThan(previous);
-      previous = next;
-    }
-  });
-
-  it("only awards tokens on milestone levels", () => {
-    expect(tokenRewardForLevel(1)).toBe(0);
-    expect(tokenRewardForLevel(2)).toBe(1);
-    expect(tokenRewardForLevel(4)).toBe(0);
-    expect(tokenRewardForLevel(30)).toBe(1);
-    expect(tokenRewardForLevel(40)).toBe(1);
-    expect(tokenRewardForLevel(41)).toBe(0);
-  });
-
-  it("turns strong run results into more account XP", () => {
+describe("crystal account progression", () => {
+  it("turns stronger run results into more crystals", () => {
     const progress = createDefaultAccountProgress();
-    const early = totalAccountXpBreakdown(
-      computeRunAccountXp(progress, { wave: 3, runLevel: 2, score: 800, bossWaves: [] }),
+    const early = totalCrystalBreakdown(
+      computeRunCrystalBreakdown(progress, {
+        stage: 1,
+        startStage: 1,
+        elapsedSeconds: 72,
+        runLevel: 2,
+        score: 800,
+        bossStages: [],
+      }),
     );
-    const late = totalAccountXpBreakdown(
-      computeRunAccountXp(progress, { wave: 12, runLevel: 8, score: 12_000, bossWaves: [10] }),
+    const clear = totalCrystalBreakdown(
+      computeRunCrystalBreakdown(progress, {
+        stage: 2,
+        startStage: 1,
+        elapsedSeconds: 640,
+        runLevel: 9,
+        score: 18_000,
+        bossStages: [1],
+      }),
     );
 
-    expect(late).toBeGreaterThan(early);
+    expect(clear).toBeGreaterThan(early);
   });
 
-  it("grants first-boss XP only for unseen boss waves", () => {
+  it("adds a crystal bonus when the run starts from stage two", () => {
     const progress = createDefaultAccountProgress();
-    progress.bossWavesDefeated = [10];
-
-    const breakdown = computeRunAccountXp(progress, {
-      wave: 22,
-      runLevel: 11,
-      score: 30_000,
-      bossWaves: [10, 20],
+    const base = computeRunCrystalBreakdown(progress, {
+      stage: 2,
+      startStage: 1,
+      elapsedSeconds: 160,
+      runLevel: 4,
+      score: 4_000,
+      bossStages: [],
+    });
+    const boosted = computeRunCrystalBreakdown(progress, {
+      stage: 2,
+      startStage: 2,
+      elapsedSeconds: 160,
+      runLevel: 4,
+      score: 4_000,
+      bossStages: [],
     });
 
-    expect(breakdown.bossXp).toBe(80);
-    expect(breakdown.firstBossXp).toBe(85);
+    expect(boosted.startStageBonusCrystals).toBeGreaterThan(0);
+    expect(totalCrystalBreakdown(boosted)).toBeGreaterThan(totalCrystalBreakdown(base));
   });
 
-  it("applies level-ups and token milestones once", () => {
+  it("unlocks the next start stage after a boss clear without spending crystals", () => {
     const progress = createDefaultAccountProgress();
-    const target = accountXpToNextLevel(1) + accountXpToNextLevel(2);
 
-    const reward = applyAccountXp(progress, target, "run");
+    const reward = applyCrystalReward(progress, {
+      stage: 2,
+      startStage: 1,
+      elapsedSeconds: 620,
+      runLevel: 8,
+      score: 12_000,
+      bossStages: [1],
+    });
 
-    expect(progress.level).toBe(3);
-    expect(progress.tokens).toBe(2);
-    expect(reward.tokensGained).toBe(2);
+    expect(progress.highestStageCleared).toBe(1);
+    expect(progress.highestStartStageUnlocked).toBe(2);
+    expect(progress.selectedStartStage).toBe(2);
+    expect(reward.newlyUnlockedStartStage).toBe(2);
+    expect(progress.crystals).toBe(reward.crystalsGained);
+  });
+
+  it("records records and boss kills once per awarded run", () => {
+    const progress = createDefaultAccountProgress();
+
+    const reward = applyCrystalReward(progress, {
+      stage: 2,
+      startStage: 1,
+      elapsedSeconds: 620,
+      runLevel: 8,
+      score: 12_000,
+      bossStages: [1, 1],
+    });
+
+    expect(progress.records.bestStage).toBe(2);
+    expect(progress.records.bestTimeSeconds).toBe(620);
+    expect(progress.records.bestScore).toBe(12_000);
+    expect(progress.records.bossKills).toBe(1);
+    expect(reward.newRecords).toEqual(expect.arrayContaining(["stage", "temps", "score"]));
+  });
+
+  it("derives stage records from the start stage and cleared bosses", () => {
+    const progress = createDefaultAccountProgress();
+
+    applyCrystalReward(progress, {
+      stage: 3,
+      startStage: 1,
+      elapsedSeconds: 90,
+      runLevel: 2,
+      score: 1_000,
+      bossStages: [],
+    });
+
+    expect(progress.records.bestStage).toBe(1);
+    expect(progress.highestStartStageUnlocked).toBe(1);
   });
 });

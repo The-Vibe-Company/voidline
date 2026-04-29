@@ -6,11 +6,11 @@ product
 
 ## Users
 
-Voidline is for browser players who want a quick roguelite action run with readable build choices, persistent goals, and fast retries. Players are making moment-to-moment survival decisions during a run, then spending account progress in the hangar before launching again.
+Voidline is for browser players who want a quick roguelite action run with readable build choices, persistent goals, and fast retries. Players are making moment-to-moment survival decisions during a run, then spending crystals in the hangar before launching again.
 
 ## Product Purpose
 
-Voidline is a small space roguelite where the core loop is run, earn account XP, unlock tokens, buy hangar modules, and open stronger build paths. Success means players understand why they died, what they earned, and what new build options are now available.
+Voidline is a small space roguelite where the core loop is run, survive 10 minutes, beat a boss, earn crystals, buy unlocks, and open stronger build paths. Success means players understand why they died, what they earned, and what new characters, weapons, technologies, or start stages are now available.
 
 ## Brand Personality
 
@@ -23,9 +23,9 @@ Avoid marketing-style landing pages, decorative card piles, overbuilt sci-fi chr
 ## Design Principles
 
 - Put the next action first: launch, buy, equip, claim, retry.
-- Make progression legible: show XP, tokens, unlock gates, and last-run rewards where decisions happen.
+- Make progression legible: show crystals, unlock gates, records, start-stage access, and last-run rewards where decisions happen.
 - Keep combat HUD dense but quiet so it supports play without stealing attention.
-- Reward buildcraft: hangar modules should feel like unlocked paths, not passive stat inflation.
+- Reward buildcraft: characters, weapons, technologies, and relic tags should feel like unlocked paths, not passive stat inflation.
 - Prefer familiar controls and readable states over invented affordances.
 
 ## Accessibility & Inclusion

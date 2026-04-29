@@ -1,22 +1,15 @@
 import { describe, expect, it } from "vitest";
 import {
   bossBalance,
-  isBossWave,
   nextMiniBossMisses,
   shouldSpawnMiniBoss,
 } from "./roguelike";
 
 describe("roguelike wave cadence", () => {
-  it("marks only every tenth wave as a boss wave", () => {
-    for (let wave = 1; wave <= 30; wave += 1) {
-      expect(isBossWave(wave)).toBe(wave === 10 || wave === 20 || wave === 30);
-    }
-  });
-
-  it("never spawns a mini-boss on boss waves", () => {
+  it("can spawn mini-bosses on former boss-wave milestones", () => {
     for (const wave of [10, 20, 30]) {
       expect(shouldSpawnMiniBoss(wave, bossBalance.miniBoss.guaranteeAfterEligibleWaves, 0)).toBe(
-        false,
+        true,
       );
     }
   });

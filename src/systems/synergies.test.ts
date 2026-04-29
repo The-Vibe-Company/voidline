@@ -14,7 +14,7 @@ describe("build synergy calculation", () => {
   it("activates rail splitter from cannon, crit, and pierce tags", () => {
     const upgradeLoadout = [
       { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
-      { upgrade: findUpgrade("piercer"), tier, count: 1 },
+      { upgrade: findUpgrade("lance-capacitor"), tier, count: 1 },
       { upgrade: findUpgrade("crit-array"), tier, count: 1 },
     ];
     const counts = buildTagCountsFromLoadout(upgradeLoadout, []);
@@ -28,7 +28,6 @@ describe("build synergy calculation", () => {
     const target = createPlayerState({ magnetStormCharge: 30, ramTimer: 1 });
     const upgradeLoadout = [
       { upgrade: findUpgrade("kinetic-shield"), tier, count: 1 },
-      { upgrade: findUpgrade("repair-bay"), tier, count: 1 },
     ];
 
     refreshPlayerTraits(target, upgradeLoadout, []);
@@ -54,11 +53,10 @@ describe("build synergy calculation", () => {
     const target = createPlayerState();
     const upgradeLoadout = [
       { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
-      { upgrade: findUpgrade("piercer"), tier, count: 1 },
+      { upgrade: findUpgrade("lance-capacitor"), tier, count: 1 },
       { upgrade: findUpgrade("crit-array"), tier, count: 1 },
-      { upgrade: findUpgrade("orbital-drone"), tier, count: 1 },
+      { upgrade: findUpgrade("drone-uplink"), tier, count: 1 },
       { upgrade: findUpgrade("kinetic-shield"), tier, count: 1 },
-      { upgrade: findUpgrade("repair-bay"), tier, count: 1 },
       { upgrade: findUpgrade("magnet-array"), tier, count: 1 },
     ];
     const relicLoadout = [{ relic: findRelic("magnetized-map"), count: 1 }];

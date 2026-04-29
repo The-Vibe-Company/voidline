@@ -1,88 +1,95 @@
 import type { AccountProgress, BuildTag, ShopItem, ShopItemId } from "../types";
 
+export const STARTER_TECHNOLOGY_IDS = [
+  "twin-cannon",
+  "plasma-core",
+  "rail-slug",
+  "ion-engine",
+  "magnet-array",
+] as const;
+
 export const STARTER_BUILD_TAGS = ["cannon", "salvage", "magnet"] as const satisfies BuildTag[];
 
 export const shopCatalog: readonly ShopItem[] = [
   {
-    id: "module:shield",
-    kind: "module",
-    name: "Module shield",
-    description: "Debloque les upgrades et reliques de bouclier.",
-    cost: 1,
+    id: "character:runner",
+    kind: "character",
+    name: "Runner",
+    description: "Vaisseau rapide, fragile, pense pour esquiver jusqu'au boss.",
+    cost: 60,
+    tags: ["salvage", "magnet"],
+    requirement: "reach-10m",
+    characterId: "runner",
+  },
+  {
+    id: "character:tank",
+    kind: "character",
+    name: "Tank",
+    description: "Coque lourde et bouclier de depart, moins mobile.",
+    cost: 90,
     tags: ["shield", "salvage"],
-    moduleTag: "shield",
-  },
-  {
-    id: "module:pierce",
-    kind: "module",
-    name: "Module pierce",
-    description: "Ouvre les builds penetration et chaines rail.",
-    cost: 1,
-    tags: ["pierce", "cannon"],
-    moduleTag: "pierce",
-  },
-  {
-    id: "module:drone",
-    kind: "module",
-    name: "Module drone",
-    description: "Ajoute les tourelles orbitales au pool de run.",
-    cost: 2,
-    tags: ["drone"],
-    moduleTag: "drone",
-  },
-  {
-    id: "module:crit",
-    kind: "module",
-    name: "Module crit",
-    description: "Debloque les builds critiques et orbites de precision.",
-    cost: 2,
-    tags: ["crit", "cannon"],
-    moduleTag: "crit",
+    requirement: "clear-stage-1",
+    characterId: "tank",
   },
   {
     id: "weapon:scatter",
     kind: "weapon",
     name: "Scatter Cannon",
-    description: "Double depart de salve, impacts plus legers.",
-    cost: 2,
+    description: "Salves larges, degats plus bas, tres bon avec les critiques.",
+    cost: 45,
     tags: ["cannon", "crit"],
+    requirement: "available",
     weaponId: "scatter",
   },
   {
     id: "weapon:lance",
     kind: "weapon",
     name: "Rail Lance",
-    description: "Tir lent, lourd et perce-coque.",
-    cost: 2,
+    description: "Tir lent et lourd, penetration de base.",
+    cost: 75,
     tags: ["pierce", "cannon"],
+    requirement: "reach-stage-2",
     weaponId: "lance",
   },
   {
-    id: "rarity:1",
-    kind: "rarity",
-    name: "Signal rare I",
-    description: "Ameliore legerement les chances de tiers rares.",
-    cost: 1,
-    tags: [],
-    rarityRank: 1,
+    id: "weapon:drone",
+    kind: "weapon",
+    name: "Drone Core",
+    description: "Un drone autonome des le depart, faible burst initial.",
+    cost: 95,
+    tags: ["drone", "salvage"],
+    requirement: "boss-kill",
+    weaponId: "drone",
   },
   {
-    id: "rarity:2",
-    kind: "rarity",
-    name: "Signal rare II",
-    description: "Renforce les chances de prototypes.",
-    cost: 2,
-    tags: [],
-    rarityRank: 2,
+    id: "technology:kinetic-shield",
+    kind: "technology",
+    name: "Technologie bouclier",
+    description: "Ajoute les choix defensifs et les synergies de coque.",
+    cost: 70,
+    tags: ["shield", "salvage"],
+    requirement: "reach-10m",
+    technologyId: "kinetic-shield",
   },
   {
-    id: "rarity:3",
-    kind: "rarity",
-    name: "Signal rare III",
-    description: "Augmente les apparitions de singularites.",
-    cost: 3,
-    tags: [],
-    rarityRank: 3,
+    id: "technology:crit-array",
+    kind: "technology",
+    name: "Technologie critique",
+    description: "Debloque les coups critiques pour les builds precision.",
+    cost: 55,
+    tags: ["crit"],
+    requirement: "available",
+    technologyId: "crit-array",
+  },
+  {
+    id: "technology:heavy-caliber",
+    kind: "technology",
+    name: "Technologie calibre",
+    description: "Augmente la taille des projectiles et stabilise les salves.",
+    cost: 80,
+    tags: ["cannon"],
+    requirement: "reach-stage-2",
+    technologyId: "heavy-caliber",
   },
 ];
 
@@ -95,23 +102,56 @@ export function findShopItem(id: ShopItemId): ShopItem {
 }
 
 export function purchasedSet(progress: AccountProgress): ReadonlySet<ShopItemId> {
-  return new Set(progress.purchasedIds);
+  return new Set(progress.purchasedUnlockIds);
 }
 
-export function rarityRank(progress: AccountProgress): number {
-  return progress.purchasedIds.reduce((rank, id) => {
+export function isShopItemRevealed(progress: AccountProgress, item: ShopItem): boolean {
+  switch (item.requirement) {
+    case "available":
+      return true;
+    case "reach-10m":
+      return progress.records.bestTimeSeconds >= 600;
+    case "clear-stage-1":
+      return progress.highestStageCleared >= 1;
+    case "reach-stage-2":
+      return progress.records.bestStage >= 2 || progress.highestStartStageUnlocked >= 2;
+    case "boss-kill":
+      return progress.records.bossKills > 0;
+  }
+}
+
+export function canPurchaseShopItem(
+  progress: AccountProgress,
+  item: ShopItem,
+): { ok: true } | { ok: false; reason: "owned" | "crystals" | "locked" } {
+  if (progress.purchasedUnlockIds.includes(item.id)) {
+    return { ok: false, reason: "owned" };
+  }
+  if (!isShopItemRevealed(progress, item)) {
+    return { ok: false, reason: "locked" };
+  }
+  if (progress.crystals < item.cost) {
+    return { ok: false, reason: "crystals" };
+  }
+  return { ok: true };
+}
+
+export function unlockedTechnologyIds(progress: AccountProgress): Set<string> {
+  const ids = new Set<string>(STARTER_TECHNOLOGY_IDS);
+  for (const id of progress.purchasedUnlockIds) {
     const item = shopCatalog.find((candidate) => candidate.id === id);
-    return item?.kind === "rarity" ? Math.max(rank, item.rarityRank ?? 0) : rank;
-  }, 0);
+    if (item?.kind === "technology" && item.technologyId) {
+      ids.add(item.technologyId);
+    }
+  }
+  return ids;
 }
 
 export function unlockedBuildTags(progress: AccountProgress): Set<BuildTag> {
   const tags = new Set<BuildTag>(STARTER_BUILD_TAGS);
-  for (const id of progress.purchasedIds) {
+  for (const id of progress.purchasedUnlockIds) {
     const item = shopCatalog.find((candidate) => candidate.id === id);
-    if (item?.kind === "module" && item.moduleTag) {
-      tags.add(item.moduleTag);
-    }
+    for (const tag of item?.tags ?? []) tags.add(tag);
   }
   return tags;
 }
@@ -121,20 +161,4 @@ export function hasUnlockedTags(
   unlockedTags: ReadonlySet<BuildTag>,
 ): boolean {
   return tags.every((tag) => unlockedTags.has(tag));
-}
-
-export function canPurchaseShopItem(
-  progress: AccountProgress,
-  item: ShopItem,
-): { ok: true } | { ok: false; reason: "owned" | "tokens" | "sequence" } {
-  if (progress.purchasedIds.includes(item.id)) {
-    return { ok: false, reason: "owned" };
-  }
-  if (progress.tokens < item.cost) {
-    return { ok: false, reason: "tokens" };
-  }
-  if (item.kind === "rarity" && (item.rarityRank ?? 0) !== rarityRank(progress) + 1) {
-    return { ok: false, reason: "sequence" };
-  }
-  return { ok: true };
 }

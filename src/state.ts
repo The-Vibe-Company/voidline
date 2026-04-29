@@ -43,6 +43,13 @@ export const world: World = {
 export const state: GameState = {
   mode: "menu",
   wave: 1,
+  stage: 1,
+  startStage: 1,
+  stageElapsedSeconds: 0,
+  runElapsedSeconds: 0,
+  stageBossSpawned: false,
+  stageBossActive: false,
+  highestStageReached: 1,
   score: 0,
   waveKills: 0,
   waveTarget: 0,
@@ -64,6 +71,7 @@ export const state: GameState = {
   bombsCarried: 0,
   showPickupZones: false,
   runBossWaves: [],
+  runBossStages: [],
   runRewardClaimed: false,
 };
 
