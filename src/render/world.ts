@@ -5,6 +5,7 @@ import {
   experienceOrbs,
   floaters,
   particles,
+  perfStats,
   player,
   pointer,
   state,
@@ -14,6 +15,17 @@ import { clamp, screenToWorld } from "../utils";
 import { drawArenaBounds, drawBackground, polygon } from "./background";
 import { drawPowerupOrbs } from "./powerups";
 import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
+
+const view = { left: 0, top: 0, right: 0, bottom: 0 };
+
+function inView(x: number, y: number, radius: number): boolean {
+  return (
+    x + radius >= view.left &&
+    x - radius <= view.right &&
+    y + radius >= view.top &&
+    y - radius <= view.bottom
+  );
+}
 
 function drawTrackpadGuide(): void {
   if (state.mode !== "playing" || state.controlMode !== "trackpad" || !pointer.inside) {
@@ -41,6 +53,22 @@ function drawTrackpadGuide(): void {
   ctx.restore();
 }
 
+const flameCache: { engine: number; gradient: CanvasGradient | null } = {
+  engine: -1,
+  gradient: null,
+};
+
+function getFlameGradient(engine: number): CanvasGradient {
+  const bucket = Math.round(engine * 20) / 20;
+  if (flameCache.gradient && flameCache.engine === bucket) return flameCache.gradient;
+  const gradient = ctx.createLinearGradient(0, 12, 0, 36 + bucket * 16);
+  gradient.addColorStop(0, "rgba(57, 217, 255, 0.9)");
+  gradient.addColorStop(1, "rgba(255, 191, 71, 0)");
+  flameCache.engine = bucket;
+  flameCache.gradient = gradient;
+  return gradient;
+}
+
 function drawPlayer(): void {
   ctx.save();
   ctx.translate(player.x, player.y);
@@ -60,10 +88,7 @@ function drawPlayer(): void {
   const engine = Math.min(1, Math.hypot(player.vx, player.vy) / player.speed);
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  const flame = ctx.createLinearGradient(0, 12, 0, 36 + engine * 16);
-  flame.addColorStop(0, "rgba(57, 217, 255, 0.9)");
-  flame.addColorStop(1, "rgba(255, 191, 71, 0)");
-  ctx.fillStyle = flame;
+  ctx.fillStyle = getFlameGradient(engine);
   ctx.beginPath();
   ctx.moveTo(-6, 11);
   ctx.lineTo(0, 34 + engine * 18 + Math.sin(world.time * 34) * 3);
@@ -109,8 +134,12 @@ function drawDrones(): void {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(-angle);
-    ctx.shadowColor = "#ffbf47";
-    ctx.shadowBlur = 12;
+    ctx.globalAlpha = 0.32;
+    ctx.fillStyle = "#ffbf47";
+    ctx.beginPath();
+    ctx.arc(0, 0, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = "#ffbf47";
     ctx.strokeStyle = "#fff0b8";
     ctx.lineWidth = 1.5;
@@ -150,30 +179,35 @@ function drawEnemy(enemy: EnemyEntity): void {
 }
 
 function drawBullet(bullet: Bullet): void {
-  ctx.save();
   ctx.strokeStyle = bullet.color;
   ctx.fillStyle = bullet.color;
-  ctx.shadowColor = bullet.color;
-  ctx.shadowBlur = 14;
   ctx.lineWidth = bullet.radius;
   ctx.lineCap = "round";
   ctx.beginPath();
   ctx.moveTo(bullet.x - bullet.vx * 0.022, bullet.y - bullet.vy * 0.022);
   ctx.lineTo(bullet.x, bullet.y);
   ctx.stroke();
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.arc(bullet.x, bullet.y, bullet.radius * 1.6, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.beginPath();
   ctx.arc(bullet.x, bullet.y, bullet.radius * 0.7, 0, Math.PI * 2);
   ctx.fill();
-  ctx.restore();
 }
 
 function drawExperienceOrb(orb: ExperienceOrb): void {
   const pulse = 1 + Math.sin(world.time * 7 + orb.age * 4) * 0.12;
   ctx.save();
   ctx.translate(orb.x, orb.y);
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = "#72ffb1";
+  ctx.beginPath();
+  ctx.arc(0, 0, orb.radius * 1.6 * pulse, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
   ctx.rotate(world.time * 1.4 + orb.age);
-  ctx.shadowColor = "#72ffb1";
-  ctx.shadowBlur = 16;
   ctx.fillStyle = "#72ffb1";
   ctx.strokeStyle = "#eaffd8";
   ctx.lineWidth = 1.5;
@@ -191,17 +225,19 @@ function drawExperienceOrb(orb: ExperienceOrb): void {
 function drawParticles(behind: boolean): void {
   for (const particle of particles) {
     if (particle.behind !== behind) continue;
+    if (!inView(particle.x, particle.y, particle.size + 2)) {
+      perfStats.culled += 1;
+      continue;
+    }
+    perfStats.drawn += 1;
     const alpha = clamp(particle.life / particle.maxLife, 0, 1);
-    ctx.save();
     ctx.globalAlpha = alpha;
     ctx.fillStyle = particle.color;
-    ctx.shadowColor = particle.color;
-    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.arc(particle.x, particle.y, particle.size * alpha, 0, Math.PI * 2);
     ctx.fill();
-    ctx.restore();
   }
+  ctx.globalAlpha = 1;
 }
 
 function drawFloaters(): void {
@@ -213,8 +249,6 @@ function drawFloaters(): void {
     const alpha = clamp(floater.life / floater.maxLife, 0, 1);
     ctx.globalAlpha = alpha;
     ctx.fillStyle = floater.color;
-    ctx.shadowColor = floater.color;
-    ctx.shadowBlur = 8;
     ctx.fillText(floater.text, floater.x, floater.y);
   }
   ctx.restore();
@@ -230,13 +264,39 @@ export function render(): void {
   ctx.translate(shakeX, shakeY);
   ctx.translate(-world.cameraX, -world.cameraY);
 
+  view.left = world.cameraX - 32;
+  view.top = world.cameraY - 32;
+  view.right = world.cameraX + world.width + 32;
+  view.bottom = world.cameraY + world.height + 32;
+
   drawArenaBounds();
   drawParticles(true);
   drawTrackpadGuide();
-  for (const orb of experienceOrbs) drawExperienceOrb(orb);
+  for (const orb of experienceOrbs) {
+    if (!inView(orb.x, orb.y, orb.radius)) {
+      perfStats.culled += 1;
+      continue;
+    }
+    perfStats.drawn += 1;
+    drawExperienceOrb(orb);
+  }
   drawPowerupOrbs();
-  for (const bullet of bullets) drawBullet(bullet);
-  for (const enemy of enemies) drawEnemy(enemy);
+  for (const bullet of bullets) {
+    if (!inView(bullet.x, bullet.y, bullet.radius + 8)) {
+      perfStats.culled += 1;
+      continue;
+    }
+    perfStats.drawn += 1;
+    drawBullet(bullet);
+  }
+  for (const enemy of enemies) {
+    if (!inView(enemy.x, enemy.y, enemy.radius + 6)) {
+      perfStats.culled += 1;
+      continue;
+    }
+    perfStats.drawn += 1;
+    drawEnemy(enemy);
+  }
   drawDrones();
   drawPlayer();
   drawParticles(false);

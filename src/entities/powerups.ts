@@ -100,26 +100,26 @@ export function applyPowerup(kind: PowerupKind): void {
   }
 }
 
+const POWERUP_PULL_RADIUS = 70;
+const POWERUP_PULL_RADIUS_SQ = POWERUP_PULL_RADIUS * POWERUP_PULL_RADIUS;
+
 export function updatePowerups(dt: number): void {
+  const damp = 1 - dt * 1.6;
   for (let i = powerupOrbs.length - 1; i >= 0; i -= 1) {
     const orb = powerupOrbs[i]!;
     orb.age += dt;
     orb.life -= dt;
     orb.x += orb.vx * dt;
     orb.y += orb.vy * dt;
-    orb.vx *= 1 - dt * 1.6;
-    orb.vy *= 1 - dt * 1.6;
+    orb.vx *= damp;
+    orb.vy *= damp;
 
     const dx = player.x - orb.x;
     const dy = player.y - orb.y;
-    const distance = Math.hypot(dx, dy);
-    if (distance < 70) {
-      const pull = (1 - distance / 70) * 380;
-      orb.vx += (dx / Math.max(1, distance)) * pull * dt;
-      orb.vy += (dy / Math.max(1, distance)) * pull * dt;
-    }
+    const distSq = dx * dx + dy * dy;
+    const pickupRadius = player.radius + orb.radius + 6;
 
-    if (distance < player.radius + orb.radius + 6) {
+    if (distSq < pickupRadius * pickupRadius) {
       const variant = getVariant(orb.kind);
       applyPowerup(orb.kind);
       burst(orb.x, orb.y, variant.color, 22, 240);
@@ -129,6 +129,14 @@ export function updatePowerups(dt: number): void {
       }
       powerupOrbs.splice(i, 1);
       continue;
+    }
+
+    if (distSq < POWERUP_PULL_RADIUS_SQ) {
+      const distance = Math.sqrt(distSq);
+      const pull = (1 - distance / POWERUP_PULL_RADIUS) * 380;
+      const inv = 1 / Math.max(1, distance);
+      orb.vx += dx * inv * pull * dt;
+      orb.vy += dy * inv * pull * dt;
     }
 
     if (orb.life <= 0) {

@@ -73,3 +73,18 @@ export const ownedUpgrades = new Map<string, OwnedUpgrade>();
 export const counters = {
   nextEnemyId: 1,
 };
+
+export const perfStats = {
+  drawn: 0,
+  culled: 0,
+  collisionChecks: 0,
+  updateMs: 0,
+  renderMs: 0,
+  frameMs: 0,
+};
+
+export function resetPerfFrame(): void {
+  perfStats.drawn = 0;
+  perfStats.culled = 0;
+  perfStats.collisionChecks = 0;
+}
