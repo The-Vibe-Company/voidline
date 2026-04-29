@@ -1,0 +1,23 @@
+styles.css
+  4cda563204843c16 1130-1137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a9c54bbd3ae17b817042e930e5b548e76709b7da",
+  "prompts": {
+    "4cda563204843c16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1aaef6d3-8569-4986-ae93-16d13ef8a3cb",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 8,
+      "total_deletions": 1,
+      "accepted_lines": 9,
+      "overriden_lines": 0
+    }
+  }
+}
