@@ -1118,6 +1118,8 @@ h2 {
 
 @media (prefers-reduced-motion: reduce) {
   .upgrade-card,
+  .upgrade-card:hover .upgrade-stamp,
+  .upgrade-card:focus-visible .upgrade-stamp,
   .upgrade-modal,
   .modal-scanline::before,
   .cipher-dot,
