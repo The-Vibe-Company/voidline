@@ -688,57 +688,6 @@ h2 {
   background: rgba(3, 7, 12, 0.48);
 }
 
-.hangar-panel {
-  margin: 0 0 22px;
-  padding: 12px;
-  border: 1px solid rgba(156, 230, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(3, 7, 12, 0.5);
-}
-
-.compact-hangar {
-  margin-top: -6px;
-}
-
-.hangar-header {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  align-items: start;
-  margin-bottom: 10px;
-}
-
-.hangar-header h2,
-.hangar-section h3 {
-  margin: 0;
-  color: #ffffff;
-  font-size: 1rem;
-  line-height: 1.1;
-}
-
-.hangar-header span,
-.account-xp-readout {
-  color: var(--muted);
-  font-family: "Share Tech Mono", ui-monospace, monospace;
-  font-size: 0.74rem;
-}
-
-.hangar-counters {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 6px;
-}
-
-.hangar-counters span {
-  padding: 4px 7px;
-  border: 1px solid rgba(156, 230, 255, 0.18);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.045);
-  color: #d9edf4;
-  white-space: nowrap;
-}
-
 .account-meter {
   height: 7px;
   margin-bottom: 6px;
@@ -748,94 +697,35 @@ h2 {
   background: linear-gradient(90deg, var(--amber), var(--mint));
 }
 
-.hangar-section {
-  margin-top: 12px;
-}
-
-.hangar-section h3 {
-  margin-bottom: 8px;
-  font-size: 0.86rem;
-}
-
-.hangar-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 8px;
-}
-
-.weapon-grid,
-.character-grid,
-.stage-grid {
-  grid-template-columns: repeat(auto-fit, minmax(145px, 1fr));
-}
-
-.hangar-card {
-  display: grid;
-  gap: 6px;
-  min-height: 112px;
-  padding: 9px;
-  border: 1px solid rgba(156, 230, 255, 0.18);
-  border-radius: 7px;
-  background: rgba(255, 255, 255, 0.045);
-  color: #d9edf4;
-  text-align: left;
-  cursor: pointer;
-}
-
-.hangar-card:disabled {
-  cursor: default;
-  opacity: 0.55;
-}
-
-.hangar-card[data-locked="true"] {
-  border-style: dashed;
-}
-
-.hangar-card[data-owned="true"],
-.hangar-card[data-equipped="true"] {
-  border-color: rgba(114, 255, 177, 0.34);
-  background: rgba(114, 255, 177, 0.075);
-}
-
-.hangar-card:not(:disabled):hover,
-.hangar-card:not(:disabled):focus-visible {
-  border-color: rgba(57, 217, 255, 0.62);
-  background: rgba(57, 217, 255, 0.09);
-}
-
-.hangar-card-title {
-  color: #ffffff;
-  font-weight: 700;
-  font-size: 0.86rem;
-}
-
-.hangar-card-copy {
+.account-xp-readout {
   color: var(--muted);
-  font-size: 0.72rem;
-  line-height: 1.25;
-}
-
-.hangar-card-price {
-  align-self: end;
-  color: var(--amber);
   font-family: "Share Tech Mono", ui-monospace, monospace;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
 }
 
 #startOverlay .modal,
-#gameOverOverlay .modal {
-  width: min(760px, 100%);
+#gameOverOverlay .modal,
+#treeOverlay .modal {
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
 }
 
-#startOverlay .home-modal,
+#startOverlay .cockpit-modal {
+  width: min(1180px, 100%);
+  padding: clamp(18px, 2.6vw, 28px);
+}
+
 #gameOverOverlay .gameover-modal {
   width: min(1120px, 100%);
   padding: clamp(18px, 3.2vw, 32px);
 }
 
-.home-hero,
+#treeOverlay .tree-modal {
+  width: min(1280px, 100%);
+  padding: 0;
+  overflow: hidden;
+}
+
 .recap-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -846,35 +736,11 @@ h2 {
   border-bottom: 1px solid rgba(156, 230, 255, 0.18);
 }
 
-.home-hero h1 {
-  font-size: clamp(3rem, 9vw, 6.8rem);
-}
-
-.home-hero .tagline,
 .recap-hero .tagline {
   max-width: 44rem;
   margin-bottom: 0;
 }
 
-.launch-action {
-  min-width: 180px;
-}
-
-.home-grid {
-  display: grid;
-  grid-template-columns: minmax(310px, 0.95fr) minmax(360px, 1.2fr);
-  gap: 12px;
-}
-
-.home-launch,
-.run-recap-panel {
-  padding: 12px;
-  border: 1px solid rgba(156, 230, 255, 0.22);
-  border-radius: 8px;
-  background: rgba(3, 7, 12, 0.52);
-}
-
-.home-section-header,
 .recap-section-header {
   display: flex;
   align-items: flex-start;
@@ -884,7 +750,6 @@ h2 {
   margin-bottom: 10px;
 }
 
-.home-section-header h2,
 .recap-section-header h2 {
   margin: 0;
   color: #ffffff;
@@ -892,49 +757,711 @@ h2 {
   line-height: 1.1;
 }
 
-.home-section-header span,
 .recap-section-header span {
   color: var(--muted);
   font-family: "Share Tech Mono", ui-monospace, monospace;
   font-size: 0.74rem;
 }
 
-.home-section-block {
-  margin-top: 12px;
-}
-
-.home-section-block h3 {
-  margin: 0 0 8px;
-  color: #ffffff;
-  font-size: 0.86rem;
-}
-
-.home-controls {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(156, 230, 255, 0.14);
-}
-
-.home-controls .mode-switch.large {
-  margin-bottom: 10px;
-}
-
-.home-shop {
-  margin-bottom: 0;
-}
-
-.home-shop .hangar-grid {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-}
-
-.home-objectives {
-  grid-column: 1 / -1;
-  margin-bottom: 0;
-}
-
-.gameover-modal .hangar-panel,
-.gameover-modal .challenge-panel {
+.gameover-modal .cockpit-recap,
+.gameover-modal .challenge-panel,
+.run-recap-panel {
   margin-bottom: 12px;
+}
+
+/* ───────── Cockpit (B1) ───────── */
+
+.cockpit-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 14px;
+}
+
+.cockpit-hud-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed rgba(156, 230, 255, 0.22);
+}
+
+.cockpit-brand {
+  padding: 4px 10px;
+  background: rgba(57, 217, 255, 0.12);
+  border: 1px solid rgba(57, 217, 255, 0.45);
+  border-radius: 4px;
+  color: var(--cyan);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.cockpit-spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cockpit-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid rgba(156, 230, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.045);
+  color: #d9edf4;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cockpit-pill--accent {
+  border-color: rgba(57, 217, 255, 0.55);
+  background: rgba(57, 217, 255, 0.1);
+  color: var(--cyan);
+}
+
+.cockpit-pill--muted {
+  color: var(--muted);
+}
+
+.cockpit-pill-glyph {
+  color: var(--cyan);
+}
+
+.cockpit-pill--accent .cockpit-pill-glyph {
+  color: var(--mint);
+}
+
+.cockpit-mode-switch {
+  display: inline-flex;
+  border: 1px solid rgba(156, 230, 255, 0.22);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.cockpit-mode-switch .mode-button {
+  padding: 9px 16px;
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  min-height: 36px;
+}
+
+.cockpit-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.55fr) minmax(0, 1fr);
+  gap: 14px;
+  min-height: 0;
+}
+
+.cockpit-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cockpit-stack-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cockpit-stack-title {
+  display: block;
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.cockpit-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: var(--cyan);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cockpit-link:hover {
+  color: var(--mint);
+}
+
+.cockpit-link:focus-visible {
+  color: var(--mint);
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.cockpit-stack-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.cockpit-card {
+  appearance: none;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid rgba(156, 230, 255, 0.22);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.012));
+  color: #d9edf4;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.cockpit-card:focus-visible {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(57, 217, 255, 0.32);
+}
+
+.cockpit-card:not(:disabled):hover {
+  border-color: rgba(57, 217, 255, 0.6);
+  background: rgba(57, 217, 255, 0.08);
+}
+
+.cockpit-card:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.cockpit-card[data-equipped="true"] {
+  border-color: rgba(57, 217, 255, 0.7);
+  background: rgba(57, 217, 255, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(57, 217, 255, 0.35);
+}
+
+.cockpit-card[data-owned="true"]:not([data-equipped="true"]) {
+  border-color: rgba(114, 255, 177, 0.4);
+}
+
+.cockpit-card[data-locked="true"] {
+  border-style: dashed;
+  opacity: 0.65;
+}
+
+.cockpit-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cockpit-card-title {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.1;
+}
+
+.cockpit-card-copy {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.25;
+}
+
+.cockpit-card-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.cockpit-card-tag--equip {
+  background: var(--cyan);
+  color: var(--ink);
+}
+
+.cockpit-card-tag--switch {
+  border: 1px solid rgba(156, 230, 255, 0.4);
+  color: #d9edf4;
+}
+
+.cockpit-card-tag--locked {
+  border: 1px dashed rgba(156, 230, 255, 0.32);
+  color: var(--amber);
+}
+
+.cockpit-card-tier {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.cockpit-card-tier-dot {
+  width: 8px;
+  height: 8px;
+  border: 1px solid rgba(156, 230, 255, 0.48);
+  border-radius: 50%;
+}
+
+.cockpit-card-tier-dot.is-on {
+  background: var(--cyan);
+  border-color: var(--cyan);
+}
+
+.cockpit-bay {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+  padding: 16px;
+  border: 1px solid rgba(156, 230, 255, 0.28);
+  border-radius: 10px;
+  background:
+    radial-gradient(circle at 50% 38%, rgba(57, 217, 255, 0.1), transparent 58%),
+    linear-gradient(180deg, rgba(9, 15, 25, 0.78), rgba(6, 10, 16, 0.62));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.cockpit-bay-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.64rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cockpit-ship-stage {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 160px;
+  color: var(--cyan);
+}
+
+.cockpit-ship-stage svg {
+  width: min(100%, 320px);
+  height: auto;
+  max-height: 220px;
+}
+
+.cockpit-thrusters {
+  stroke: var(--amber);
+}
+
+.cockpit-launch-row {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.cockpit-launch {
+  font-family: "Oxanium", sans-serif;
+  font-weight: 700;
+  font-size: clamp(2.2rem, 4vw, 3.2rem);
+  letter-spacing: 0.04em;
+  padding: 16px 32px;
+  min-width: min(420px, 80%);
+  border-radius: 8px;
+  box-shadow: 0 6px 0 var(--cyan), 0 18px 36px rgba(57, 217, 255, 0.3);
+  transform: translateY(-2px);
+}
+
+.cockpit-launch:hover,
+.cockpit-launch:focus-visible {
+  transform: translateY(-3px);
+}
+
+.cockpit-launch:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 0 var(--cyan), 0 8px 18px rgba(57, 217, 255, 0.32);
+}
+
+.cockpit-launch-hint {
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+}
+
+.cockpit-stage-row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.cockpit-stage-pill {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 8px 16px;
+  border: 1px solid rgba(156, 230, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #d9edf4;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.cockpit-stage-pill[data-locked="true"] {
+  border-style: dashed;
+  opacity: 0.55;
+  cursor: default;
+}
+
+.cockpit-stage-pill[data-selected="true"] {
+  background: var(--cyan);
+  border-color: var(--cyan);
+  color: var(--ink);
+}
+
+.cockpit-stage-pill:not([data-selected="true"]):not([data-locked="true"]):hover {
+  background: rgba(57, 217, 255, 0.12);
+  border-color: rgba(57, 217, 255, 0.55);
+}
+
+.cockpit-tree-button {
+  align-self: stretch;
+  margin-top: 4px;
+}
+
+.cockpit-footstrip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(156, 230, 255, 0.22);
+}
+
+.cockpit-foot-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid rgba(156, 230, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cockpit-foot-cell--tips {
+  background: rgba(57, 217, 255, 0.06);
+}
+
+.cockpit-foot-label {
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.cockpit-foot-cell strong {
+  color: #ffffff;
+  font-size: 0.92rem;
+  letter-spacing: 0.04em;
+}
+
+.cockpit-foot-keys {
+  color: #d9edf4;
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.12em;
+}
+
+.cockpit-foot-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 0;
+  align-self: flex-start;
+  margin-top: 2px;
+  color: var(--cyan);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.cockpit-foot-link:hover {
+  color: var(--mint);
+}
+
+.cockpit-foot-link:focus-visible {
+  color: var(--mint);
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ───────── Cockpit recap (gameover) ───────── */
+
+.cockpit-recap {
+  padding: 14px;
+  border: 1px solid rgba(156, 230, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 7, 12, 0.5);
+}
+
+.cockpit-recap-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.cockpit-recap-head h2 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 1rem;
+  line-height: 1.1;
+}
+
+.cockpit-recap-head > div:first-child > span {
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+}
+
+.cockpit-recap-counters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.cockpit-recap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* ───────── Orbital Tree (C2) ───────── */
+
+.tree-modal {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+.tree-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(156, 230, 255, 0.22);
+  background: rgba(5, 9, 15, 0.6);
+}
+
+.tree-back {
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+  letter-spacing: 0.16em;
+  padding: 9px 18px;
+  min-height: 36px;
+}
+
+.tree-title {
+  margin: 0;
+  font-family: "Oxanium", sans-serif;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  color: #ffffff;
+}
+
+.tree-canvas-wrap {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(57, 217, 255, 0.07), transparent 65%),
+    linear-gradient(180deg, rgba(5, 8, 15, 0.85), rgba(2, 4, 8, 0.95));
+  overflow: hidden;
+}
+
+.tree-canvas-wrap svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.tree-legend {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(156, 230, 255, 0.25);
+  border-radius: 8px;
+  background: rgba(9, 15, 25, 0.78);
+  backdrop-filter: blur(10px);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.12em;
+  color: #d9edf4;
+}
+
+.tree-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tree-legend-dot {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(156, 230, 255, 0.55);
+  border-radius: 50%;
+  flex: none;
+}
+
+.tree-legend-dot--owned {
+  background: var(--mint);
+  border-color: var(--mint);
+}
+
+.tree-legend-dot--avail {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px rgba(255, 191, 71, 0.35);
+}
+
+.tree-legend-dot--locked {
+  border-style: dashed;
+  opacity: 0.55;
+}
+
+.tree-legend-bridge {
+  color: var(--cyan);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.9rem;
+  width: 14px;
+  text-align: center;
+}
+
+.tree-detail {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  width: min(280px, 32vw);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px;
+  border: 1px solid rgba(156, 230, 255, 0.32);
+  border-radius: 10px;
+  background: rgba(15, 25, 38, 0.94);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+.tree-detail[hidden] {
+  display: none;
+}
+
+.tree-detail-meta {
+  color: var(--cyan);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.tree-detail-title {
+  margin: 0;
+  color: #ffffff;
+  font-family: "Oxanium", sans-serif;
+  font-size: 1.05rem;
+  line-height: 1.15;
+}
+
+.tree-detail-desc {
+  margin: 0;
+  color: #d9edf4;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.tree-detail-req {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+}
+
+.tree-detail-req b {
+  color: var(--amber);
+  font-weight: 600;
+}
+
+.tree-detail-buy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 8px;
+  margin-top: 4px;
+  border-top: 1px dashed rgba(156, 230, 255, 0.22);
+}
+
+.tree-detail-buy-button {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+}
+
+.tree-detail-buy-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tree-node {
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.tree-node:hover,
+.tree-node[data-focused="true"] {
+  transform: scale(1.05);
+  transform-origin: center;
+}
+
+.tree-node:focus {
+  outline: none;
+}
+
+.tree-node:focus-visible {
+  filter: drop-shadow(0 0 6px var(--cyan));
 }
 
 .run-recap-panel {
@@ -1040,6 +1567,11 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+}
+
+.challenge-list[hidden],
+.tree-detail[hidden] {
+  display: none;
 }
 
 .challenge-row {
@@ -1721,12 +2253,20 @@ h2 {
 }
 
 @media (max-width: 1060px) {
-  .home-grid {
+  .cockpit-body {
     grid-template-columns: 1fr;
   }
 
-  .home-objectives {
-    grid-column: auto;
+  .cockpit-bay {
+    order: -1;
+  }
+
+  .cockpit-footstrip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cockpit-recap-grid {
+    grid-template-columns: 1fr;
   }
 
   .run-recap-grid {
@@ -1806,35 +2346,39 @@ h2 {
     font-size: 1.2rem;
   }
 
-  .control-map {
-    grid-template-columns: 1fr;
-  }
-
   .challenge-list {
     grid-template-columns: 1fr;
   }
 
-  .home-hero,
   .recap-hero {
     grid-template-columns: 1fr;
   }
 
-  .launch-action {
+  .cockpit-launch {
     width: 100%;
+    min-width: 0;
   }
 
-  .hangar-header {
+  .cockpit-hud-strip {
+    gap: 6px;
+  }
+
+  .cockpit-footstrip {
     grid-template-columns: 1fr;
   }
 
-  .hangar-counters {
+  .cockpit-recap-head {
+    grid-template-columns: 1fr;
+  }
+
+  .cockpit-recap-counters {
     justify-content: flex-start;
   }
 
-  .hangar-grid,
-  .weapon-grid,
-  .home-shop .hangar-grid {
-    grid-template-columns: 1fr;
+  .tree-detail {
+    width: min(260px, 70vw);
+    right: 12px;
+    bottom: 12px;
   }
 
   .run-recap-grid,

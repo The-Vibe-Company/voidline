@@ -3,18 +3,12 @@ import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
 import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
-import { characterCatalog } from "../game/character-catalog";
 import { bossBalance } from "../game/roguelike";
-import { canPurchaseShopItem, isShopItemRevealed, shopCatalog } from "../game/shop-catalog";
-import { weaponCatalog } from "../game/weapon-catalog";
 import type {
   BuildTag,
-  Character,
   ControlMode,
   RelicChoice,
-  ShopItem,
   SynergyDefinition,
-  Weapon,
 } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
 import { activeSynergiesForLoadout, BUILD_TAG_META } from "../systems/synergies";
@@ -25,14 +19,8 @@ import {
   unlockedTierCount,
 } from "../game/challenge-catalog";
 import { challengeProgress, challengeSummary } from "../systems/challenges";
-import {
-  accountProgress,
-  awardRunAccountProgress,
-  equipWeapon,
-  purchaseShopItem,
-  selectCharacter,
-  selectStartStage,
-} from "../systems/account";
+import { accountProgress, awardRunAccountProgress } from "../systems/account";
+import { renderCockpit } from "./cockpit";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -84,20 +72,12 @@ const hud = {
   finalScore: document.querySelector<HTMLElement>("#finalScore")!,
   finalWave: document.querySelector<HTMLElement>("#finalWave")!,
   pickupZonesToggle: document.querySelector<HTMLInputElement>("#togglePickupZones")!,
-  startChallengeList: document.querySelector<HTMLElement>("#startChallengeList")!,
   startChallengeSummary: document.querySelector<HTMLElement>("#startChallengeSummary")!,
   gameOverChallengeList: document.querySelector<HTMLElement>("#gameOverChallengeList")!,
   gameOverChallengeSummary: document.querySelector<HTMLElement>("#gameOverChallengeSummary")!,
   runRecapGrid: document.querySelector<HTMLElement>("#runRecapGrid")!,
   runRewardBreakdown: document.querySelector<HTMLElement>("#runRewardBreakdown")!,
   runRecapBadges: document.querySelector<HTMLElement>("#runRecapBadges")!,
-  accountCrystals: [...document.querySelectorAll<HTMLElement>("[data-account-crystals]")],
-  accountRecords: [...document.querySelectorAll<HTMLElement>("[data-account-record]")],
-  accountReward: [...document.querySelectorAll<HTMLElement>("[data-account-reward]")],
-  shopGrids: [...document.querySelectorAll<HTMLElement>("[data-shop-grid]")],
-  weaponGrids: [...document.querySelectorAll<HTMLElement>("[data-weapon-grid]")],
-  characterGrids: [...document.querySelectorAll<HTMLElement>("[data-character-grid]")],
-  stageGrids: [...document.querySelectorAll<HTMLElement>("[data-stage-grid]")],
 };
 
 const PICKUP_ZONES_KEY = "voidline:showPickupZones";
@@ -203,7 +183,8 @@ type OverlayId =
   | "upgradeOverlay"
   | "chestOverlay"
   | "pauseOverlay"
-  | "gameOverOverlay";
+  | "gameOverOverlay"
+  | "treeOverlay";
 
 export function initOverlayFocusScope(): void {
   const active = document.querySelector<HTMLElement>(".overlay.active");
@@ -216,10 +197,11 @@ export function hideOverlays(): void {
   hud.chestOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
+  document.querySelector("#treeOverlay")?.classList.remove("active");
   setOverlayFocusScope();
 }
 
-function setOverlayFocusScope(activeOverlay?: OverlayId): void {
+export function setOverlayFocusScope(activeOverlay?: OverlayId): void {
   for (const element of document.querySelectorAll<HTMLElement>(
     ".game-shell > *",
   )) {
@@ -309,24 +291,8 @@ function updateStats(): void {
   hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
 }
 
-function accountRewardLabel(): string {
-  const reward = accountProgress.lastRunReward;
-  if (!reward || reward.crystalsGained <= 0) return "Aucun cristal gagne";
-  const parts = [`+${reward.crystalsGained.toLocaleString("fr-FR")} cristaux`];
-  if (reward.newlyUnlockedStartStage) parts.push(`depart N${reward.newlyUnlockedStartStage}`);
-  if (reward.newRecords.length > 0) parts.push("record");
-  return parts.join(" - ");
-}
-
 function formatNumber(value: number): string {
   return Math.floor(value).toLocaleString("fr-FR");
-}
-
-function accountRecordLabel(): string {
-  const bestTime = formatTime(accountProgress.records.bestTimeSeconds);
-  return `Record N${accountProgress.records.bestStage} - ${bestTime} - score ${formatNumber(
-    accountProgress.records.bestScore,
-  )} - niv ${accountProgress.records.bestRunLevel}`;
 }
 
 function formatTime(seconds: number): string {
@@ -369,222 +335,11 @@ export function updateChallengePanels(): void {
   const summary = `${challengeSummary()} - objectifs d'unlocks`;
   hud.startChallengeSummary.textContent = summary;
   hud.gameOverChallengeSummary.textContent = summary;
-  renderChallengeList(hud.startChallengeList);
   renderChallengeList(hud.gameOverChallengeList);
 }
 
 export function updateHangarPanels(): void {
-  for (const element of hud.accountCrystals) {
-    element.textContent = formatNumber(accountProgress.crystals);
-  }
-  for (const element of hud.accountRecords) {
-    element.textContent = accountRecordLabel();
-  }
-  for (const element of hud.accountReward) {
-    element.textContent = accountRewardLabel();
-  }
-  for (const grid of hud.shopGrids) {
-    renderShopGrid(grid);
-  }
-  for (const grid of hud.weaponGrids) {
-    renderWeaponGrid(grid);
-  }
-  for (const grid of hud.characterGrids) {
-    renderCharacterGrid(grid);
-  }
-  for (const grid of hud.stageGrids) {
-    renderStageGrid(grid);
-  }
-}
-
-function renderShopGrid(target: HTMLElement): void {
-  target.innerHTML = "";
-  for (const item of shopCatalog.filter((candidate) => candidate.kind === "technology")) {
-    target.appendChild(shopButton(item));
-  }
-}
-
-function shopButton(item: ShopItem): HTMLButtonElement {
-  const button = document.createElement("button");
-  const purchased = accountProgress.purchasedUnlockIds.includes(item.id);
-  const purchaseState = canPurchaseShopItem(accountProgress, item);
-  const revealed = isShopItemRevealed(accountProgress, item);
-  button.className = "hangar-card";
-  button.type = "button";
-  button.disabled = purchased || !purchaseState.ok;
-  button.dataset.owned = purchased ? "true" : "false";
-  button.dataset.locked = revealed ? "false" : "true";
-  button.innerHTML = `
-    <span class="hangar-card-title">${item.name}</span>
-    ${renderBuildTags(item.tags)}
-    <span class="hangar-card-copy">${item.description}</span>
-    <span class="hangar-card-price">${
-      purchased
-        ? "Acquis"
-        : revealed
-          ? `${item.cost} cristaux`
-          : requirementLabel(item.requirement)
-    }</span>
-  `;
-  button.addEventListener("click", () => {
-    const result = purchaseShopItem(item.id);
-    if (result.ok) {
-      updateHangarPanels();
-    }
-  });
-  return button;
-}
-
-function renderWeaponGrid(target: HTMLElement): void {
-  target.innerHTML = "";
-  for (const weapon of weaponCatalog) {
-    target.appendChild(weaponButton(weapon));
-  }
-}
-
-function weaponButton(weapon: Weapon): HTMLButtonElement {
-  const button = document.createElement("button");
-  const shopItem = shopCatalog.find((item) => item.weaponId === weapon.id);
-  const owned =
-    weapon.id === "pulse" ||
-    (shopItem !== undefined && accountProgress.purchasedUnlockIds.includes(shopItem.id));
-  const equipped = accountProgress.selectedWeaponId === weapon.id;
-  const purchaseState = shopItem ? canPurchaseShopItem(accountProgress, shopItem) : { ok: false };
-  const revealed = shopItem ? isShopItemRevealed(accountProgress, shopItem) : true;
-  button.className = "hangar-card weapon-card";
-  button.type = "button";
-  button.disabled = !owned && !purchaseState.ok;
-  button.dataset.owned = owned ? "true" : "false";
-  button.dataset.equipped = equipped ? "true" : "false";
-  button.dataset.locked = revealed ? "false" : "true";
-  button.innerHTML = `
-    <span class="hangar-card-title">${weapon.icon} ${weapon.name}</span>
-    ${renderBuildTags(weapon.tags)}
-    <span class="hangar-card-copy">${weapon.description}</span>
-    <span class="hangar-card-price">${
-      equipped
-        ? "Selectionnee"
-        : owned
-          ? "Selectionner"
-          : shopItem
-            ? revealed
-              ? `${shopItem.cost} cristaux`
-              : requirementLabel(shopItem.requirement)
-            : "Verrouille"
-    }</span>
-  `;
-  button.addEventListener("click", () => {
-    if (!owned && shopItem) {
-      const result = purchaseShopItem(shopItem.id);
-      if (result.ok) updateHangarPanels();
-      return;
-    }
-    if (owned && equipWeapon(weapon.id)) {
-      updateHangarPanels();
-    }
-  });
-  return button;
-}
-
-function renderCharacterGrid(target: HTMLElement): void {
-  target.innerHTML = "";
-  for (const character of characterCatalog) {
-    target.appendChild(characterButton(character));
-  }
-}
-
-function characterButton(character: Character): HTMLButtonElement {
-  const button = document.createElement("button");
-  const shopItem = shopCatalog.find((item) => item.characterId === character.id);
-  const owned =
-    character.id === "pilot" ||
-    (shopItem !== undefined && accountProgress.purchasedUnlockIds.includes(shopItem.id));
-  const selected = accountProgress.selectedCharacterId === character.id;
-  const purchaseState = shopItem ? canPurchaseShopItem(accountProgress, shopItem) : { ok: false };
-  const revealed = shopItem ? isShopItemRevealed(accountProgress, shopItem) : true;
-  button.className = "hangar-card character-card";
-  button.type = "button";
-  button.disabled = !owned && !purchaseState.ok;
-  button.dataset.owned = owned ? "true" : "false";
-  button.dataset.equipped = selected ? "true" : "false";
-  button.dataset.locked = revealed ? "false" : "true";
-  button.innerHTML = `
-    <span class="hangar-card-title">${character.icon} ${character.name}</span>
-    <span class="hangar-card-copy">${character.description}</span>
-    <span class="hangar-card-copy">${character.bonusLabel}</span>
-    <span class="hangar-card-price">${
-      selected
-        ? "Selectionne"
-        : owned
-          ? "Selectionner"
-          : shopItem
-            ? revealed
-              ? `${shopItem.cost} cristaux`
-              : requirementLabel(shopItem.requirement)
-            : "Verrouille"
-    }</span>
-  `;
-  button.addEventListener("click", () => {
-    if (!owned && shopItem) {
-      const result = purchaseShopItem(shopItem.id);
-      if (result.ok) updateHangarPanels();
-      return;
-    }
-    if (owned && selectCharacter(character.id)) {
-      updateHangarPanels();
-    }
-  });
-  return button;
-}
-
-function renderStageGrid(target: HTMLElement): void {
-  target.innerHTML = "";
-  for (let stage = 1; stage <= accountProgress.highestStartStageUnlocked; stage += 1) {
-    target.appendChild(stageButton(stage));
-  }
-}
-
-function stageButton(stage: number): HTMLButtonElement {
-  const button = document.createElement("button");
-  const unlocked = stage <= accountProgress.highestStartStageUnlocked;
-  const selected = accountProgress.selectedStartStage === stage;
-  button.className = "hangar-card stage-card";
-  button.type = "button";
-  button.disabled = !unlocked;
-  button.dataset.owned = unlocked ? "true" : "false";
-  button.dataset.equipped = selected ? "true" : "false";
-  button.innerHTML = `
-    <span class="hangar-card-title">Niveau ${stage}</span>
-    <span class="hangar-card-copy">${
-      stage === 1
-        ? "Depart standard."
-        : "+35% cristaux, sans bonus de puissance."
-    }</span>
-    <span class="hangar-card-price">${
-      selected ? "Selectionne" : unlocked ? "Selectionner" : "Bats le boss N1"
-    }</span>
-  `;
-  button.addEventListener("click", () => {
-    if (selectStartStage(stage)) {
-      updateHangarPanels();
-    }
-  });
-  return button;
-}
-
-function requirementLabel(requirement: ShopItem["requirement"]): string {
-  switch (requirement) {
-    case "available":
-      return "Disponible";
-    case "reach-10m":
-      return "Atteins 10:00";
-    case "clear-stage-1":
-      return "Bats le boss N1";
-    case "reach-stage-2":
-      return "Debloque le depart N2";
-    case "boss-kill":
-      return "Bats un boss";
-  }
+  renderCockpit();
 }
 
 function renderRunRecap(): void {
