@@ -1,0 +1,25 @@
+src/render/hud.ts
+  9b1330ae6f4bfedd 169
+styles.css
+  9b1330ae6f4bfedd 490
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e2c38e82db496004d2bbdedfec600dd60d422751",
+  "prompts": {
+    "9b1330ae6f4bfedd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c205912b-02ba-4e9c-b3ed-39e32cb90ab5",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 2,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    }
+  }
+}
