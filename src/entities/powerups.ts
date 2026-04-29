@@ -121,7 +121,9 @@ export function updatePowerups(dt: number): void {
       applyPowerup(orb.kind);
       burst(orb.x, orb.y, variant.color, 22, 240);
       pulseText(orb.x, orb.y - 22, variant.label, variant.accent);
-      world.shake = Math.min(14, world.shake + 4);
+      if (orb.kind !== "bomb") {
+        world.shake = Math.min(14, world.shake + 4);
+      }
       powerupOrbs.splice(i, 1);
       continue;
     }
@@ -135,10 +137,10 @@ export function updatePowerups(dt: number): void {
 function detonateBomb(): void {
   burst(player.x, player.y, "#ffbf47", 60, 420);
   pulseText(player.x, player.y - 30, "BOOM TOTAL", "#ffbf47");
-  world.shake = Math.min(28, world.shake + 22);
   for (let i = enemies.length - 1; i >= 0; i -= 1) {
     killEnemy(i);
   }
+  world.shake = Math.min(28, world.shake + 22);
 }
 
 export function resetPowerups(): void {

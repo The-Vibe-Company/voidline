@@ -23,6 +23,10 @@ const hud = {
     pierce: document.querySelector<HTMLElement>("#statPierce")!,
     drones: document.querySelector<HTMLElement>("#statDrones")!,
     shield: document.querySelector<HTMLElement>("#statShield")!,
+    crit: document.querySelector<HTMLElement>("#statCrit")!,
+    lifesteal: document.querySelector<HTMLElement>("#statLifesteal")!,
+    magnet: document.querySelector<HTMLElement>("#statMagnet")!,
+    caliber: document.querySelector<HTMLElement>("#statCaliber")!,
   },
   loadout: document.querySelector<HTMLElement>("#loadout")!,
   itemHeart: document.querySelector<HTMLElement>("#itemHeart")!,
@@ -95,6 +99,10 @@ function updateStats(): void {
     player.shieldMax > 0
       ? `${Math.max(0, Math.ceil(player.shield))}/${Math.round(player.shieldMax)}`
       : "0";
+  hud.stats.crit.textContent = `${Math.round(player.critChance * 100)}%`;
+  hud.stats.lifesteal.textContent = player.lifesteal.toFixed(1);
+  hud.stats.magnet.textContent = `x${player.pickupRadius.toFixed(2)}`;
+  hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
 }
 
 export function updateHud(): void {
@@ -124,7 +132,7 @@ export function showUpgrade(): void {
       : `Niveau ${state.level} atteint`;
   hud.upgradeGrid.innerHTML = "";
 
-  const choices = pickUpgrades(3);
+  const choices = pickUpgrades(5);
   for (const [index, choice] of choices.entries()) {
     const { upgrade, tier } = choice;
     const card = document.createElement("button");

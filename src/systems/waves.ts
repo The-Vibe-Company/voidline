@@ -58,6 +58,10 @@ export function resetGame(): void {
   player.shield = 0;
   player.shieldMax = 0;
   player.shieldRegen = 0;
+  player.critChance = 0;
+  player.lifesteal = 0;
+  player.pickupRadius = 1;
+  player.bulletRadius = 1;
   player.invuln = 1.2;
   player.fireTimer = 0;
   player.droneTimer = 0;

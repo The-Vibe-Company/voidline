@@ -56,6 +56,10 @@ export interface Player {
   shield: number;
   shieldMax: number;
   shieldRegen: number;
+  critChance: number;
+  lifesteal: number;
+  pickupRadius: number;
+  bulletRadius: number;
   invuln: number;
   fireTimer: number;
   droneTimer: number;

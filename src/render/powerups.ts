@@ -80,12 +80,18 @@ function drawShape(kind: PowerupKind, r: number, time: number): void {
   switch (kind) {
     case "heart":
       drawHeart(r);
+      ctx.fill();
+      ctx.stroke();
       break;
     case "magnet":
       drawMagnet(r);
+      ctx.fill();
+      ctx.stroke();
       break;
     case "bomb":
       drawBombBody(r);
+      ctx.fill();
+      ctx.stroke();
       drawBombFuse(r, time);
       break;
   }
@@ -120,8 +126,6 @@ function drawPowerupOrb(orb: PowerupOrb): void {
   ctx.strokeStyle = variant.accent;
   ctx.lineWidth = 1.8;
   drawShape(orb.kind, r, world.time + orb.age);
-  ctx.fill();
-  ctx.stroke();
 
   ctx.restore();
 }

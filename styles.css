@@ -457,14 +457,14 @@ h2 {
 
 .upgrade-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 12px;
   margin-top: 22px;
 }
 
 .upgrade-card {
   position: relative;
-  min-height: 210px;
+  min-height: 180px;
   padding: 18px;
   border: 1px solid color-mix(in srgb, var(--tier-color, #39d9ff) 42%, rgba(156, 230, 255, 0.18));
   border-radius: 8px;

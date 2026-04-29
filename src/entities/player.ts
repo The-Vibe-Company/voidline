@@ -25,16 +25,19 @@ export function fireVolley(x: number, y: number, angle: number, drone: boolean):
   for (let i = 0; i < count; i += 1) {
     const bulletAngle = start + step * i;
     const speed = drone ? player.bulletSpeed * 0.9 : player.bulletSpeed;
+    const isCrit = Math.random() < player.critChance;
+    const baseDamage = drone ? player.damage * 0.58 : player.damage;
+    const baseRadius = drone ? 4 : 5;
     bullets.push({
       x: x + Math.cos(bulletAngle) * 20,
       y: y + Math.sin(bulletAngle) * 20,
       vx: Math.cos(bulletAngle) * speed,
       vy: Math.sin(bulletAngle) * speed,
-      radius: drone ? 4 : 5,
-      damage: drone ? player.damage * 0.58 : player.damage,
+      radius: baseRadius * player.bulletRadius,
+      damage: isCrit ? baseDamage * 2 : baseDamage,
       pierce: player.pierce,
       life: drone ? 0.9 : 1.15,
-      color: drone ? "#ffbf47" : "#39d9ff",
+      color: drone ? "#ffbf47" : isCrit ? "#ff5af0" : "#39d9ff",
       trail: 0,
       hitIds: new Set(),
     });
