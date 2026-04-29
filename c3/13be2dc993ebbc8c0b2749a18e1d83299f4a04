@@ -1,0 +1,27 @@
+src/systems/challenges.test.ts
+  1f2f05f19d1918f6 81-89
+src/systems/challenges.ts
+  1f2f05f19d1918f6 24,64-67,76-87,89-92,110,119,127,130-133,135-136
+src/render/hud.ts
+  1f2f05f19d1918f6 305-307
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c313be2dc993ebbc8c0b2749a18e1d83299f4a04",
+  "prompts": {
+    "1f2f05f19d1918f6": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd96c-5e64-7742-9b01-2faa47d2eb80",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 155,
+      "total_deletions": 6,
+      "accepted_lines": 155,
+      "overriden_lines": 0
+    }
+  }
+}
