@@ -84,7 +84,7 @@ export const xpBalance = {
   orbRadiusBase: 6,
   orbRadiusValueScale: 0.18,
   orbRadiusBonusMax: 5,
-  pickupBaseRadius: 50,
+  pickupBaseRadius: 40,
 };
 
 export const enemyTypes = [
