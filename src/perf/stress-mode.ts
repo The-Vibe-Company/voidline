@@ -111,6 +111,7 @@ function seedOrbs(count: number, rand: () => number): void {
       radius: 6 + rand() * 3,
       value: 1 + Math.floor(rand() * 5),
       age: rand() * 0.4,
+      magnetized: false,
     });
   }
 }
@@ -186,8 +187,6 @@ export function maybeStartStressMode(): void {
   state.spawnRemaining = 0;
   state.spawnTimer = Number.POSITIVE_INFINITY;
   state.waveTarget = config.enemies;
-  state.magnetRadius = config.magnet ? Number.POSITIVE_INFINITY : 0;
-
   player.x = world.arenaWidth / 2;
   player.y = world.arenaHeight / 2;
   player.hp = 1e9;
@@ -197,6 +196,9 @@ export function maybeStartStressMode(): void {
   const rand = mulberry32(config.seed);
   seedEnemies(config.enemies, rand);
   seedOrbs(config.orbs, rand);
+  if (config.magnet) {
+    for (const orb of experienceOrbs) orb.magnetized = true;
+  }
   bullets.length = 0;
   particles.length = 0;
   floaters.length = 0;

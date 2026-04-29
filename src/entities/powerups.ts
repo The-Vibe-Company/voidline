@@ -1,5 +1,6 @@
 import {
   enemies,
+  experienceOrbs,
   player,
   powerupOrbs,
   state,
@@ -21,7 +22,7 @@ export const POWERUP_VARIANTS: PowerupVariant[] = [
   {
     id: "magnet",
     label: "AIMANT",
-    description: "Attire les XP de toute la map",
+    description: "Attire les XP deja presents",
     color: "#39d9ff",
     accent: "#d9f6ff",
     rarity: 4,
@@ -90,7 +91,9 @@ export function applyPowerup(kind: PowerupKind): void {
       state.heartsCarried += 1;
       break;
     case "magnet":
-      state.magnetRadius = Number.POSITIVE_INFINITY;
+      for (const orb of experienceOrbs) {
+        orb.magnetized = true;
+      }
       state.magnetsCarried += 1;
       break;
     case "bomb":
@@ -161,7 +164,6 @@ function detonateBomb(): void {
 
 export function resetPowerups(): void {
   powerupOrbs.length = 0;
-  state.magnetRadius = 0;
   state.heartsCarried = 0;
   state.magnetsCarried = 0;
   state.bombsCarried = 0;

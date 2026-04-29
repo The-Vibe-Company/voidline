@@ -1,5 +1,5 @@
 import { bench, describe } from "vitest";
-import { bullets, counters, enemies, experienceOrbs, player, state, world } from "../state";
+import { bullets, counters, enemies, experienceOrbs, player, world } from "../state";
 import { updateBullets } from "../entities/bullets";
 import { updateExperience } from "../entities/experience";
 import { polygon } from "../render/background";
@@ -24,7 +24,6 @@ function resetWorld(): void {
   player.lifesteal = 0;
   player.invuln = 0;
   player.pickupRadius = 1;
-  state.magnetRadius = 0;
   counters.nextEnemyId = 1;
 }
 
@@ -73,7 +72,7 @@ function seedBullets(count: number, rand: () => number): void {
   }
 }
 
-function seedOrbs(count: number, rand: () => number): void {
+function seedOrbs(count: number, rand: () => number, magnetized: boolean): void {
   experienceOrbs.length = 0;
   for (let i = 0; i < count; i += 1) {
     experienceOrbs.push({
@@ -84,6 +83,7 @@ function seedOrbs(count: number, rand: () => number): void {
       radius: 6,
       value: 1,
       age: 0,
+      magnetized,
     });
   }
 }
@@ -115,27 +115,24 @@ describe("bullet vs enemy collision", () => {
 });
 
 describe("experience orb update", () => {
-  bench("200 orbs, finite magnet radius", () => {
+  bench("200 orbs, no magnet", () => {
     resetWorld();
-    state.magnetRadius = 0;
     const rand = mulberry32(4);
-    seedOrbs(200, rand);
+    seedOrbs(200, rand, false);
     updateExperience(0.016);
   });
 
-  bench("200 orbs, infinite magnet radius", () => {
+  bench("200 orbs, all magnetized", () => {
     resetWorld();
-    state.magnetRadius = Number.POSITIVE_INFINITY;
     const rand = mulberry32(5);
-    seedOrbs(200, rand);
+    seedOrbs(200, rand, true);
     updateExperience(0.016);
   });
 
-  bench("500 orbs, infinite magnet radius (stress)", () => {
+  bench("500 orbs, all magnetized (stress)", () => {
     resetWorld();
-    state.magnetRadius = Number.POSITIVE_INFINITY;
     const rand = mulberry32(6);
-    seedOrbs(500, rand);
+    seedOrbs(500, rand, true);
     updateExperience(0.016);
   });
 });

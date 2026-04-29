@@ -27,18 +27,16 @@ export function spawnExperience(enemy: EnemyEntity): void {
       radius: experienceOrbRadius(value),
       value,
       age: Math.random() * 0.4,
+      magnetized: false,
     });
   }
 }
 
-const MAGNET_ACCEL = 1400;
-const MAGNET_DAMP = 4.2;
+const MAGNET_FORCE = 560;
 
 export function updateExperience(dt: number): void {
-  const infiniteMagnet = state.magnetRadius === Number.POSITIVE_INFINITY;
-  const baseRadius = balance.xp.pickupBaseRadius * player.pickupRadius;
-  const finiteRadius = baseRadius + state.magnetRadius;
-  const finiteRadiusSq = finiteRadius * finiteRadius;
+  const pullRadius = balance.xp.pickupBaseRadius * player.pickupRadius;
+  const pullRadiusSq = pullRadius * pullRadius;
   const pickupCutoff = player.radius + 8;
   const damp = 1 - dt * 2.7;
 
@@ -62,14 +60,14 @@ export function updateExperience(dt: number): void {
       continue;
     }
 
-    if (infiniteMagnet) {
-      orb.vx += dx * MAGNET_ACCEL * dt * 0.001;
-      orb.vy += dy * MAGNET_ACCEL * dt * 0.001;
-      orb.vx -= orb.vx * MAGNET_DAMP * dt * 0.18;
-      orb.vy -= orb.vy * MAGNET_DAMP * dt * 0.18;
-    } else if (distSq < finiteRadiusSq) {
+    if (orb.magnetized) {
       const distance = Math.sqrt(distSq);
-      const pull = (1 - distance / finiteRadius) * 560;
+      const inv = 1 / Math.max(1, distance);
+      orb.vx += dx * inv * MAGNET_FORCE * dt;
+      orb.vy += dy * inv * MAGNET_FORCE * dt;
+    } else if (distSq < pullRadiusSq) {
+      const distance = Math.sqrt(distSq);
+      const pull = (1 - distance / pullRadius) * MAGNET_FORCE;
       const inv = 1 / Math.max(1, distance);
       orb.vx += dx * inv * pull * dt;
       orb.vy += dy * inv * pull * dt;
