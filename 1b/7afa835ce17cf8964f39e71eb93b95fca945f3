@@ -1,0 +1,47 @@
+src/render/hud.ts
+  377a5f2f22edfae4 127-130,135,137-140
+src/state.ts
+  377a5f2f22edfae4 14,57
+src/systems/upgrades.ts
+  377a5f2f22edfae4 3-6,9,13,23
+styles.css
+  377a5f2f22edfae4 315-331,426-432,437-440,442,445-447,451-468,477-478,481-484,486-487,492,494,496-498,501-503,511-514,520-521,523-527,533-535,538-540,543-549,553-556,562-563,568-572,578-588,615,619
+src/types.ts
+  377a5f2f22edfae4 174
+src/entities/enemies.ts
+  377a5f2f22edfae4 6,10,35,42-44
+src/entities/experience.ts
+  377a5f2f22edfae4 4-9,13-14,27,46
+package.json
+  377a5f2f22edfae4 10-12,16-17
+src/game/balance.test.ts
+  377a5f2f22edfae4 1-132
+src/game/balance.ts
+  377a5f2f22edfae4 1-411
+src/systems/waves.ts
+  377a5f2f22edfae4 20-27,33,35-36,53-60,81
+src/game/upgrade-catalog.ts
+  377a5f2f22edfae4 1-204
+src/utils.ts
+  377a5f2f22edfae4 2,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1b7afa835ce17cf8964f39e71eb93b95fca945f3",
+  "prompts": {
+    "377a5f2f22edfae4": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd7af-195e-7343-a22a-2b2d7d715d79",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 923,
+      "total_deletions": 383,
+      "accepted_lines": 923,
+      "overriden_lines": 0
+    }
+  }
+}
