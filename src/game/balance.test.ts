@@ -5,9 +5,11 @@ import {
   enemyTypeWeights,
   experienceDropTotal,
   experienceOrbRadius,
+  scoreAward,
   scaledEnemyStats,
   selectUpgradeTier,
   spawnGap,
+  spawnPackChance,
   upgradeTierWeights,
   upgradeTiers,
   waveTarget,
@@ -49,6 +51,27 @@ describe("balance curves", () => {
       expect(gap).toBeLessThanOrEqual(previousGap);
       previousGap = gap;
     }
+  });
+
+  it("front-loads the first wave tempo", () => {
+    expect(waveTarget(1)).toBe(19);
+    expect(waveTarget(10)).toBe(72);
+    expect(spawnGap(1)).toBeCloseTo(0.525);
+    expect(spawnGap(10)).toBeCloseTo(0.21);
+    expect(spawnPackChance(1)).toBeCloseTo(0.08);
+    expect(spawnPackChance(10)).toBeCloseTo(balance.wave.packChanceMax);
+    expect(balance.wave.spawnTimerStart).toBeCloseTo(0.18);
+  });
+
+  it("awards more visible score as waves advance", () => {
+    const baseScore = balance.enemies[0]!.score;
+
+    expect(scoreAward(baseScore, 1)).toBe(47);
+    expect(scoreAward(baseScore, 6)).toBe(65);
+    expect(scoreAward(baseScore, 20)).toBe(114);
+    expect(scoreAward(baseScore, 1)).toBeGreaterThan(baseScore);
+    expect(scoreAward(baseScore, 6)).toBeGreaterThan(scoreAward(baseScore, 1));
+    expect(scoreAward(baseScore, 20)).toBeGreaterThan(scoreAward(baseScore, 6));
   });
 
   it("keeps upgrade tier weights valid", () => {
