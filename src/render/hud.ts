@@ -152,7 +152,11 @@ function setOverlayFocusScope(activeOverlay?: OverlayId): void {
 
 function rememberFocusBeforeModal(activeOverlay: HTMLElement): void {
   const active = document.activeElement;
-  if (active instanceof HTMLElement && !activeOverlay.contains(active)) {
+  if (
+    modalReturnFocus === null &&
+    active instanceof HTMLElement &&
+    !activeOverlay.contains(active)
+  ) {
     modalReturnFocus = active;
   }
 }
