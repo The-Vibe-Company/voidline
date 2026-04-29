@@ -5,7 +5,7 @@ import { maybeDropPowerup } from "./powerups";
 import { spawnChest } from "./chests";
 import { enemies, player, state, world } from "../state";
 import { circleHit, clamp } from "../utils";
-import { scaledEnemyStats, selectEnemyType } from "../game/balance";
+import { scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
 import { bossBalance } from "../game/roguelike";
 import { unlockRelicsForBossWave } from "../systems/relics";
 import type { EnemyType } from "../types";
@@ -108,7 +108,8 @@ export function killEnemy(index: number): void {
   const role = enemy.role ?? "normal";
   releaseEnemy(index);
   state.waveKills += 1;
-  state.score += Math.round(enemy.score * (1 + state.wave * 0.07));
+  const awardedScore = scoreAward(enemy.score, state.wave);
+  state.score += awardedScore;
   state.bestCombo += 1;
   spawnExperience(enemy);
   maybeDropPowerup(enemy);
@@ -124,7 +125,10 @@ export function killEnemy(index: number): void {
   }
 
   burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);
-  pulseText(enemy.x, enemy.y - enemy.radius, `+${enemy.score}`, enemy.accent);
+  pulseText(enemy.x, enemy.y - enemy.radius, `+${awardedScore}`, enemy.accent);
+  if (state.waveKills % 5 === 0) {
+    pulseText(enemy.x, enemy.y - enemy.radius - 24, `SERIE x${state.waveKills}`, "#ffbf47");
+  }
   markHudDirty();
   world.shake = Math.min(10, world.shake + 2.4);
 }

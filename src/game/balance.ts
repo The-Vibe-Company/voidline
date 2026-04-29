@@ -57,16 +57,16 @@ export const playerBalance = {
 };
 
 export const waveBalance = {
-  targetBase: 10,
+  targetBase: 14,
   targetLinear: 4,
   targetExponent: 1.25,
-  spawnGapStart: 0.74,
-  spawnGapPerWave: 0.04,
-  spawnGapMin: 0.18,
-  spawnTimerStart: 0.7,
-  packChancePerWave: 0.035,
-  packChanceMax: 0.52,
-  waveDelay: 1.1,
+  spawnGapStart: 0.56,
+  spawnGapPerWave: 0.035,
+  spawnGapMin: 0.16,
+  spawnTimerStart: 0.18,
+  packChancePerWave: 0.08,
+  packChanceMax: 0.55,
+  waveDelay: 0.7,
 };
 
 export const xpBalance = {
@@ -287,6 +287,10 @@ export function spawnGap(wave: number): number {
 
 export function spawnPackChance(wave: number): number {
   return Math.min(waveBalance.packChanceMax, wave * waveBalance.packChancePerWave);
+}
+
+export function scoreAward(enemyScore: number, wave: number): number {
+  return Math.round(enemyScore * (1.25 + wave * 0.1));
 }
 
 export function xpToNextLevel(level: number): number {
