@@ -71,7 +71,6 @@ function pickEnemyKind(rand: () => number): EnemyKind {
 
 function seedEnemies(count: number, rand: () => number): void {
   enemies.length = 0;
-  counters.nextEnemyId = 1;
   for (let i = 0; i < count; i += 1) {
     const kind = pickEnemyKind(rand);
     const type = balance.enemies.find((e) => e.id === kind)!;
@@ -204,6 +203,8 @@ export function maybeStartStressMode(): void {
   floaters.length = 0;
 
   if (config.showOverlay) togglePerfOverlay();
+
+  (window as unknown as { compareReports: typeof compareReports }).compareReports = compareReports;
 
   const frameTimes: number[] = [];
   const updateTimes: number[] = [];

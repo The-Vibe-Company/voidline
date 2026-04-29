@@ -67,10 +67,7 @@ if (typeof globalThis.window === "undefined") {
   const stubWindow: Record<string, unknown> = {
     addEventListener: () => {},
     removeEventListener: () => {},
-    requestAnimationFrame: (cb: FrameRequestCallback) => {
-      cb(performance.now());
-      return 0;
-    },
+    requestAnimationFrame: () => 0,
     cancelAnimationFrame: () => {},
     location: { search: "" },
     devicePixelRatio: 1,
@@ -88,9 +85,6 @@ if (typeof globalThis.HTMLButtonElement === "undefined") {
     StubHTMLButtonElement;
 }
 if (typeof globalThis.requestAnimationFrame === "undefined") {
-  (globalThis as unknown as { requestAnimationFrame: (cb: FrameRequestCallback) => number }).requestAnimationFrame =
-    (cb: FrameRequestCallback) => {
-      cb(performance.now());
-      return 0;
-    };
+  (globalThis as unknown as { requestAnimationFrame: () => number }).requestAnimationFrame =
+    () => 0;
 }

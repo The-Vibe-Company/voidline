@@ -109,16 +109,16 @@ export function recordFrame(now: number, dt: number): void {
   overlay.renderMsEma = ema(overlay.renderMsEma, perfStats.renderMs);
   overlay.frameMsEma = ema(overlay.frameMsEma, perfStats.frameMs);
 
+  if (now - overlay.longFrameWindowReset > 2000) {
+    overlay.longFrameWindowReset = now;
+    overlay.longFrameWindowMax = 0;
+    overlay.longFrameCount = 0;
+  }
   if (perfStats.frameMs > overlay.longFrameWindowMax) {
     overlay.longFrameWindowMax = perfStats.frameMs;
   }
   if (perfStats.frameMs > LONG_FRAME_MS) {
     overlay.longFrameCount += 1;
-  }
-  if (now - overlay.longFrameWindowReset > 2000) {
-    overlay.longFrameWindowReset = now;
-    overlay.longFrameWindowMax = perfStats.frameMs;
-    overlay.longFrameCount = 0;
   }
 
   if (!overlay.textEl) return;

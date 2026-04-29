@@ -13,7 +13,8 @@ export function setFrameTickHook(hook: FrameTickHook | null): void {
 }
 
 function frame(now: number): void {
-  const dt = Math.min(0.033, (now - lastTime) / 1000);
+  const rawDt = (now - lastTime) / 1000;
+  const dt = Math.min(0.033, rawDt);
   lastTime = now;
   resetPerfFrame();
 
@@ -28,7 +29,7 @@ function frame(now: number): void {
   perfStats.frameMs = t2 - t0;
 
   if (isPerfOverlayEnabled()) {
-    recordFrame(now, dt);
+    recordFrame(now, rawDt);
   }
   if (tickHook) {
     tickHook(now, dt);

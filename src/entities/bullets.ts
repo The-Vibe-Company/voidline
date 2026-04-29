@@ -2,9 +2,11 @@ import { bullets, enemies, perfStats, player, world } from "../state";
 import { circleHit } from "../utils";
 import { spark } from "./particles";
 import { killEnemy } from "./enemies";
+import { balance } from "../game/balance";
 import type { EnemyEntity } from "../types";
 
-const CELL_SIZE = 96;
+const MAX_ENEMY_RADIUS = balance.enemies.reduce((m, e) => Math.max(m, e.radius), 0);
+const CELL_SIZE = Math.max(64, Math.ceil(MAX_ENEMY_RADIUS * 2 * 1.2));
 const grid = new Map<number, EnemyEntity[]>();
 
 function cellKey(cellX: number, cellY: number): number {
@@ -50,7 +52,7 @@ export function updateBullets(dt: number): void {
       continue;
     }
 
-    const reach = bullet.radius + 32;
+    const reach = bullet.radius + MAX_ENEMY_RADIUS;
     const minCx = Math.floor((bullet.x - reach) / CELL_SIZE);
     const maxCx = Math.floor((bullet.x + reach) / CELL_SIZE);
     const minCy = Math.floor((bullet.y - reach) / CELL_SIZE);

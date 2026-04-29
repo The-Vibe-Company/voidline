@@ -53,22 +53,6 @@ function drawTrackpadGuide(): void {
   ctx.restore();
 }
 
-const flameCache: { engine: number; gradient: CanvasGradient | null } = {
-  engine: -1,
-  gradient: null,
-};
-
-function getFlameGradient(engine: number): CanvasGradient {
-  const bucket = Math.round(engine * 20) / 20;
-  if (flameCache.gradient && flameCache.engine === bucket) return flameCache.gradient;
-  const gradient = ctx.createLinearGradient(0, 12, 0, 36 + bucket * 16);
-  gradient.addColorStop(0, "rgba(57, 217, 255, 0.9)");
-  gradient.addColorStop(1, "rgba(255, 191, 71, 0)");
-  flameCache.engine = bucket;
-  flameCache.gradient = gradient;
-  return gradient;
-}
-
 function drawPlayer(): void {
   ctx.save();
   ctx.translate(player.x, player.y);
@@ -88,7 +72,10 @@ function drawPlayer(): void {
   const engine = Math.min(1, Math.hypot(player.vx, player.vy) / player.speed);
   ctx.save();
   ctx.globalCompositeOperation = "screen";
-  ctx.fillStyle = getFlameGradient(engine);
+  const flame = ctx.createLinearGradient(0, 12, 0, 36 + engine * 16);
+  flame.addColorStop(0, "rgba(57, 217, 255, 0.9)");
+  flame.addColorStop(1, "rgba(255, 191, 71, 0)");
+  ctx.fillStyle = flame;
   ctx.beginPath();
   ctx.moveTo(-6, 11);
   ctx.lineTo(0, 34 + engine * 18 + Math.sin(world.time * 34) * 3);
