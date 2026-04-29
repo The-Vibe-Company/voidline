@@ -327,7 +327,7 @@ button {
 }
 
 .mode-button {
-  min-height: 34px;
+  min-height: 44px;
   padding: 0 10px;
   border: 1px solid rgba(156, 230, 255, 0.24);
   border-radius: 7px;
@@ -1300,7 +1300,7 @@ h2 {
 
   .stats-panel {
     left: 8px;
-    bottom: 86px;
+    bottom: 150px;
   }
 
   .loadout {
@@ -1309,10 +1309,12 @@ h2 {
   }
 
   .item-bar {
+    left: 8px;
     right: 8px;
     top: auto;
-    bottom: 286px;
+    bottom: 86px;
     flex-direction: row;
+    justify-content: center;
     padding: 6px 8px;
   }
 

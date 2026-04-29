@@ -59,6 +59,32 @@ export interface PlayerBonus {
   bulletRadiusPct: number;
 }
 
+export interface SimulationInputState {
+  keys: ReadonlySet<string>;
+  pointer: Pointer;
+}
+
+export interface SimulationBudgets {
+  maxParticles: number;
+  maxFloaters: number;
+  maxVisibleXp: number;
+  maxDamageTexts: number;
+}
+
+export interface SimulationPerfConfig {
+  targetFps: number;
+  targetFrameMs: number;
+  dprMax: number;
+  budgets: SimulationBudgets;
+}
+
+export interface SimulationConfig {
+  seed?: number;
+  perf?: Partial<SimulationPerfConfig> & {
+    budgets?: Partial<SimulationBudgets>;
+  };
+}
+
 export interface Player {
   x: number;
   y: number;
@@ -125,6 +151,7 @@ export interface EnemyEntity {
 }
 
 export interface Bullet {
+  id: number;
   x: number;
   y: number;
   vx: number;
@@ -139,6 +166,7 @@ export interface Bullet {
 }
 
 export interface ExperienceOrb {
+  id: number;
   x: number;
   y: number;
   vx: number;
@@ -150,6 +178,7 @@ export interface ExperienceOrb {
 }
 
 export interface Particle {
+  id: number;
   x: number;
   y: number;
   vx: number;
@@ -162,10 +191,12 @@ export interface Particle {
 }
 
 export interface Floater {
+  id: number;
   x: number;
   y: number;
   text: string;
   color: string;
+  damageText: boolean;
   life: number;
   maxLife: number;
 }
@@ -225,6 +256,7 @@ export interface PowerupVariant {
 }
 
 export interface PowerupOrb {
+  id: number;
   x: number;
   y: number;
   vx: number;
@@ -236,6 +268,7 @@ export interface PowerupOrb {
 }
 
 export interface ChestEntity {
+  id: number;
   x: number;
   y: number;
   vx: number;

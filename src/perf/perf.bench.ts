@@ -2,8 +2,9 @@ import { bench, describe } from "vitest";
 import { bullets, counters, enemies, experienceOrbs, player, world } from "../state";
 import { updateBullets } from "../entities/bullets";
 import { updateExperience } from "../entities/experience";
+import { updatePlayer } from "../entities/player";
 import { createPlayerBonus } from "../game/balance";
-import { polygon } from "../render/background";
+import { enemyGrid } from "../simulation/grids";
 import { mulberry32 } from "./rng";
 
 function resetWorld(): void {
@@ -26,6 +27,9 @@ function resetWorld(): void {
   player.invuln = 0;
   player.pickupRadius = 1;
   player.bonus = createPlayerBonus();
+  player.drones = 0;
+  player.fireTimer = 0;
+  player.droneTimer = 0;
   counters.nextEnemyId = 1;
 }
 
@@ -59,6 +63,7 @@ function seedBullets(count: number, rand: () => number): void {
   bullets.length = 0;
   for (let i = 0; i < count; i += 1) {
     bullets.push({
+      id: i + 1,
       x: rand() * world.arenaWidth,
       y: rand() * world.arenaHeight,
       vx: 0,
@@ -78,6 +83,7 @@ function seedOrbs(count: number, rand: () => number, magnetized: boolean): void 
   experienceOrbs.length = 0;
   for (let i = 0; i < count; i += 1) {
     experienceOrbs.push({
+      id: i + 1,
       x: rand() * world.arenaWidth,
       y: rand() * world.arenaHeight,
       vx: 0,
@@ -114,6 +120,28 @@ describe("bullet vs enemy collision", () => {
     seedBullets(200, rand);
     updateBullets(0.016);
   });
+
+  bench("300 bullets x 2000 enemies (2000-active target)", () => {
+    resetWorld();
+    const rand = mulberry32(7);
+    seedEnemies(2000, rand);
+    seedBullets(300, rand);
+    updateBullets(0.016);
+  });
+});
+
+describe("auto-aim and drone targeting", () => {
+  bench("2000 enemies x player auto-aim + drones", () => {
+    resetWorld();
+    const rand = mulberry32(8);
+    seedEnemies(2000, rand);
+    player.drones = 5;
+    player.projectileCount = 8;
+    player.fireTimer = 0;
+    player.droneTimer = 0;
+    enemyGrid.rebuild(enemies);
+    updatePlayer(0.016);
+  });
 });
 
 describe("experience orb update", () => {
@@ -137,18 +165,11 @@ describe("experience orb update", () => {
     seedOrbs(500, rand, true);
     updateExperience(0.016);
   });
-});
 
-describe("polygon vertex generation", () => {
-  bench("100 enemies x 5 sides", () => {
-    for (let i = 0; i < 100; i += 1) {
-      polygon(0, 0, 18, 5);
-    }
-  });
-
-  bench("400 enemies x 5 sides", () => {
-    for (let i = 0; i < 400; i += 1) {
-      polygon(0, 0, 18, 5);
-    }
+  bench("1000 orbs, all magnetized (2000-active target)", () => {
+    resetWorld();
+    const rand = mulberry32(9);
+    seedOrbs(1000, rand, true);
+    updateExperience(0.016);
   });
 });

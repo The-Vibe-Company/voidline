@@ -5,6 +5,7 @@ import type { ExperienceOrb } from "../types";
 
 function makeOrb(overrides: Partial<ExperienceOrb> = {}): ExperienceOrb {
   return {
+    id: 1,
     x: 0,
     y: 0,
     vx: 0,

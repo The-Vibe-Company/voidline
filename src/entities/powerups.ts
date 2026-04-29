@@ -9,6 +9,9 @@ import {
 import type { EnemyEntity, PowerupKind, PowerupVariant } from "../types";
 import { burst, pulseText } from "./particles";
 import { killEnemy } from "./enemies";
+import { markHudDirty } from "../simulation/events";
+import { acquirePowerupOrb, releasePowerupOrb } from "../simulation/pools";
+import { random } from "../simulation/random";
 
 export const POWERUP_VARIANTS: PowerupVariant[] = [
   {
@@ -58,7 +61,7 @@ let suppressDrops = false;
 function pickVariant(): PowerupVariant {
   let total = 0;
   for (const v of POWERUP_VARIANTS) total += v.rarity;
-  let roll = Math.random() * total;
+  let roll = random() * total;
   for (const v of POWERUP_VARIANTS) {
     roll -= v.rarity;
     if (roll <= 0) return v;
@@ -68,20 +71,18 @@ function pickVariant(): PowerupVariant {
 
 export function maybeDropPowerup(enemy: EnemyEntity): void {
   if (suppressDrops) return;
-  if (Math.random() > DROP_CHANCE[enemy.kind]) return;
+  if (random() > DROP_CHANCE[enemy.kind]) return;
   const variant = pickVariant();
-  const angle = Math.random() * Math.PI * 2;
-  const speed = 80 + Math.random() * 80;
-  powerupOrbs.push({
-    x: enemy.x,
-    y: enemy.y,
-    vx: Math.cos(angle) * speed,
-    vy: Math.sin(angle) * speed,
-    radius: 13,
-    kind: variant.id,
-    age: 0,
-    life: 16,
-  });
+  const angle = random() * Math.PI * 2;
+  const speed = 80 + random() * 80;
+  const orb = acquirePowerupOrb(variant.id);
+  orb.x = enemy.x;
+  orb.y = enemy.y;
+  orb.vx = Math.cos(angle) * speed;
+  orb.vy = Math.sin(angle) * speed;
+  orb.radius = 13;
+  orb.age = 0;
+  orb.life = 16;
 }
 
 export function applyPowerup(kind: PowerupKind): void {
@@ -101,6 +102,7 @@ export function applyPowerup(kind: PowerupKind): void {
       state.bombsCarried += 1;
       break;
   }
+  markHudDirty();
 }
 
 const POWERUP_PULL_RADIUS = 70;
@@ -130,7 +132,7 @@ export function updatePowerups(dt: number): void {
       if (orb.kind !== "bomb") {
         world.shake = Math.min(14, world.shake + 4);
       }
-      powerupOrbs.splice(i, 1);
+      releasePowerupOrb(i);
       continue;
     }
 
@@ -143,7 +145,7 @@ export function updatePowerups(dt: number): void {
     }
 
     if (orb.life <= 0) {
-      powerupOrbs.splice(i, 1);
+      releasePowerupOrb(i);
     }
   }
 }

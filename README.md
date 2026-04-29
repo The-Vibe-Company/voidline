@@ -35,13 +35,25 @@ npm run preview
 
 - `index.html` : structure de la page et overlays.
 - `styles.css` : interface, HUD et ecrans de menu.
-- `src/main.ts` : point d'entree (resize, input, loop).
+- `src/main.ts` : point d'entree (simulation, Phaser, input, HUD).
 - `src/state.ts` : singletons mutables (state, player, world, collections).
 - `src/types.ts` : interfaces TypeScript du jeu.
 - `src/utils.ts` : helpers (clamp, circleHit, xpToNextLevel, ...).
+- `src/simulation/` : API de simulation, pools, grille spatiale, budgets perf.
+- `src/phaser/` : runtime WebGL Phaser, scenes, textures generees, pools de rendu.
 - `src/game/` : input, loop, progression.
 - `src/entities/` : player, enemies, bullets, particles, experience.
 - `src/systems/` : waves, upgrades, camera.
-- `src/render/` : background, world (canvas), hud (DOM).
+- `src/render/` : HUD DOM et overlays.
 
-`src/render/hud.ts` est le seul module qui touche le DOM. Tout le reste manipule du state typé.
+`src/render/hud.ts` conserve les overlays DOM. Phaser rend le monde et lit l'etat produit par `src/simulation/`; les regles de jeu ne dependent pas des sprites.
+
+## Perf
+
+Le mode stress navigateur accepte des parametres d'URL :
+
+```text
+?bench=1&enemies=2000&bullets=300&orbs=1000&seconds=20
+```
+
+Le jeu cible 60 FPS desktop avec 2000 ennemis simules, rendu WebGL, culling camera, pools d'entites et budgets visuels pour les particules, textes et XP visibles.

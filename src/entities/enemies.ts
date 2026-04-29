@@ -3,24 +3,27 @@ import { spawnExperience } from "./experience";
 import { damagePlayer } from "./player";
 import { maybeDropPowerup } from "./powerups";
 import { spawnChest } from "./chests";
-import { counters, enemies, player, state, world } from "../state";
+import { enemies, player, state, world } from "../state";
 import { circleHit, clamp } from "../utils";
 import { scaledEnemyStats, selectEnemyType } from "../game/balance";
 import { bossBalance } from "../game/roguelike";
 import { unlockRelicsForBossWave } from "../systems/relics";
 import type { EnemyType } from "../types";
+import { markHudDirty } from "../simulation/events";
+import { acquireEnemy, releaseEnemy } from "../simulation/pools";
+import { random } from "../simulation/random";
 
 export function chooseEnemyType(): EnemyType {
-  return selectEnemyType(state.wave, Math.random());
+  return selectEnemyType(state.wave, random());
 }
 
 function spawnPointForRadius(radius: number): { x: number; y: number } {
-  const side = Math.floor(Math.random() * 4);
+  const side = Math.floor(random() * 4);
   const pad = Math.max(70, radius + 48);
   const viewLeft = world.cameraX;
   const viewTop = world.cameraY;
-  let x = viewLeft + Math.random() * world.width;
-  let y = viewTop + Math.random() * world.height;
+  let x = viewLeft + random() * world.width;
+  let y = viewTop + random() * world.height;
 
   if (side === 0) {
     x = viewLeft - pad;
@@ -41,25 +44,18 @@ export function spawnEnemy(): void {
   const type = chooseEnemyType();
   const { x, y } = spawnPointForRadius(type.radius);
   const scaled = scaledEnemyStats(type, state.wave);
-  enemies.push({
-    ...type,
-    id: counters.nextEnemyId,
-    kind: type.id,
-    x,
-    y,
-    hp: scaled.hp,
-    maxHp: scaled.hp,
-    speed: scaled.speed,
-    radius: type.radius,
-    damage: type.damage,
-    age: 0,
-    seed: Math.random() * 100,
-    wobble: type.id === "brute" ? 0.08 : 0.18,
-    wobbleRate: 2 + Math.random() * 2,
-    hit: 0,
-    role: "normal",
-  });
-  counters.nextEnemyId += 1;
+  const enemy = acquireEnemy(type, type.id);
+  enemy.x = x;
+  enemy.y = y;
+  enemy.hp = scaled.hp;
+  enemy.maxHp = scaled.hp;
+  enemy.speed = scaled.speed;
+  enemy.age = 0;
+  enemy.seed = random() * 100;
+  enemy.wobble = type.id === "brute" ? 0.08 : 0.18;
+  enemy.wobbleRate = 2 + random() * 2;
+  enemy.hit = 0;
+  enemy.role = "normal";
 }
 
 function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
@@ -67,31 +63,27 @@ function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
   const scaled = scaledEnemyStats(type, state.wave);
   const radius = Math.round(type.radius * tuning.radiusMultiplier);
   const { x, y } = spawnPointForRadius(radius);
-  enemies.push({
-    ...type,
-    id: counters.nextEnemyId,
-    kind: type.id,
-    score: Math.round(type.score * tuning.scoreMultiplier),
-    x,
-    y,
-    hp: scaled.hp * tuning.hpMultiplier,
-    maxHp: scaled.hp * tuning.hpMultiplier,
-    speed: scaled.speed * tuning.speedMultiplier,
-    radius,
-    damage: type.damage * tuning.damageMultiplier,
-    color: role === "boss" ? "#ff5a69" : "#ffbf47",
-    accent: role === "boss" ? "#ffffff" : "#fff0b8",
-    sides: role === "boss" ? 8 : 6,
-    age: 0,
-    seed: Math.random() * 100,
-    wobble: role === "boss" ? 0.05 : 0.09,
-    wobbleRate: role === "boss" ? 1.1 : 1.7,
-    hit: 0,
-    role,
-    contactTimer: 0,
-    contactCooldown: tuning.contactCooldown,
-  });
-  counters.nextEnemyId += 1;
+  const enemy = acquireEnemy(type, type.id);
+  enemy.score = Math.round(type.score * tuning.scoreMultiplier);
+  enemy.x = x;
+  enemy.y = y;
+  enemy.hp = scaled.hp * tuning.hpMultiplier;
+  enemy.maxHp = enemy.hp;
+  enemy.speed = scaled.speed * tuning.speedMultiplier;
+  enemy.radius = radius;
+  enemy.damage = type.damage * tuning.damageMultiplier;
+  enemy.color = role === "boss" ? "#ff5a69" : "#ffbf47";
+  enemy.accent = role === "boss" ? "#ffffff" : "#fff0b8";
+  enemy.sides = role === "boss" ? 8 : 6;
+  enemy.age = 0;
+  enemy.seed = random() * 100;
+  enemy.wobble = role === "boss" ? 0.05 : 0.09;
+  enemy.wobbleRate = role === "boss" ? 1.1 : 1.7;
+  enemy.hit = 0;
+  enemy.role = role;
+  enemy.contactTimer = 0;
+  enemy.contactCooldown = tuning.contactCooldown;
+
   pulseText(
     x,
     y - radius,
@@ -102,7 +94,7 @@ function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
 
 export function spawnMiniBoss(): void {
   const type =
-    state.wave >= 7 ? selectEnemyType(state.wave + 3, Math.random()) : selectEnemyType(8, 0.95);
+    state.wave >= 7 ? selectEnemyType(state.wave + 3, random()) : selectEnemyType(8, 0.95);
   spawnElite(type, "mini-boss");
 }
 
@@ -114,12 +106,13 @@ export function spawnWaveBoss(): void {
 export function killEnemy(index: number): void {
   const enemy = enemies[index]!;
   const role = enemy.role ?? "normal";
-  enemies.splice(index, 1);
+  releaseEnemy(index);
   state.waveKills += 1;
   state.score += Math.round(enemy.score * (1 + state.wave * 0.07));
   state.bestCombo += 1;
   spawnExperience(enemy);
   maybeDropPowerup(enemy);
+
   if (role === "mini-boss") {
     spawnChest(enemy.x, enemy.y);
   }
@@ -129,8 +122,10 @@ export function killEnemy(index: number): void {
       pulseText(enemy.x, enemy.y - enemy.radius - 22, "NOUVELLES RELIQUES", "#72ffb1");
     }
   }
+
   burst(enemy.x, enemy.y, enemy.color, enemy.kind === "brute" ? 28 : 18, 220);
   pulseText(enemy.x, enemy.y - enemy.radius, `+${enemy.score}`, enemy.accent);
+  markHudDirty();
   world.shake = Math.min(10, world.shake + 2.4);
 }
 
@@ -160,7 +155,7 @@ export function updateEnemies(dt: number): void {
       }
       damagePlayer(enemy.damage);
       burst(enemy.x, enemy.y, enemy.color, 16, 160);
-      enemies.splice(i, 1);
+      releaseEnemy(i);
     }
   }
 }

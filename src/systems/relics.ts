@@ -6,6 +6,7 @@ import {
   pickChestRelics,
   relicUnlocksForBossWave,
 } from "../game/relic-catalog";
+import { markLoadoutDirty } from "../simulation/events";
 import type { RelicChoice } from "../types";
 
 const STORAGE_KEY = "voidline:unlockedRelics";
@@ -81,4 +82,5 @@ export function applyRelicChoice(choice: RelicChoice): void {
   ownedRelics.set(relic.id, owned);
 
   pulseText(player.x, player.y - 48, relic.name, relic.color);
+  markLoadoutDirty();
 }

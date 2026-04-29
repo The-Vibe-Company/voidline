@@ -53,7 +53,8 @@ if (typeof globalThis.document === "undefined") {
       selector === "#gameCanvas" ? stubCanvas : createStubElement(),
     querySelectorAll: () => [] as unknown as NodeListOf<Element>,
     getElementById: () => createStubElement(),
-    createElement: () => createStubElement(),
+    createElement: (tagName: string) =>
+      tagName.toLowerCase() === "canvas" ? stubCanvas : createStubElement(),
     createTextNode: () => ({}),
     addEventListener: () => {},
     removeEventListener: () => {},
