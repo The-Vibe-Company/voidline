@@ -1,0 +1,73 @@
+src/game/upgrade-catalog.ts
+  b3dbeaee9b440739 24,40,54,71,85,101,115,128,145,161,174,188
+src/simulation/simulation.test.ts
+  b3dbeaee9b440739 245,265,272-280,287-295
+src/systems/relics.test.ts
+  b3dbeaee9b440739 2-8,24-26,49-60
+src/entities/enemies.test.ts
+  b3dbeaee9b440739 70-87,157-198
+src/systems/upgrades.ts
+  b3dbeaee9b440739 1,6,9-14,21-25,31-67,77,82-126
+src/game/balance-simulation.ts
+  b3dbeaee9b440739 77-78
+src/perf/stress-mode.ts
+  b3dbeaee9b440739 151-152
+src/systems/synergies.test.ts
+  b3dbeaee9b440739 1-75
+src/game/balance.ts
+  b3dbeaee9b440739 89-90,103,282-290,296
+src/phaser/scenes/BattleScene.ts
+  b3dbeaee9b440739 24,138
+src/render/hud.ts
+  b3dbeaee9b440739 6,8,113-153,234,242-249,408-409,419,444-446,508-509,518,543-545
+src/simulation/pools.ts
+  b3dbeaee9b440739 114-115,120-121
+src/entities/player.ts
+  b3dbeaee9b440739 46-48,57-58,62-63,142-143,165-167
+src/entities/enemies.ts
+  b3dbeaee9b440739 7,17-22,148-149,162-164,182-257
+src/perf/perf.bench.ts
+  b3dbeaee9b440739 78-79
+src/entities/bullets.test.ts
+  b3dbeaee9b440739 54-55,74-82,191-204
+src/entities/player.test.ts
+  b3dbeaee9b440739 1-52
+styles.css
+  b3dbeaee9b440739 197-198,210-219,919-921,1064-1112,1419,1463
+src/systems/upgrades.test.ts
+  b3dbeaee9b440739 1-110
+src/entities/bullets.ts
+  b3dbeaee9b440739 2,6-10,55,67-107
+src/systems/relics.ts
+  b3dbeaee9b440739 1,11,85
+CLAUDE.md
+  b3dbeaee9b440739 37-46
+src/systems/synergies.ts
+  b3dbeaee9b440739 1-152
+src/game/relic-catalog.ts
+  b3dbeaee9b440739 33,45,57,69,82,95,110,122,137
+src/game/progression.ts
+  b3dbeaee9b440739 10-12
+src/types.ts
+  b3dbeaee9b440739 148-151,203-204,266-295,301,355
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "20e8378580cb4725f719e12e42d1138fc56d0b17",
+  "prompts": {
+    "b3dbeaee9b440739": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd9dc-c6bd-7981-915a-9fa3769463c3",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1473,
+      "total_deletions": 30,
+      "accepted_lines": 1468,
+      "overriden_lines": 3
+    }
+  }
+}
