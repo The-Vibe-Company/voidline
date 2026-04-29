@@ -1,9 +1,13 @@
 import { bullets, enemies, perfStats, player, world } from "../state";
-import { circleHit } from "../utils";
+import { circleHit, distanceSq } from "../utils";
 import { spark } from "./particles";
 import { killEnemy } from "./enemies";
 import { enemyGrid, maxEnemyRadius } from "../simulation/grids";
-import { releaseBullet } from "../simulation/pools";
+import { acquireBullet, releaseBullet } from "../simulation/pools";
+import type { Bullet, EnemyEntity } from "../types";
+
+const RAIL_CHAIN_RADIUS = 285;
+const RAIL_CHAIN_DAMAGE_SCALE = 0.48;
 
 export function updateBullets(dt: number): void {
   enemyGrid.rebuild(enemies);
@@ -48,6 +52,7 @@ export function updateBullets(dt: number): void {
           player.hp = Math.min(player.maxHp, player.hp + player.lifesteal);
         }
       }
+      spawnRailChain(bullet);
       bullet.pierce -= 1;
       if (bullet.pierce < 0) {
         releaseBullet(i);
@@ -58,4 +63,46 @@ export function updateBullets(dt: number): void {
       continue outer;
     }
   }
+}
+
+function spawnRailChain(source: Bullet): void {
+  if (source.chainRemaining <= 0 || !player.traits.railSplitter) return;
+
+  const target = findRailChainTarget(source);
+  if (!target) return;
+
+  const angle = Math.atan2(target.y - source.y, target.x - source.x);
+  const speed = Math.max(620, player.bulletSpeed * 1.05);
+  const chain = acquireBullet();
+  chain.x = source.x;
+  chain.y = source.y;
+  chain.vx = Math.cos(angle) * speed;
+  chain.vy = Math.sin(angle) * speed;
+  chain.radius = Math.max(4, source.radius * 0.82);
+  chain.damage = source.damage * RAIL_CHAIN_DAMAGE_SCALE;
+  chain.pierce = 0;
+  chain.life = 0.55;
+  chain.color = "#ff5af0";
+  chain.trail = 0;
+  chain.source = "chain";
+  chain.chainRemaining = source.chainRemaining - 1;
+  for (const id of source.hitIds) {
+    chain.hitIds.add(id);
+  }
+}
+
+function findRailChainTarget(source: Bullet): EnemyEntity | null {
+  let target: EnemyEntity | null = null;
+  let bestDistance = RAIL_CHAIN_RADIUS * RAIL_CHAIN_RADIUS;
+
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0 || source.hitIds.has(enemy.id)) continue;
+    const distSq = distanceSq(source.x, source.y, enemy.x, enemy.y);
+    if (distSq < bestDistance) {
+      bestDistance = distSq;
+      target = enemy;
+    }
+  }
+
+  return target;
 }

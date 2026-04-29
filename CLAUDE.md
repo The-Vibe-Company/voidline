@@ -34,6 +34,16 @@ npx vitest run -t "spawn gap"
 
 Stress mode (manuel, dans le navigateur): ajouter `?bench=1&enemies=2000&bullets=300&orbs=1000&seconds=20` à l'URL du dev server.
 
+## Conductor
+
+Ce repo est utilisé dans Conductor. Chaque workspace Conductor a un port associé; quand une configuration cloud demande un port, renseigner `_port` avec ce port Conductor.
+
+Le script Conductor local est défini dans `conductor.json` et lance Vite avec `CONDUCTOR_PORT`:
+
+```bash
+npm run dev -- --port ${CONDUCTOR_PORT:-4173} --strictPort
+```
+
 ## Testing Standard
 
 ### La règle

@@ -3,8 +3,9 @@ import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
 import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
-import type { ControlMode, RelicChoice } from "../types";
+import type { BuildTag, ControlMode, RelicChoice, SynergyDefinition } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
+import { activeSynergiesForLoadout, BUILD_TAG_META } from "../systems/synergies";
 import {
   challengeCatalog,
   challengeValueLabel,
@@ -109,6 +110,47 @@ function tierRank(tierId: string): number {
   return TIER_RANK_LOOKUP.get(tierId) ?? 1;
 }
 
+function renderBuildTags(tags: readonly BuildTag[]): string {
+  if (tags.length === 0) return "";
+  return `<span class="build-tags" aria-hidden="true">${tags
+    .map((tag) => {
+      const meta = BUILD_TAG_META[tag];
+      return `<span class="build-tag" style="--tag-color: ${meta.color}">${meta.label}</span>`;
+    })
+    .join("")}</span>`;
+}
+
+function renderSynergyBadges(synergies: readonly SynergyDefinition[]): string {
+  if (synergies.length === 0) return "";
+  return `<span class="synergy-tags" aria-hidden="true">${synergies
+    .map(
+      (synergy) =>
+        `<span class="synergy-badge" style="--tag-color: ${synergy.color}">${synergy.name}</span>`,
+    )
+    .join("")}</span>`;
+}
+
+function buildInfoText(
+  tags: readonly BuildTag[],
+  synergies: readonly SynergyDefinition[],
+): string {
+  const segments: string[] = [];
+  if (tags.length > 0) {
+    segments.push(`Tags de build: ${tags.map((tag) => BUILD_TAG_META[tag].label).join(", ")}`);
+  }
+  if (synergies.length > 0) {
+    segments.push(`Synergies actives: ${synergies.map((synergy) => synergy.name).join(", ")}`);
+  }
+  return segments.join(". ");
+}
+
+function activeSynergiesForTags(tags: readonly BuildTag[]): SynergyDefinition[] {
+  const active = activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values());
+  return active.filter((synergy) =>
+    (Object.keys(synergy.requiredTags) as BuildTag[]).some((tag) => tags.includes(tag)),
+  );
+}
+
 function cipherFor(upgradeId: string, tierShort: string, index: number): string {
   const head = upgradeId.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase().padEnd(3, "X");
   let hash = 0;
@@ -189,7 +231,7 @@ export function updateLoadout(): void {
     chip.className = "loadout-chip";
     chip.dataset.tier = tier.id;
     chip.style.setProperty("--tier-color", tier.color);
-    chip.textContent = `${upgrade.icon} ${tier.short} x${count}`;
+    chip.innerHTML = `<span class="loadout-main">${upgrade.icon} ${tier.short} x${count}</span>${renderBuildTags(upgrade.tags)}`;
     hud.loadout.appendChild(chip);
   }
   for (const owned of ownedRelics.values()) {
@@ -197,7 +239,14 @@ export function updateLoadout(): void {
     const chip = document.createElement("span");
     chip.className = "loadout-chip relic-chip";
     chip.style.setProperty("--tier-color", relic.color);
-    chip.textContent = `${relic.icon} R x${count}`;
+    chip.innerHTML = `<span class="loadout-main">${relic.icon} R x${count}</span>${renderBuildTags(relic.tags)}`;
+    hud.loadout.appendChild(chip);
+  }
+  for (const synergy of activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values())) {
+    const chip = document.createElement("span");
+    chip.className = "loadout-chip synergy-chip";
+    chip.style.setProperty("--tier-color", synergy.color);
+    chip.textContent = synergy.name;
     hud.loadout.appendChild(chip);
   }
 }
@@ -356,6 +405,8 @@ export function showUpgrade(): void {
     const titleId = `${choiceId}-title`;
     const descriptionId = `${choiceId}-description`;
     const effectId = `${choiceId}-effect`;
+    const buildInfoId = `${choiceId}-build-info`;
+    const activeSynergies = activeSynergiesForTags(upgrade.tags);
     const rank = tierRank(tier.id);
     const cipher = cipherFor(upgrade.id, tier.short, index);
     const card = document.createElement("button");
@@ -365,7 +416,7 @@ export function showUpgrade(): void {
     card.dataset.tier = tier.id;
     card.dataset.tierRank = String(rank);
     card.setAttribute("aria-labelledby", `${choiceId} ${titleId} ${tierId}`);
-    card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
+    card.setAttribute("aria-describedby", `${descriptionId} ${effectId} ${buildInfoId}`);
     card.style.setProperty("--tier-color", tier.color);
     card.style.setProperty("--tier-glow", tier.glow);
     card.style.setProperty("--card-delay", `${index * 70}ms`);
@@ -390,6 +441,9 @@ export function showUpgrade(): void {
         <span class="tier-chevrons" aria-hidden="true">${chevrons}</span>
         <span class="tier-name" aria-hidden="true">${tier.name}</span>
       </span>
+      ${renderBuildTags(upgrade.tags)}
+      ${renderSynergyBadges(activeSynergies)}
+      <span class="sr-only" id="${buildInfoId}">${buildInfoText(upgrade.tags, activeSynergies)}</span>
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${upgrade.icon}</span>
@@ -451,6 +505,8 @@ export function showChest(): void {
     const titleId = `${choiceId}-title`;
     const descriptionId = `${choiceId}-description`;
     const effectId = `${choiceId}-effect`;
+    const buildInfoId = `${choiceId}-build-info`;
+    const activeSynergies = activeSynergiesForTags(relic.tags);
     const cipher = cipherFor(relic.id, "R", index);
     const card = document.createElement("button");
     card.className = "upgrade-card relic-card";
@@ -459,7 +515,7 @@ export function showChest(): void {
     card.dataset.tier = "relic";
     card.dataset.tierRank = "2";
     card.setAttribute("aria-labelledby", `${choiceId} ${titleId}`);
-    card.setAttribute("aria-describedby", `${descriptionId} ${effectId}`);
+    card.setAttribute("aria-describedby", `${descriptionId} ${effectId} ${buildInfoId}`);
     card.style.setProperty("--tier-color", relic.color);
     card.style.setProperty("--tier-glow", "rgba(255, 191, 71, 0.24)");
     card.style.setProperty("--card-delay", `${index * 70}ms`);
@@ -484,6 +540,9 @@ export function showChest(): void {
         </span>
         <span class="tier-name">Relique de run</span>
       </span>
+      ${renderBuildTags(relic.tags)}
+      ${renderSynergyBadges(activeSynergies)}
+      <span class="sr-only" id="${buildInfoId}">${buildInfoText(relic.tags, activeSynergies)}</span>
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${relic.icon}</span>

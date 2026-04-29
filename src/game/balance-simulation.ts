@@ -71,11 +71,11 @@ const MAX_STEP_SECONDS = 0.033;
 const OFFENSIVE_UPGRADE_PRIORITY = [
   "twin-cannon",
   "rail-slug",
-  "plasma-core",
   "piercer",
-  "heavy-caliber",
   "crit-array",
   "orbital-drone",
+  "plasma-core",
+  "heavy-caliber",
   "vampire-coil",
   "ion-engine",
   "kinetic-shield",

@@ -21,6 +21,7 @@ import { clamp, colorToNumber, screenToWorld } from "../../utils";
 import { ImageRenderPool, TextRenderPool } from "../pools";
 import { textureKeys } from "../textures";
 import { recordStressFrame } from "../../perf/stress-mode";
+import { pickupRadiusFor } from "../../entities/experience-pickup";
 
 export class BattleScene extends Phaser.Scene {
   private readonly enemyPools = {
@@ -134,7 +135,7 @@ export class BattleScene extends Phaser.Scene {
     this.worldGuides.strokePath();
 
     if (state.showPickupZones) {
-      const pickupRadius = 28 * player.pickupRadius;
+      const pickupRadius = pickupRadiusFor(player);
       this.worldGuides.lineStyle(2, 0x72ffb1, 0.32);
       this.worldGuides.strokeCircle(player.x, player.y, pickupRadius);
     }

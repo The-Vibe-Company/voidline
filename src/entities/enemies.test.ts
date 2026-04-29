@@ -15,7 +15,13 @@ import { bossBalance } from "../game/roguelike";
 import { clearEntityPools, resetEntityCounters } from "../simulation/pools";
 import { setSimulationSeed } from "../simulation/random";
 import type { EnemyEntity, EnemyKind, EnemyType } from "../types";
-import { killEnemy, spawnEnemy, spawnMiniBoss, spawnWaveBoss } from "./enemies";
+import {
+  killEnemy,
+  spawnEnemy,
+  spawnMiniBoss,
+  spawnWaveBoss,
+  updateEnemies,
+} from "./enemies";
 
 function makeEnemy(id: number, score = 35): EnemyEntity {
   return {
@@ -61,6 +67,24 @@ function resetWorld(): void {
   world.shake = 0;
   player.x = world.arenaWidth / 2;
   player.y = world.arenaHeight / 2;
+  player.radius = 18;
+  player.hp = 100;
+  player.maxHp = 100;
+  player.damage = 24;
+  player.speed = 265;
+  player.vx = 0;
+  player.vy = 0;
+  player.shield = 0;
+  player.shieldMax = 0;
+  player.traits = {
+    railSplitter: false,
+    droneSwarm: false,
+    kineticRam: false,
+    magnetStorm: false,
+  };
+  player.ramTimer = 0;
+  player.magnetStormCharge = 0;
+  player.magnetStormTimer = 0;
   state.mode = "playing";
   state.wave = 3;
   state.score = 0;
@@ -128,5 +152,49 @@ describe("enemy kill rewards", () => {
     const bossBase = scaledEnemyStats(enemyType(boss.kind), state.wave);
     expect(boss.role).toBe("boss");
     expect(boss.damage).toBeCloseTo(bossBase.damage * bossBalance.boss.damageMultiplier);
+  });
+});
+
+describe("enemy synergy interactions", () => {
+  beforeEach(resetWorld);
+
+  it("lets kinetic ram damage contact enemies without hull damage", () => {
+    player.traits.kineticRam = true;
+    player.shieldMax = 40;
+    player.shield = 40;
+    player.vx = player.speed;
+    enemies.push({ ...makeEnemy(1, 35), x: player.x + 8, y: player.y, hp: 200, maxHp: 200 });
+
+    updateEnemies(0);
+
+    expect(player.hp).toBe(100);
+    expect(player.shield).toBeLessThan(40);
+    expect(enemies[0]!.hp).toBeLessThan(200);
+  });
+
+  it("turns stored magnet storm charge into area damage", () => {
+    player.traits.magnetStorm = true;
+    player.magnetStormCharge = 30;
+    enemies.push({ ...makeEnemy(1, 35), x: player.x + 60, y: player.y, hp: 1000, maxHp: 1000 });
+    enemies.push({ ...makeEnemy(2, 35), x: player.x + 900, y: player.y, hp: 1000, maxHp: 1000 });
+
+    updateEnemies(0);
+
+    expect(player.magnetStormCharge).toBe(0);
+    expect(player.magnetStormTimer).toBeGreaterThan(0);
+    expect(enemies.find((enemy) => enemy.id === 1)!.hp).toBeLessThan(1000);
+    expect(enemies.find((enemy) => enemy.id === 2)!.hp).toBe(1000);
+  });
+
+  it("keeps magnet storm charged when no enemy is in range", () => {
+    player.traits.magnetStorm = true;
+    player.magnetStormCharge = 30;
+    enemies.push({ ...makeEnemy(1, 35), x: player.x + 900, y: player.y, hp: 1000, maxHp: 1000 });
+
+    updateEnemies(0);
+
+    expect(player.magnetStormCharge).toBe(30);
+    expect(player.magnetStormTimer).toBe(0);
+    expect(enemies[0]!.hp).toBe(1000);
   });
 });

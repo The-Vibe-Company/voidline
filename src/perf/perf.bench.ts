@@ -75,6 +75,8 @@ function seedBullets(count: number, rand: () => number): void {
       color: "#39d9ff",
       trail: 0,
       hitIds: new Set<number>(),
+      source: "player",
+      chainRemaining: 0,
     });
   }
 }

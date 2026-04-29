@@ -86,8 +86,8 @@ export const lateWaveBalance = {
 };
 
 export const xpBalance = {
-  levelBase: 28,
-  levelLinear: 12,
+  levelBase: 25,
+  levelLinear: 10,
   levelExponent: 1.45,
   levelExponentScale: 6,
   dropScoreDivisor: 7,
@@ -100,7 +100,7 @@ export const xpBalance = {
   orbRadiusBase: 6,
   orbRadiusValueScale: 0.18,
   orbRadiusBonusMax: 5,
-  pickupBaseRadius: 28,
+  pickupBaseRadius: 36,
 };
 
 export const enemyTypes = [
@@ -279,11 +279,21 @@ export function createPlayerState(overrides: Partial<Player> = {}): Player {
     vx: 0,
     vy: 0,
     bonus: createPlayerBonus(),
+    traits: {
+      railSplitter: false,
+      droneSwarm: false,
+      kineticRam: false,
+      magnetStorm: false,
+    },
+    ramTimer: 0,
+    magnetStormCharge: 0,
+    magnetStormTimer: 0,
   };
   return {
     ...base,
     ...overrides,
     bonus: { ...base.bonus, ...(overrides.bonus ?? {}) },
+    traits: { ...base.traits, ...(overrides.traits ?? {}) },
   };
 }
 

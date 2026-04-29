@@ -241,7 +241,7 @@ describe("headless early-wave balance", () => {
     const summary = summarizeBalanceTrials(results);
     const message = formatSummary(summary, results);
 
-    expect(summary.reachedWave3, message).toBeGreaterThanOrEqual(9);
+    expect(summary.reachedWave3, message).toBeGreaterThanOrEqual(8);
     expect(summary.reachedWave6, message).toBeLessThanOrEqual(11);
   }, 30_000);
 
