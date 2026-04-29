@@ -21,6 +21,7 @@ export const upgradePool: Upgrade[] = [
     icon: "II",
     name: "Canon jumele",
     description: "Elargit les salves principales.",
+    tags: ["cannon"],
     effect(tier) {
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve`;
     },
@@ -36,6 +37,7 @@ export const upgradePool: Upgrade[] = [
     icon: "Hz",
     name: "Coeur plasma",
     description: "Accorde le reacteur au rythme des canons.",
+    tags: ["cannon"],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.fireRate * tier.power)} cadence`;
     },
@@ -49,6 +51,7 @@ export const upgradePool: Upgrade[] = [
     icon: "DMG",
     name: "Ogive railgun",
     description: "Charge les impacts avec une masse cinetique.",
+    tags: ["cannon"],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.damage * tier.power)} degats, +${percent(
         balance.upgrade.effects.bulletSpeed * tier.power,
@@ -65,6 +68,7 @@ export const upgradePool: Upgrade[] = [
     icon: "SPD",
     name: "Moteurs ioniques",
     description: "Rend les corrections de trajectoire plus nerveuses.",
+    tags: ["salvage"],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.speed * tier.power)} vitesse`;
     },
@@ -78,6 +82,7 @@ export const upgradePool: Upgrade[] = [
     icon: "SHD",
     name: "Ecran cinetique",
     description: "Ajoute une couche regenerante autour de la coque.",
+    tags: ["shield"],
     effect(tier) {
       return `+${shieldGain(tier)} bouclier, +${shieldRegenGain(tier).toFixed(1)}/s regen`;
     },
@@ -93,6 +98,7 @@ export const upgradePool: Upgrade[] = [
     icon: "HP",
     name: "Baie de reparation",
     description: "Renforce la coque et injecte des nanoreparations.",
+    tags: ["salvage"],
     effect(tier) {
       return `+${maxHpGain(tier)} integrite max, +${healGain(tier)} soin`;
     },
@@ -106,6 +112,7 @@ export const upgradePool: Upgrade[] = [
     icon: "O",
     name: "Drone orbital",
     description: "Deploie une tourelle autonome en orbite proche.",
+    tags: ["drone"],
     effect(tier) {
       return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
     },
@@ -118,6 +125,7 @@ export const upgradePool: Upgrade[] = [
     icon: ">>",
     name: "Munition perce-coque",
     description: "Permet aux tirs de traverser les blindages.",
+    tags: ["pierce", "cannon"],
     effect(tier) {
       return `+${pierceGain(tier)} penetration, +${percent(
         balance.upgrade.effects.pierceDamage * tier.power,
@@ -134,6 +142,7 @@ export const upgradePool: Upgrade[] = [
     icon: "X2",
     name: "Reseau critique",
     description: "Calibre les tirs pour des coups doubles aleatoires.",
+    tags: ["crit"],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.critChance * tier.power)} chance critique (x2 degats)`;
     },
@@ -149,6 +158,7 @@ export const upgradePool: Upgrade[] = [
     icon: "VMP",
     name: "Bobine vampire",
     description: "Convertit chaque elimination en regeneration de coque.",
+    tags: ["salvage"],
     effect(tier) {
       return `+${(balance.upgrade.effects.lifesteal * tier.power).toFixed(1)} PV par kill`;
     },
@@ -161,6 +171,7 @@ export const upgradePool: Upgrade[] = [
     icon: "MAG",
     name: "Aimant orbital",
     description: "Etend la portee d'attraction des fragments d'XP.",
+    tags: ["magnet"],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.pickupRadius * tier.power)} portee de ramassage`;
     },
@@ -174,6 +185,7 @@ export const upgradePool: Upgrade[] = [
     icon: "CAL",
     name: "Calibre lourd",
     description: "Elargit les projectiles pour mieux toucher.",
+    tags: ["cannon"],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.bulletRadius * tier.power)} taille de projectile`;
     },

@@ -6,6 +6,9 @@ import { markHudDirty, markUpgradeReady } from "../simulation/events";
 export function collectExperience(amount: number): void {
   state.xp += amount;
   state.score += amount * 3;
+  if (player.traits.magnetStorm) {
+    player.magnetStormCharge = Math.min(80, player.magnetStormCharge + amount);
+  }
   pulseText(player.x, player.y - 34, `+${amount} XP`, "#72ffb1");
   markHudDirty();
 

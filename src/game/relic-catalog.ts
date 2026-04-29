@@ -30,6 +30,7 @@ export const relicPool: Relic[] = [
     icon: "DMG",
     name: "Lentille rail",
     description: "Concentre les impacts de la salve principale.",
+    tags: ["cannon"],
     color: "#ff5a69",
     effect: `+${percent(0.22)} degats`,
     apply(target) {
@@ -41,6 +42,7 @@ export const relicPool: Relic[] = [
     icon: "Hz",
     name: "Reacteur surcharge",
     description: "Fait monter les canons en frequence instable.",
+    tags: ["cannon"],
     color: "#39d9ff",
     effect: `+${percent(0.18)} cadence`,
     apply(target) {
@@ -52,6 +54,7 @@ export const relicPool: Relic[] = [
     icon: "MAG",
     name: "Carte aimantee",
     description: "Trace les fragments d'XP proches du vaisseau.",
+    tags: ["magnet"],
     color: "#72ffb1",
     effect: `+${percent(0.4)} portee de ramassage`,
     apply(target) {
@@ -63,6 +66,7 @@ export const relicPool: Relic[] = [
     icon: "ARM",
     name: "Blindage de recuperation",
     description: "Soude les plaques trouvees sur les epaves.",
+    tags: ["shield", "salvage"],
     color: "#ffbf47",
     effect: "+35 integrite max, +35 soin",
     apply(target) {
@@ -75,6 +79,7 @@ export const relicPool: Relic[] = [
     icon: "NAN",
     name: "Nanites de secours",
     description: "Transforme les eliminations en reparations lentes.",
+    tags: ["salvage"],
     color: "#d9f6ff",
     effect: "+1.0 vampire, +40% soin",
     apply(target) {
@@ -87,6 +92,7 @@ export const relicPool: Relic[] = [
     icon: "II",
     name: "Matrice separatrice",
     description: "Divise la salve sans destabiliser le noyau.",
+    tags: ["cannon", "pierce"],
     color: "#39d9ff",
     effect: "+1 projectile par salve",
     apply(target) {
@@ -101,6 +107,7 @@ export const relicPool: Relic[] = [
     icon: "O",
     name: "Contrat drone",
     description: "Rallie une tourelle autonome au convoi.",
+    tags: ["drone"],
     color: "#ffbf47",
     effect: "+1 drone orbital",
     apply(target) {
@@ -112,6 +119,7 @@ export const relicPool: Relic[] = [
     icon: "X2",
     name: "Orbite critique",
     description: "Synchronise les tirs sur les failles d'armure.",
+    tags: ["crit", "pierce"],
     color: "#ff5af0",
     effect: "+12% critique, +1 penetration",
     apply(target) {
@@ -126,6 +134,7 @@ export const fallbackRelic: Relic = {
   icon: "HP",
   name: "Reparation de terrain",
   description: "Quand la soute est vide, l'equipage rafistole la coque.",
+  tags: ["salvage"],
   color: "#72ffb1",
   effect: "+50% soin",
   repeatable: true,

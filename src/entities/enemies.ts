@@ -4,7 +4,7 @@ import { damagePlayer } from "./player";
 import { maybeDropPowerup } from "./powerups";
 import { spawnChest } from "./chests";
 import { enemies, player, state, world } from "../state";
-import { circleHit, clamp } from "../utils";
+import { circleHit, clamp, distanceSq } from "../utils";
 import { scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
 import { bossBalance } from "../game/roguelike";
 import { unlockRelicsForBossWave } from "../systems/relics";
@@ -12,6 +12,12 @@ import type { EnemyType } from "../types";
 import { markHudDirty } from "../simulation/events";
 import { acquireEnemy, releaseEnemy } from "../simulation/pools";
 import { random } from "../simulation/random";
+
+const KINETIC_RAM_MIN_SPEED = 150;
+const KINETIC_RAM_MIN_SHIELD_RATIO = 0.28;
+const KINETIC_RAM_COOLDOWN = 0.16;
+const MAGNET_STORM_THRESHOLD = 24;
+const MAGNET_STORM_COOLDOWN = 2.35;
 
 export function chooseEnemyType(): EnemyType {
   return selectEnemyType(state.wave, random());
@@ -134,6 +140,8 @@ export function killEnemy(index: number): void {
 }
 
 export function updateEnemies(dt: number): void {
+  triggerMagnetStorm();
+
   for (let i = enemies.length - 1; i >= 0; i -= 1) {
     const enemy = enemies[i]!;
     enemy.age += dt;
@@ -146,6 +154,9 @@ export function updateEnemies(dt: number): void {
     enemy.y += Math.sin(angle + wobble) * enemy.speed * dt;
 
     if (circleHit(enemy, player)) {
+      if (tryKineticRam(i, angle)) {
+        continue;
+      }
       const role = enemy.role ?? "normal";
       if (role === "mini-boss" || role === "boss") {
         if ((enemy.contactTimer ?? 0) <= 0) {
@@ -162,4 +173,74 @@ export function updateEnemies(dt: number): void {
       releaseEnemy(i);
     }
   }
+}
+
+function tryKineticRam(index: number, angleToPlayer: number): boolean {
+  const enemy = enemies[index]!;
+  const speed = Math.hypot(player.vx, player.vy);
+  const hasShield =
+    player.shieldMax > 0 && player.shield >= player.shieldMax * KINETIC_RAM_MIN_SHIELD_RATIO;
+  if (
+    !player.traits.kineticRam ||
+    !hasShield ||
+    speed < KINETIC_RAM_MIN_SPEED ||
+    player.ramTimer > 0
+  ) {
+    return false;
+  }
+
+  const damage = player.damage * 1.8 + player.shield * 0.55 + speed * 0.08;
+  enemy.hp -= damage;
+  enemy.hit = 0.16;
+  enemy.x -= Math.cos(angleToPlayer) * 86;
+  enemy.y -= Math.sin(angleToPlayer) * 86;
+  player.shield = Math.max(0, player.shield - (8 + enemy.radius * 0.42));
+  player.ramTimer = KINETIC_RAM_COOLDOWN;
+  burst(enemy.x, enemy.y, "#72ffb1", 24, 230);
+  pulseText(enemy.x, enemy.y - enemy.radius - 12, "RAM", "#72ffb1");
+  world.shake = Math.min(18, world.shake + 8);
+  markHudDirty();
+
+  if (enemy.hp <= 0) {
+    killEnemy(index);
+  }
+
+  return true;
+}
+
+function triggerMagnetStorm(): void {
+  if (
+    !player.traits.magnetStorm ||
+    player.magnetStormTimer > 0 ||
+    player.magnetStormCharge < MAGNET_STORM_THRESHOLD
+  ) {
+    return;
+  }
+
+  const charge = player.magnetStormCharge;
+  const radius = 180 + Math.min(115, player.pickupRadius * 42);
+  const radiusSq = radius * radius;
+  const damage = player.damage * 2.15 + charge * 1.65;
+  player.magnetStormCharge = 0;
+  player.magnetStormTimer = MAGNET_STORM_COOLDOWN;
+
+  burst(player.x, player.y, "#39d9ff", 54, 390);
+  pulseText(player.x, player.y - 52, "MAGNET STORM", "#d9f6ff");
+  world.shake = Math.min(24, world.shake + 14);
+
+  for (let i = enemies.length - 1; i >= 0; i -= 1) {
+    const enemy = enemies[i]!;
+    if (distanceSq(player.x, player.y, enemy.x, enemy.y) > radiusSq) continue;
+
+    const angle = Math.atan2(enemy.y - player.y, enemy.x - player.x);
+    enemy.hp -= damage;
+    enemy.hit = 0.18;
+    enemy.x += Math.cos(angle) * 42;
+    enemy.y += Math.sin(angle) * 42;
+    if (enemy.hp <= 0) {
+      killEnemy(i);
+    }
+  }
+
+  markHudDirty();
 }

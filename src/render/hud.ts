@@ -3,8 +3,9 @@ import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
 import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
-import type { ControlMode, RelicChoice } from "../types";
+import type { BuildTag, ControlMode, RelicChoice, SynergyDefinition } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
+import { activeSynergiesForLoadout, BUILD_TAG_META } from "../systems/synergies";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -97,6 +98,33 @@ function tierRank(tierId: string): number {
   return TIER_RANK_LOOKUP.get(tierId) ?? 1;
 }
 
+function renderBuildTags(tags: readonly BuildTag[]): string {
+  if (tags.length === 0) return "";
+  return `<span class="build-tags" aria-hidden="true">${tags
+    .map((tag) => {
+      const meta = BUILD_TAG_META[tag];
+      return `<span class="build-tag" style="--tag-color: ${meta.color}">${meta.label}</span>`;
+    })
+    .join("")}</span>`;
+}
+
+function renderSynergyBadges(synergies: readonly SynergyDefinition[]): string {
+  if (synergies.length === 0) return "";
+  return `<span class="synergy-tags" aria-hidden="true">${synergies
+    .map(
+      (synergy) =>
+        `<span class="synergy-badge" style="--tag-color: ${synergy.color}">${synergy.name}</span>`,
+    )
+    .join("")}</span>`;
+}
+
+function activeSynergiesForTags(tags: readonly BuildTag[]): SynergyDefinition[] {
+  const active = activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values());
+  return active.filter((synergy) =>
+    (Object.keys(synergy.requiredTags) as BuildTag[]).some((tag) => tags.includes(tag)),
+  );
+}
+
 function cipherFor(upgradeId: string, tierShort: string, index: number): string {
   const head = upgradeId.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase().padEnd(3, "X");
   let hash = 0;
@@ -177,7 +205,7 @@ export function updateLoadout(): void {
     chip.className = "loadout-chip";
     chip.dataset.tier = tier.id;
     chip.style.setProperty("--tier-color", tier.color);
-    chip.textContent = `${upgrade.icon} ${tier.short} x${count}`;
+    chip.innerHTML = `<span class="loadout-main">${upgrade.icon} ${tier.short} x${count}</span>${renderBuildTags(upgrade.tags)}`;
     hud.loadout.appendChild(chip);
   }
   for (const owned of ownedRelics.values()) {
@@ -185,7 +213,14 @@ export function updateLoadout(): void {
     const chip = document.createElement("span");
     chip.className = "loadout-chip relic-chip";
     chip.style.setProperty("--tier-color", relic.color);
-    chip.textContent = `${relic.icon} R x${count}`;
+    chip.innerHTML = `<span class="loadout-main">${relic.icon} R x${count}</span>${renderBuildTags(relic.tags)}`;
+    hud.loadout.appendChild(chip);
+  }
+  for (const synergy of activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values())) {
+    const chip = document.createElement("span");
+    chip.className = "loadout-chip synergy-chip";
+    chip.style.setProperty("--tier-color", synergy.color);
+    chip.textContent = synergy.name;
     hud.loadout.appendChild(chip);
   }
 }
@@ -328,6 +363,8 @@ export function showUpgrade(): void {
         <span class="tier-chevrons" aria-hidden="true">${chevrons}</span>
         <span class="tier-name" aria-hidden="true">${tier.name}</span>
       </span>
+      ${renderBuildTags(upgrade.tags)}
+      ${renderSynergyBadges(activeSynergiesForTags(upgrade.tags))}
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${upgrade.icon}</span>
@@ -422,6 +459,8 @@ export function showChest(): void {
         </span>
         <span class="tier-name">Relique de run</span>
       </span>
+      ${renderBuildTags(relic.tags)}
+      ${renderSynergyBadges(activeSynergiesForTags(relic.tags))}
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${relic.icon}</span>

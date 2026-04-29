@@ -113,6 +113,10 @@ export interface Player {
   vx: number;
   vy: number;
   bonus: PlayerBonus;
+  traits: PlayerTraits;
+  ramTimer: number;
+  magnetStormCharge: number;
+  magnetStormTimer: number;
 }
 
 export interface EnemyType {
@@ -164,6 +168,8 @@ export interface Bullet {
   color: string;
   trail: number;
   hitIds: Set<number>;
+  source: "player" | "drone" | "chain";
+  chainRemaining: number;
 }
 
 export interface ExperienceOrb {
@@ -225,11 +231,42 @@ export interface UpgradeTier {
   glow: string;
 }
 
+export type BuildTag =
+  | "cannon"
+  | "crit"
+  | "pierce"
+  | "drone"
+  | "shield"
+  | "magnet"
+  | "salvage";
+
+export type SynergyId =
+  | "rail-splitter"
+  | "drone-swarm"
+  | "kinetic-ram"
+  | "magnet-storm";
+
+export interface PlayerTraits {
+  railSplitter: boolean;
+  droneSwarm: boolean;
+  kineticRam: boolean;
+  magnetStorm: boolean;
+}
+
+export interface SynergyDefinition {
+  id: SynergyId;
+  name: string;
+  description: string;
+  color: string;
+  requiredTags: Partial<Record<BuildTag, number>>;
+}
+
 export interface Upgrade {
   id: string;
   icon: string;
   name: string;
   description: string;
+  tags: readonly BuildTag[];
   effect: (tier: UpgradeTier) => string;
   apply: (tier: UpgradeTier, target: Player) => void;
 }
@@ -283,6 +320,7 @@ export interface Relic {
   icon: string;
   name: string;
   description: string;
+  tags: readonly BuildTag[];
   color: string;
   effect: string;
   repeatable?: boolean;

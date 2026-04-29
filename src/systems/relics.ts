@@ -1,4 +1,4 @@
-import { ownedRelics, player, unlockedRelics } from "../state";
+import { ownedRelics, ownedUpgrades, player, unlockedRelics } from "../state";
 import { pulseText } from "../entities/particles";
 import {
   applyRelic,
@@ -8,6 +8,7 @@ import {
 } from "../game/relic-catalog";
 import { markLoadoutDirty } from "../simulation/events";
 import type { RelicChoice } from "../types";
+import { refreshPlayerTraits } from "./synergies";
 
 const STORAGE_KEY = "voidline:unlockedRelics";
 
@@ -81,6 +82,7 @@ export function applyRelicChoice(choice: RelicChoice): void {
   owned.count += 1;
   ownedRelics.set(relic.id, owned);
 
+  refreshPlayerTraits(player, ownedUpgrades.values(), ownedRelics.values());
   pulseText(player.x, player.y - 48, relic.name, relic.color);
   markLoadoutDirty();
 }
