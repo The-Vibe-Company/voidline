@@ -36,6 +36,7 @@ export function updateChests(dt: number): void {
     pulseText(x, y - 30, "COFFRE", "#fff0b8");
     world.shake = Math.min(18, world.shake + 7);
     if (state.mode === "playing") {
+      state.pendingChests += 1;
       markChestReady();
       markHudDirty();
     }

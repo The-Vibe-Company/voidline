@@ -125,6 +125,7 @@ export function resetSimulation(seed?: number): void {
   state.xp = 0;
   state.xpTarget = xpToNextLevel(state.level);
   state.pendingUpgrades = 0;
+  state.pendingChests = 0;
   state.heartsCarried = 0;
   state.magnetsCarried = 0;
   state.bombsCarried = 0;

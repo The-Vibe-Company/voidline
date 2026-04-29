@@ -254,7 +254,7 @@ export function flushSimulationHud(force = false): void {
     showUpgrade();
     return;
   }
-  if (events.chest && state.mode === "playing") {
+  if (events.chest && state.pendingChests > 0 && state.mode === "playing") {
     showChest();
     return;
   }
@@ -361,6 +361,11 @@ function onUpgradeChoice(choice: Parameters<typeof applyUpgrade>[0]): void {
   hud.upgradeStep.textContent = "";
   hud.upgradeStep.dataset.active = "false";
   hideOverlays();
+  if (state.pendingChests > 0) {
+    showChest();
+    return;
+  }
+
   state.mode = "playing";
   updateHud();
   restoreFocusAfterModal();
@@ -440,8 +445,19 @@ export function showChest(): void {
 
 function onRelicChoice(choice: RelicChoice): void {
   applyRelicChoice(choice);
+  state.pendingChests = Math.max(0, state.pendingChests - 1);
   updateLoadout();
+  if (state.pendingChests > 0) {
+    showChest();
+    return;
+  }
+
   hideOverlays();
+  if (state.pendingUpgrades > 0) {
+    showUpgrade();
+    return;
+  }
+
   state.mode = "playing";
   updateHud();
   restoreFocusAfterModal();

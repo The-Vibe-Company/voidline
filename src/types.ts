@@ -44,6 +44,7 @@ export interface GameState {
   xp: number;
   xpTarget: number;
   pendingUpgrades: number;
+  pendingChests: number;
   heartsCarried: number;
   magnetsCarried: number;
   bombsCarried: number;
