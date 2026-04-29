@@ -44,13 +44,8 @@ export function updateExperience(dt: number): void {
     const dy = player.y - orb.y;
     const distance = Math.hypot(dx, dy);
     const pickupRadius = balance.xp.pickupBaseRadius * player.pickupRadius + state.magnetRadius;
-    if (distance < pickupRadius) {
-      const pull = (1 - distance / pickupRadius) * 560;
-      orb.vx += (dx / Math.max(1, distance)) * pull * dt;
-      orb.vy += (dy / Math.max(1, distance)) * pull * dt;
-    }
 
-    if (distance < player.radius + orb.radius + 8) {
+    if (distance < pickupRadius) {
       collectExperience(orb.value);
       spark(orb.x, orb.y, "#72ffb1");
       experienceOrbs.splice(i, 1);

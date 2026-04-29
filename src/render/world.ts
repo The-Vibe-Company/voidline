@@ -18,30 +18,18 @@ import type { Bullet, EnemyEntity, ExperienceOrb } from "../types";
 
 function drawPickupZones(): void {
   if (!state.showPickupZones) return;
+  if (!Number.isFinite(state.magnetRadius)) return;
+
+  const pickupRadius =
+    balance.xp.pickupBaseRadius * player.pickupRadius + state.magnetRadius;
 
   ctx.save();
-
-  if (Number.isFinite(state.magnetRadius)) {
-    const attraction =
-      balance.xp.pickupBaseRadius * player.pickupRadius + state.magnetRadius;
-    ctx.strokeStyle = "#72ffb1";
-    ctx.globalAlpha = 0.18;
-    ctx.lineWidth = 1;
-    ctx.setLineDash([4, 6]);
-    ctx.beginPath();
-    ctx.arc(player.x, player.y, attraction, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
-  const collection = player.radius + balance.xp.orbRadiusBase + 8;
-  ctx.strokeStyle = "#ffffff";
-  ctx.globalAlpha = 0.35;
+  ctx.strokeStyle = "#72ffb1";
+  ctx.globalAlpha = 0.32;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
-  ctx.arc(player.x, player.y, collection, 0, Math.PI * 2);
+  ctx.arc(player.x, player.y, pickupRadius, 0, Math.PI * 2);
   ctx.stroke();
-
   ctx.restore();
 }
 
