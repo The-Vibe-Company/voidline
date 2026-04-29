@@ -99,7 +99,7 @@ describe("headless early-wave balance", () => {
     const results = runPersona("panic", 4, 110);
     const summary = summarizeBalanceTrials(results);
     const punishedRuns = results.filter(
-      (result) => result.died || result.finalHp < 35,
+      (result) => result.finalWave < 4 && (result.died || result.finalHp < 35),
     ).length;
     const message = formatSummary(summary, results);
 
