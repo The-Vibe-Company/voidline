@@ -1,0 +1,33 @@
+src/game/balance.test.ts
+  05fd638e2d69857d 8,50-54,63,65,67,71-107,152
+src/game/balance-simulation.ts
+  05fd638e2d69857d 23,57-59,85-98,109-128,135-141,192-197,225-227,295,300-301,307-311,335-343,372-440,495-567,582-587,590-591,603-617,626-627,638-641
+src/entities/enemies.ts
+  05fd638e2d69857d 61,86
+src/entities/enemies.test.ts
+  05fd638e2d69857d 13,15,18-25,50-55,124-155
+src/game/balance-simulation.test.ts
+  05fd638e2d69857d 2,19,25,27,55-57,62-80,83-85,93,99,159-247,265-287
+src/game/balance.ts
+  05fd638e2d69857d 72-87,237,304-305,310,312-315,320-332,402-403,405-409,412-424,428-439
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c1c53e0a59ce0c03261557b60eb5277df935f441",
+  "prompts": {
+    "05fd638e2d69857d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd989-eee1-7a32-ac50-a0a28dcafddd",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 568,
+      "total_deletions": 35,
+      "accepted_lines": 1083,
+      "overriden_lines": 0
+    }
+  }
+}
