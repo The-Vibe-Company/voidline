@@ -95,6 +95,15 @@ function sanitizeAccountProgress(raw: unknown): AccountProgress {
   return clean;
 }
 
+function cloneAccountReward(reward: AccountReward | null | undefined): AccountReward | null {
+  return reward
+    ? {
+        ...reward,
+        breakdown: { ...reward.breakdown },
+      }
+    : null;
+}
+
 function saneInt(value: unknown, fallback: number, min: number): number {
   return typeof value === "number" && Number.isFinite(value)
     ? Math.max(min, Math.floor(value))
@@ -124,7 +133,9 @@ export function resetAccountProgress(storage: AccountStorage | null = getStorage
 }
 
 export function restoreAccountProgress(progress: AccountProgress): void {
-  assignAccountProgress(sanitizeAccountProgress(progress));
+  const restored = sanitizeAccountProgress(progress);
+  restored.lastRunReward = cloneAccountReward(progress.lastRunReward);
+  assignAccountProgress(restored);
 }
 
 export function currentAccountProgress(): AccountProgress {

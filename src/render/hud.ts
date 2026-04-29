@@ -431,7 +431,7 @@ function weaponButton(weapon: Weapon): HTMLButtonElement {
     weapon.id === "standard" ||
     (shopItem !== undefined && accountProgress.purchasedIds.includes(shopItem.id));
   const equipped = accountProgress.equippedWeaponId === weapon.id;
-  const purchaseState = shopItem ? canPurchaseShopItem(accountProgress, shopItem) : { ok: true };
+  const purchaseState = shopItem ? canPurchaseShopItem(accountProgress, shopItem) : { ok: false };
   button.className = "hangar-card weapon-card";
   button.type = "button";
   button.disabled = !owned && !purchaseState.ok;

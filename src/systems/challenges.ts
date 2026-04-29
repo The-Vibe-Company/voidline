@@ -117,7 +117,7 @@ export function recordChallengeProgress(
   challengeProgress[metric] = next;
   persistChallengeProgress(storage);
   announceNewChallengeTiers(previousTierTotal);
-  claimChallengeRewards(challengeProgress);
+  claimChallengeRewards(challengeProgress, storage);
   return true;
 }
 
@@ -135,7 +135,7 @@ export function incrementChallengeProgress(
   challengeProgress[metric] = next;
   persistChallengeProgress(storage);
   announceNewChallengeTiers(previousTierTotal);
-  claimChallengeRewards(challengeProgress);
+  claimChallengeRewards(challengeProgress, storage);
   return true;
 }
 

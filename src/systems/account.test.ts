@@ -43,6 +43,29 @@ describe("account persistence and shop", () => {
     expect(accountProgress.equippedWeaponId).toBe("standard");
   });
 
+  it("restores in-memory snapshots without dropping last run rewards", () => {
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      lastRunReward: {
+        source: "run",
+        xpGained: 120,
+        tokensGained: 1,
+        levelsGained: 1,
+        breakdown: {
+          runLevelXp: 32,
+          waveXp: 48,
+          bossXp: 0,
+          firstBossXp: 0,
+          recordXp: 40,
+          challengeXp: 0,
+        },
+      },
+    });
+
+    expect(accountProgress.lastRunReward?.source).toBe("run");
+    expect(accountProgress.lastRunReward?.xpGained).toBe(120);
+  });
+
   it("refuses purchases without enough tokens", () => {
     const result = purchaseShopItem("module:shield", storage);
 
