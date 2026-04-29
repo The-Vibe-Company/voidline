@@ -79,10 +79,10 @@ export function damagePlayer(amount: number): void {
 export function updatePlayer(dt: number): void {
   const keyX =
     Number(keys.has("ArrowRight") || keys.has("KeyD")) -
-    Number(keys.has("ArrowLeft") || keys.has("KeyA"));
+    Number(keys.has("ArrowLeft") || keys.has("KeyA") || keys.has("KeyQ"));
   const keyY =
     Number(keys.has("ArrowDown") || keys.has("KeyS")) -
-    Number(keys.has("ArrowUp") || keys.has("KeyW"));
+    Number(keys.has("ArrowUp") || keys.has("KeyW") || keys.has("KeyZ"));
   const keyActive = keyX !== 0 || keyY !== 0;
   let inputX = keyX;
   let inputY = keyY;
