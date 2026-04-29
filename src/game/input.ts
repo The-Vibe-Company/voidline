@@ -8,8 +8,11 @@ import {
   selectRelicByIndex,
   selectUpgradeByIndex,
   setControlMode,
+  updateChallengePanels,
+  updateHud,
 } from "../render/hud";
 import { resetGame } from "../systems/waves";
+import { resetChallengeProgress, resetPlayerPermanentBonuses } from "../systems/challenges";
 
 function choiceIndexFromKey(code: string): number {
   if (code.startsWith("Digit")) return Number(code.slice(5));
@@ -46,6 +49,14 @@ export function bindInput(): void {
 
     const active = document.activeElement as HTMLElement | null;
     if (action && active?.matches("[data-control-mode]")) {
+      active.click();
+      return;
+    }
+
+    if (
+      action &&
+      active?.matches("button, [role='button'], input, select, textarea, a[href]")
+    ) {
       active.click();
       return;
     }
@@ -189,6 +200,15 @@ export function bindInput(): void {
   document
     .querySelector<HTMLButtonElement>("#restartButton")
     ?.addEventListener("click", resetGame);
+  document
+    .querySelector<HTMLButtonElement>("#resetChallengesButton")
+    ?.addEventListener("click", () => {
+      if (!window.confirm("Reinitialiser tous les challenges permanents ?")) return;
+      resetChallengeProgress();
+      resetPlayerPermanentBonuses();
+      updateChallengePanels();
+      updateHud();
+    });
   document
     .querySelector<HTMLButtonElement>("#resumeButton")
     ?.addEventListener("click", resumeGame);

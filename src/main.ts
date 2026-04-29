@@ -8,6 +8,7 @@ import { bindInput } from "./game/input";
 import { bindPerfOverlay } from "./render/perf-overlay";
 import { maybeStartStressMode } from "./perf/stress-mode";
 import { initializeRelicUnlocks } from "./systems/relics";
+import { initializeChallenges } from "./systems/challenges";
 import { createSimulation } from "./simulation/simulation";
 import { createVoidlineGame } from "./phaser/game";
 
@@ -15,6 +16,7 @@ createSimulation();
 setControlMode("keyboard");
 initPickupZonesToggle();
 initializeRelicUnlocks();
+initializeChallenges();
 initOverlayFocusScope();
 updateHud();
 bindInput();
