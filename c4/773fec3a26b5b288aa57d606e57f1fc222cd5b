@@ -1,0 +1,53 @@
+src/entities/enemies.ts
+  a6020ca4ef863d99 7,16-21,143-144,157-159,177-245
+src/game/balance.ts
+  a6020ca4ef863d99 73-74,87,265-273,279
+src/entities/player.ts
+  a6020ca4ef863d99 46-48,57-58,62-63,142-143,165-167
+src/types.ts
+  a6020ca4ef863d99 116-119,171-172,234-263,269,323
+src/systems/synergies.ts
+  a6020ca4ef863d99 1-152
+src/game/progression.ts
+  a6020ca4ef863d99 9-11
+src/entities/bullets.ts
+  a6020ca4ef863d99 2,6-10,55,67-107
+src/game/relic-catalog.ts
+  a6020ca4ef863d99 33,45,57,69,82,95,110,122,137
+src/systems/upgrades.ts
+  a6020ca4ef863d99 1,6,9-14,21-25,31-68,78,83-120
+src/systems/relics.ts
+  a6020ca4ef863d99 1,11,85
+src/simulation/pools.ts
+  a6020ca4ef863d99 114-115,120-121
+src/perf/stress-mode.ts
+  a6020ca4ef863d99 151-152
+styles.css
+  a6020ca4ef863d99 197-198,210-219,770-772,915-963,1270,1314
+src/perf/perf.bench.ts
+  a6020ca4ef863d99 78-79
+src/game/upgrade-catalog.ts
+  a6020ca4ef863d99 24,40,54,71,85,101,115,128,145,161,174,188
+src/render/hud.ts
+  a6020ca4ef863d99 6,8,101-127,208,216-223,366-367,462-463
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c4773fec3a26b5b288aa57d606e57f1fc222cd5b",
+  "prompts": {
+    "a6020ca4ef863d99": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019dd990-c1b3-7e41-9986-a6a36b50372b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 609,
+      "total_deletions": 52,
+      "accepted_lines": 583,
+      "overriden_lines": 0
+    }
+  }
+}
