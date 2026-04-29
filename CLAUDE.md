@@ -2,12 +2,37 @@
 
 ## Architecture (rappel)
 
-- **Logique pure** (testable): `src/game/`, `src/entities/`, `src/systems/`, `src/utils.ts`
-- **État centralisé**: `src/state.ts`
-- **Rendu** (DOM/Canvas, NON testé): `src/render/*`
-- **Entrée**: `src/game/input.ts` — teste les handlers, pas le wiring `addEventListener`
+- **Logique pure** (testable): `src/game/`, `src/entities/`, `src/systems/`, `src/simulation/`, `src/utils.ts`
+- **État centralisé**: `src/state.ts` — muté en place; les collections (`enemies`, `bullets`, `experienceOrbs`, `chests`, …) y vivent
+- **Boucle de tick** (testable, déterministe): `src/simulation/simulation.ts` exporte `stepSimulation(input, deltaMs)` — appelé chaque frame depuis `BattleScene.preupdate()`. RNG seedé dans `src/simulation/random.ts`. Spatial grid pour collisions O(1) dans `src/simulation/spatial-grid.ts`.
+- **Rendu Phaser** (NON testé): `src/phaser/` — `game.ts` (init WebGL), `scenes/BootScene`, `scenes/BattleScene` (lit l'état post-simulation, pousse les display objects), `pools.ts` (recyclage), `textures.ts` (textures générées).
+- **Rendu DOM** (NON testé): `src/render/*` — HUD, perf overlay.
+- **Entrée**: `src/game/input.ts` — teste les handlers, pas le wiring `addEventListener`.
 
-Stack: TypeScript strict + Vite + Canvas natif + Vitest. Pas de framework de jeu.
+Stack: TypeScript 5.6 (strict) + Vite + **Phaser 4 (WebGL)** + Vitest. Migration depuis Canvas 2D dans `c255df0` pour GPU + scene management.
+
+Flux: `main.ts` → `createSimulation()` → `bindInput()` → `createVoidlineGame()` (Phaser). Chaque frame: `BattleScene.preupdate()` → `stepSimulation()` mute l'état → `BattleScene` rend, `updateHud()` lit l'état. Unidirectionnel.
+
+## Commands
+
+- `npm run dev` — Vite dev server
+- `npm run build` — `tsc --noEmit && vite build` (typecheck + production build)
+- `npm run preview` — sert le build de production en local
+- `npm run typecheck` — `tsc --noEmit`
+- `npm test` — Vitest, single run (mode CI)
+- `npm run test:watch` — Vitest watch mode
+- `npm run test:balance` — uniquement les suites `balance.test.ts` + `balance-simulation.test.ts`
+- `npm run bench` — Vitest benchmarks
+- `npm run smoke` — `npm run build && node scripts/browser-smoke.mjs` (smoke Playwright headless)
+
+Lancer un test isolé (par fichier ou par nom):
+
+```bash
+npx vitest run src/game/balance.test.ts
+npx vitest run -t "spawn gap"
+```
+
+Stress mode (manuel, dans le navigateur): ajouter `?bench=1&enemies=2000&bullets=300&orbs=1000&seconds=20` à l'URL du dev server.
 
 ## Testing Standard
 
@@ -71,12 +96,14 @@ Reproduis cette approche pour les nouveaux tests.
 
 ### Cibles prioritaires de couverture (ordre)
 
-1. `src/game/balance.ts` (fait)
-2. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — application des effets et caps
-3. `src/systems/waves.ts` — progression de difficulté, invariants de spawn
-4. `src/game/progression.ts` + `src/entities/experience.ts` — collecte XP, level-up
-5. `src/entities/powerups.ts` — application heart / magnet / bomb
-6. `src/utils.ts` — `distance`, `circleCollide`, `clamp`, `shuffle` (purs, ROI immédiat)
+1. `src/game/balance.ts` — **fait** (`balance.test.ts`, `balance-simulation.test.ts`)
+2. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — TODO (application des effets, caps additifs)
+3. `src/systems/waves.ts` — TODO (progression de difficulté, invariants de spawn)
+4. `src/game/progression.ts` + `src/entities/experience.ts` — partiel (`experience.test.ts` couvre la collecte; level-up à compléter)
+5. `src/entities/powerups.ts` — TODO (heart / magnet / bomb)
+6. `src/utils.ts` — TODO (`distance`, `circleCollide`, `clamp`, `shuffle` — purs, ROI immédiat)
+
+Couverts hors-priorité (nouveaux systèmes): `relic-catalog.test.ts`, `roguelike.test.ts`, `relics.test.ts`, `simulation.test.ts`, `bullets.test.ts`, `enemies.test.ts`.
 
 ### Workflow
 
