@@ -1,0 +1,35 @@
+src/main.ts
+  341e5f563fda028e 2,27,32
+src/render/cockpit.ts
+  341e5f563fda028e 35,73-75,292-299,306-343
+styles.css
+  341e5f563fda028e 706-707,714,719-723,1231-1483
+index.html
+  341e5f563fda028e 147-163,170,172-173,175,177-190,193,195,198,205-252,257-272
+src/render/hud.ts
+  341e5f563fda028e 60-63,185-188,195-218,225-228,740-774
+scripts/browser-smoke.mjs
+  341e5f563fda028e 66-70,73-74,77-82,115
+src/game/input.ts
+  341e5f563fda028e 68-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "d4ef30a29ce24c7547d441a5e78566519cef8789",
+  "prompts": {
+    "341e5f563fda028e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eac72eb7-cdf3-48ec-af7f-74b55f0e1f4a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 517,
+      "total_deletions": 105,
+      "accepted_lines": 510,
+      "overriden_lines": 0
+    }
+  }
+}
