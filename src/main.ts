@@ -13,20 +13,74 @@ import { initializeRelicUnlocks } from "./systems/relics";
 import { initializeChallenges } from "./systems/challenges";
 import { initializeAccountProgress } from "./systems/account";
 import { createSimulation } from "./simulation/simulation";
+import { initializeRustSimulationEngine } from "./simulation/rust-engine";
 import { createVoidlineGame } from "./phaser/game";
 
-createSimulation();
-setControlMode("keyboard");
-initPickupZonesToggle();
-initializeRelicUnlocks();
-initializeChallenges();
-initializeAccountProgress();
-initOverlayFocusScope();
-bindCockpit();
-bindMenuNavigation();
-updateHud();
-bindInput();
-bindPerfOverlay();
-document.querySelector<HTMLButtonElement>("#startButton")?.focus();
-createVoidlineGame();
-maybeStartStressMode();
+const startButton = document.querySelector<HTMLButtonElement>("#startButton");
+if (startButton) {
+  startButton.disabled = true;
+  startButton.setAttribute("aria-busy", "true");
+}
+
+try {
+  await initializeRustSimulationEngine();
+  if (startButton) {
+    startButton.disabled = false;
+    startButton.removeAttribute("aria-busy");
+  }
+  setControlMode("keyboard");
+  initPickupZonesToggle();
+  initializeAccountProgress();
+  initializeRelicUnlocks();
+  initializeChallenges();
+  createSimulation();
+  initOverlayFocusScope();
+  bindCockpit();
+  bindMenuNavigation();
+  updateHud();
+  bindInput();
+  bindPerfOverlay();
+  startButton?.focus();
+  createVoidlineGame();
+  maybeStartStressMode();
+} catch (error) {
+  showBootError(error);
+}
+
+function showBootError(error: unknown): void {
+  console.error("Unable to initialize Rust gameplay engine", error);
+  const hangarOverlay = document.querySelector<HTMLElement>("#hangarOverlay");
+  const titleScreen = document.querySelector<HTMLElement>(".hangar-screen--title");
+  if (!hangarOverlay || !titleScreen) return;
+
+  hangarOverlay.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+    button.disabled = true;
+  });
+  if (startButton) {
+    startButton.textContent = "MOTEUR INDISPONIBLE";
+    startButton.removeAttribute("aria-busy");
+  }
+
+  const message = document.createElement("div");
+  message.className = "hangar-engine-error";
+  message.setAttribute("role", "alert");
+  message.setAttribute("aria-live", "assertive");
+
+  const copy = document.createElement("span");
+  copy.textContent = "Le moteur Rust n'a pas pu demarrer.";
+
+  const retry = document.createElement("button");
+  retry.type = "button";
+  retry.className = "hangar-engine-retry";
+  retry.textContent = "Recharger";
+  retry.addEventListener("click", () => window.location.reload());
+
+  message.append(copy, retry);
+  const menu = titleScreen.querySelector<HTMLElement>(".hangar-menu");
+  if (menu) {
+    menu.insertAdjacentElement("afterend", message);
+  } else {
+    titleScreen.append(message);
+  }
+  retry.focus();
+}

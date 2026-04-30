@@ -1,4 +1,7 @@
 import { createNoopCanvas } from "./canvas-stub";
+import { readFileSync } from "node:fs";
+import { beforeEach } from "vitest";
+import { initSync } from "../generated/voidline-wasm/voidline_wasm.js";
 
 const stubCanvas = createNoopCanvas();
 
@@ -89,3 +92,21 @@ if (typeof globalThis.requestAnimationFrame === "undefined") {
   (globalThis as unknown as { requestAnimationFrame: () => number }).requestAnimationFrame =
     () => 0;
 }
+
+initSync({
+  module: readFileSync(new URL("../generated/voidline-wasm/voidline_wasm_bg.wasm", import.meta.url)),
+});
+const [{ initializeRustSimulationEngine }, { createSimulation }, { initializeAccountProgress }, { initializeRelicUnlocks }] =
+  await Promise.all([
+    import("../simulation/rust-engine"),
+    import("../simulation/simulation"),
+    import("../systems/account"),
+    import("../systems/relics"),
+  ]);
+await initializeRustSimulationEngine();
+
+beforeEach(() => {
+  initializeAccountProgress(null);
+  initializeRelicUnlocks(null);
+  createSimulation({ seed: 0 });
+});

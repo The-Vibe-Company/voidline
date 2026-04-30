@@ -1,21 +1,14 @@
 import { togglePerfOverlay } from "../render/perf-overlay";
 import {
   bullets,
-  counters,
   enemies,
   experienceOrbs,
   floaters,
   particles,
   perfStats,
-  player,
-  state,
-  world,
 } from "../state";
 import { hideOverlays } from "../render/hud";
-import { mulberry32 } from "./rng";
-import type { EnemyEntity, EnemyKind } from "../types";
-import { balance } from "../game/balance";
-import { setSimulationSeed } from "../simulation/random";
+import { seedRustStress } from "../simulation/rust-engine";
 
 interface StressConfig {
   enemies: number;
@@ -40,12 +33,16 @@ interface StressReport {
   update_ms_mean: number;
   render_ms_mean: number;
   long_frames_gt_20ms: number;
+  entity_counts: {
+    enemies: number;
+    bullets: number;
+    orbs: number;
+  };
   config: StressConfig;
 }
 
 interface ActiveStressRun {
   config: StressConfig;
-  rand: () => number;
   frameTimes: number[];
   updateTimes: number[];
   renderTimes: number[];
@@ -74,85 +71,6 @@ function readConfig(): StressConfig | null {
     magnet: params.get("magnet") !== "0",
     showOverlay: params.get("overlay") !== "0",
   };
-}
-
-function pickEnemyKind(rand: () => number): EnemyKind {
-  const r = rand();
-  if (r < 0.55) return "scout";
-  if (r < 0.85) return "hunter";
-  return "brute";
-}
-
-function seedEnemies(count: number, rand: () => number): void {
-  enemies.length = 0;
-  for (let i = 0; i < count; i += 1) {
-    const kind = pickEnemyKind(rand);
-    const type = balance.enemies.find((e) => e.id === kind)!;
-    const enemy: EnemyEntity = {
-      id: counters.nextEnemyId,
-      kind,
-      score: type.score,
-      radius: type.radius,
-      hp: type.hp,
-      maxHp: type.hp,
-      speed: type.speed,
-      damage: type.damage,
-      color: type.color,
-      accent: type.accent,
-      sides: type.sides,
-      x: 100 + rand() * (world.arenaWidth - 200),
-      y: 100 + rand() * (world.arenaHeight - 200),
-      age: rand() * 5,
-      seed: rand() * 100,
-      wobble: kind === "brute" ? 0.08 : 0.18,
-      wobbleRate: 2 + rand() * 2,
-      hit: 0,
-    };
-    enemies.push(enemy);
-    counters.nextEnemyId += 1;
-  }
-}
-
-function seedOrbs(count: number, rand: () => number): void {
-  experienceOrbs.length = 0;
-  for (let i = 0; i < count; i += 1) {
-    experienceOrbs.push({
-      id: counters.nextExperienceId,
-      x: 100 + rand() * (world.arenaWidth - 200),
-      y: 100 + rand() * (world.arenaHeight - 200),
-      vx: (rand() - 0.5) * 60,
-      vy: (rand() - 0.5) * 60,
-      radius: 6 + rand() * 3,
-      value: 1 + Math.floor(rand() * 5),
-      age: rand() * 0.4,
-      magnetized: false,
-    });
-    counters.nextExperienceId += 1;
-  }
-}
-
-function seedBullets(count: number, rand: () => number): void {
-  bullets.length = 0;
-  for (let i = 0; i < count; i += 1) {
-    const angle = rand() * Math.PI * 2;
-    bullets.push({
-      id: counters.nextBulletId,
-      x: 100 + rand() * (world.arenaWidth - 200),
-      y: 100 + rand() * (world.arenaHeight - 200),
-      vx: Math.cos(angle) * 520,
-      vy: Math.sin(angle) * 520,
-      radius: 5,
-      damage: 4,
-      pierce: 1,
-      life: 1.15,
-      color: "#39d9ff",
-      trail: 0,
-      hitIds: new Set<number>(),
-      source: "player",
-      chainRemaining: 0,
-    });
-    counters.nextBulletId += 1;
-  }
 }
 
 function quantile(sorted: number[], q: number): number {
@@ -186,6 +104,11 @@ function summarize(
     update_ms_mean: Number(mean(updateTimes).toFixed(3)),
     render_ms_mean: Number(mean(renderTimes).toFixed(3)),
     long_frames_gt_20ms: frameTimes.filter((m) => m > 20).length,
+    entity_counts: {
+      enemies: enemies.length,
+      bullets: bullets.length,
+      orbs: experienceOrbs.length,
+    },
     config,
   };
 }
@@ -221,29 +144,7 @@ export function maybeStartStressMode(): void {
   if (!config) return;
 
   hideOverlays();
-  state.mode = "playing";
-  state.wave = 1;
-  state.spawnRemaining = 0;
-  state.spawnTimer = Number.POSITIVE_INFINITY;
-  state.waveTarget = config.enemies;
-  player.x = world.arenaWidth / 2;
-  player.y = world.arenaHeight / 2;
-  player.hp = 1e9;
-  player.maxHp = 1e9;
-  player.invuln = 1e9;
-  counters.nextEnemyId = 1;
-  counters.nextBulletId = 1;
-  counters.nextExperienceId = 1;
-
-  const rand = mulberry32(config.seed);
-  setSimulationSeed(config.seed);
-  bullets.length = 0;
-  seedEnemies(config.enemies, rand);
-  seedBullets(config.bullets, rand);
-  seedOrbs(config.orbs, rand);
-  if (config.magnet) {
-    for (const orb of experienceOrbs) orb.magnetized = true;
-  }
+  seedRustStress(config);
   particles.length = 0;
   floaters.length = 0;
 
@@ -253,7 +154,6 @@ export function maybeStartStressMode(): void {
 
   activeStressRun = {
     config,
-    rand,
     frameTimes: [],
     updateTimes: [],
     renderTimes: [],
@@ -269,23 +169,17 @@ export function recordStressFrame(now: number): void {
   run.updateTimes.push(perfStats.updateMs);
   run.renderTimes.push(perfStats.renderMs);
 
-  if (run.config.enemies > 0 && enemies.length < run.config.enemies / 2) {
-    seedEnemies(run.config.enemies, run.rand);
-  }
-  if (run.config.bullets > 0 && bullets.length < run.config.bullets / 2) {
-    seedBullets(run.config.bullets, run.rand);
-  }
-  if (run.config.orbs > 0 && experienceOrbs.length < run.config.orbs / 2) {
-    seedOrbs(run.config.orbs, run.rand);
-    if (run.config.magnet) {
-      for (const orb of experienceOrbs) orb.magnetized = true;
-    }
-  }
-
   const elapsed = (now - run.startedAt) / 1000;
   if (elapsed < run.config.seconds) return;
 
   run.finished = true;
+  if (
+    enemies.length !== run.config.enemies ||
+    bullets.length !== run.config.bullets ||
+    experienceOrbs.length !== run.config.orbs
+  ) {
+    seedRustStress(run.config);
+  }
   const report = summarize(
     run.frameTimes,
     run.updateTimes,

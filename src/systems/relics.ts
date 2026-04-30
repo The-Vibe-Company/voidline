@@ -1,15 +1,11 @@
-import { ownedRelics, ownedUpgrades, player, unlockedRelics } from "../state";
-import { pulseText } from "../entities/particles";
+import { unlockedRelics } from "../state";
 import {
-  applyRelic,
   defaultUnlockedRelicIds,
-  pickChestRelics,
   relicUnlocksForBossWave,
 } from "../game/relic-catalog";
 import { markLoadoutDirty } from "../simulation/events";
 import type { RelicChoice } from "../types";
-import { refreshPlayerTraits } from "./synergies";
-import { currentUnlockedBuildTags } from "./account";
+import { applyRustRelic, draftRustRelics } from "../simulation/rust-engine";
 
 const STORAGE_KEY = "voidline:unlockedRelics";
 
@@ -85,25 +81,10 @@ export function unlockRelicsForBossWave(
 }
 
 export function pickRelicChoices(count: number): RelicChoice[] {
-  return pickChestRelics(
-    count,
-    new Set(ownedRelics.keys()),
-    unlockedRelics,
-    undefined,
-    Math.random,
-    currentUnlockedBuildTags(),
-  );
+  return draftRustRelics(count);
 }
 
 export function applyRelicChoice(choice: RelicChoice): void {
-  const { relic } = choice;
-  applyRelic(relic, player);
-
-  const owned = ownedRelics.get(relic.id) ?? { relic, count: 0 };
-  owned.count += 1;
-  ownedRelics.set(relic.id, owned);
-
-  refreshPlayerTraits(player, ownedUpgrades.values(), ownedRelics.values());
-  pulseText(player.x, player.y - 48, relic.name, relic.color);
+  applyRustRelic(choice);
   markLoadoutDirty();
 }

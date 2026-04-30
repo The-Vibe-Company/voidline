@@ -43,14 +43,16 @@ npm run preview
 - `src/state.ts` : singletons mutables (state, player, world, collections).
 - `src/types.ts` : interfaces TypeScript du jeu.
 - `src/utils.ts` : helpers (clamp, circleHit, xpToNextLevel, ...).
-- `src/simulation/` : API de simulation, pools, grille spatiale, budgets perf.
+- `src/simulation/` : wrapper TypeScript autour du moteur Rust/WASM.
 - `src/phaser/` : runtime WebGL Phaser, scenes, textures generees, pools de rendu.
-- `src/game/` : input, loop, progression.
-- `src/entities/` : player, enemies, bullets, particles, experience.
-- `src/systems/` : waves, upgrades, camera.
+- `src/generated/voidline-wasm/` : bindings WASM generes depuis `sim/crates/voidline-wasm`.
+- `sim/crates/voidline-sim/` : moteur gameplay Rust source de verite.
+- `src/game/` : catalogues, balance exportee, input, progression meta.
+- `src/entities/` : entites visuelles TypeScript restantes (particules, zones XP).
+- `src/systems/` : wrappers UI/systemes pour waves, upgrades, relics, compte.
 - `src/render/` : HUD DOM et overlays.
 
-`src/render/hud.ts` conserve les overlays DOM. Phaser rend le monde et lit l'etat produit par `src/simulation/`; les regles de jeu ne dependent pas des sprites.
+`src/render/hud.ts` conserve les overlays DOM. Phaser rend le monde et lit le snapshot produit par Rust; les regles de jeu ne dependent pas des sprites ni d'une copie TypeScript.
 
 ## Perf
 
@@ -60,4 +62,4 @@ Le mode stress navigateur accepte des parametres d'URL :
 ?bench=1&enemies=2000&bullets=300&orbs=1000&seconds=20
 ```
 
-Le jeu cible 60 FPS desktop avec 2000 ennemis simules, rendu WebGL, culling camera, pools d'entites et budgets visuels pour les particules, textes et XP visibles.
+Le jeu cible 60 FPS desktop avec un fixture de rendu WebGL lourd, culling camera, pools de rendu et budgets visuels pour les particules, textes et XP visibles.

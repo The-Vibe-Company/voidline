@@ -49,24 +49,27 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 - Voir `sim/README.md` pour l'architecture complète.
 
 **Commands** :
-- `npm run balance:meta-report:quick` — 1.5k trials en <1s
-- `npm run balance:meta-report` — 8k trials en <30s
+- `npm run balance:meta-report:quick` — profil rapide (max_wave=12, trial_seconds=90)
+- `npm run balance:meta-report` — profil profond, budget mur 30s (max_wave=30, trial_seconds=240)
+- `./sim/target/release/voidline-cli --quick --max-wave 10 --trial-seconds 240 --output <path>` — override pour viser la phase 1
 - `npm run data:export` — régénère `data/balance.json`
 - `npm run data:check` — vérifie que `data/balance.json` est à jour
 - `cd sim && cargo test --workspace` — tests parité Rust (28 tests)
 
+**Toujours utiliser le Rust sim pour les itérations de balance**. Le harness TS `balance:report` (Vitest, 25s pour 150 trials, capé à `maxSeconds=120`) est trop lent et ne mesure même pas la phase 1. Le Rust sim tourne 1500 trials en <1s. Note: le Rust sim assume actuellement un joueur **idle** (pas d'IA de mouvement) — il mesure des comparaisons relatives (death rate, tier share, crystals économie, idle survival) avant/après un changement, pas le win rate d'un joueur actif. Pour valider la difficulté gameplay réelle (ex: "le boss prend 10 runs"), compléter avec un smoke test manuel sur `npm run dev`.
+
 ## Architecture (rappel)
 
-- **Logique pure** (testable): `src/game/`, `src/entities/`, `src/systems/`, `src/simulation/`, `src/utils.ts`
+- **Logique gameplay** (testable): `sim/crates/voidline-sim` est la source de vérité. TypeScript garde les catalogues/UI, les inputs, le rendu et les wrappers WASM.
 - **État centralisé**: `src/state.ts` — muté en place; les collections (`enemies`, `bullets`, `experienceOrbs`, `chests`, …) y vivent
-- **Boucle de tick** (testable, déterministe): `src/simulation/simulation.ts` exporte `stepSimulation(input, deltaMs)` — appelé chaque frame depuis `BattleScene.preupdate()`. RNG seedé dans `src/simulation/random.ts`. Spatial grid pour collisions O(1) dans `src/simulation/spatial-grid.ts`.
+- **Boucle de tick** (testable, déterministe): `src/simulation/simulation.ts` exporte `stepSimulation(input, deltaMs)` — wrapper autour du moteur Rust/WASM appelé chaque frame depuis `BattleScene.preupdate()`.
 - **Rendu Phaser** (NON testé): `src/phaser/` — `game.ts` (init WebGL), `scenes/BootScene`, `scenes/BattleScene` (lit l'état post-simulation, pousse les display objects), `pools.ts` (recyclage), `textures.ts` (textures générées).
 - **Rendu DOM** (NON testé): `src/render/*` — HUD, perf overlay, hangar (`src/render/hangar.ts`).
 - **Entrée**: `src/game/input.ts` — teste les handlers, pas le wiring `addEventListener`.
 
 Stack: TypeScript 5.6 (strict) + Vite + **Phaser 4 (WebGL)** + Vitest. Migration depuis Canvas 2D dans `c255df0` pour GPU + scene management.
 
-Flux: `main.ts` → `createSimulation()` → `bindInput()` → `createVoidlineGame()` (Phaser). Chaque frame: `BattleScene.preupdate()` → `stepSimulation()` mute l'état → `BattleScene` rend, `updateHud()` lit l'état. Unidirectionnel.
+Flux: `main.ts` → `initializeRustSimulationEngine()` → `createSimulation()` → `bindInput()` → `createVoidlineGame()` (Phaser). Chaque frame: `BattleScene.preupdate()` → `stepSimulation()` synchronise le snapshot Rust → `BattleScene` rend, `updateHud()` lit l'état. Unidirectionnel.
 
 ### Home / Hangar
 
@@ -112,19 +115,15 @@ Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit`, `renderCockpit`,
 - Spawn ennemis : `src/game/balance.ts:enemySpawnRules` est un `Record<EnemyKind, EnemySpawnRule | "residual">`. Ajouter un type d'ennemi = entrée dans `enemyTypes` + entrée dans `enemySpawnRules`.
 - Unlock predicates : `src/game/shop-catalog.ts:unlockPredicates` est un `Record<UnlockRequirement, predicate>`. `isUnlockRequirementMet` est partagé entre shop et meta-upgrades.
 
-### Validation harness (RL-ready)
+### Validation harness — uniquement Rust
 
-`src/game/balance-simulation.ts` expose `runBalanceTrial(options)` qui exécute une simulation pure et déterministe (RNG seedée). Personae : `idle`, `panic`, `kiter`, `optimizer`, `randomized` (jitter sur kiter, picks d'upgrades aléatoires).
+Le harness TS (`src/game/balance-simulation.ts`) a été supprimé : il était trop lent (25s pour 150 trials, capé à 120s sim time). **Toute validation balance passe par le Rust sim** (`sim/`, voir section "Sim Rust"). Pour itérer sur les knobs : `npm run balance:meta-report:quick` ou avec overrides pour viser phase 1 :
 
-Options utiles :
-- `seed`, `persona`, `maxWave`, `maxSeconds` — base.
-- `buildSeed?: number` — force les K premières upgrades à être tirées au hasard (cf. `randomBuildPicks`, défaut 3).
-- `excludedTags?: BuildTag[]` — exclut des tags du draft (utile pour tester des builds non-cannon).
-- `fullyUnlocked?: boolean` — débloque toutes les méta-upgrades pour la trial (toutes catégories L4 + tous uniques L1).
+```sh
+./sim/target/release/voidline-cli --quick --max-wave 10 --trial-seconds 240 --output .context/report.json
+```
 
-`BalanceTrialResult` est enrichi : `killsByKind`, `upgradesByTag`, `upgradesByTier`, `bossesDefeatedWaves`, `bossesDefeatedStages`, `synergiesActivated`. Sert aux tests d'invariants gating CI (cf. `balance-simulation.test.ts > randomized persona explores the build space`) : taux d'activation des synergies, couverture des tags.
-
-Commande `npm run balance:report` (3 personae × 10 seeds × 5 build seeds = 150 trials) émet `scripts/balance-report.json` avec `waveDistribution`, `buildTagShare`, `upgradeTierShare`, `killShareByEnemy`, `synergyActivationRate`, `bossesDefeatedAvg` par persona. À chaque PR qui touche balance, lire ce JSON pour décision factuelle.
+Le sim Rust expose : `deaths_rate_per_run`, `median_first_boss_kill`, `median_first_stage1_clear`, `median_runs_to_unlock` (par méta upgrade), `median_wave_at_run_index`, `deaths_rate_per_run`. Idle player input (port d'IA active sur la roadmap). Pour valider un changement de balance : exécuter avant/après et lire les deltas.
 
 ### Méta-progression — catalogue unique
 
@@ -137,7 +136,7 @@ Helpers exposés: `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPu
 
 Hooks runtime branchés sur le catalogue (dans `src/systems/account.ts`):
 - `currentRarityRank()` = `min(3, max(level over 4 categories))` → alimente `upgradeTierWeights(wave, rarityRank)` dans `src/game/balance.ts`.
-- `currentLevelUpChoiceCount()` = `3 + (extra-choice ? 1 : 0) + (tempo>=4 ? 1 : 0)` → consommé par `pickUpgrades(...)` dans `src/render/hud.ts`. Volontairement **non câblé** dans `src/game/balance-simulation.ts` (les trials de balance gardent un 3 fixe pour le déterminisme).
+- `currentLevelUpChoiceCount()` = `3 + (extra-choice OR tempo>=4 ? 1 : 0)` (clamped à base+1, jamais cumulés) → consommé par `pickUpgrades(...)` dans `src/render/hud.ts`.
 - `currentCrystalRewardMultiplier()` = `1 + (salvage>=2 ? 0.10 : 0)` → appliqué dans `applyCrystalReward` (`src/game/account-progression.ts`).
 
 #### Migration legacy
@@ -159,10 +158,10 @@ Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress
 - `npm run typecheck` — `tsc --noEmit`
 - `npm test` — Vitest, single run (mode CI)
 - `npm run test:watch` — Vitest watch mode
-- `npm run test:balance` — uniquement les suites `balance.test.ts` + `balance-simulation.test.ts`
+- `npm run test:balance` — suites `balance.test.ts` + `balance-curves.test.ts`
 - `npm run bench` — Vitest benchmarks
 - `npm run smoke` — `npm run build && node scripts/browser-smoke.mjs` (smoke Playwright headless)
-- `npm run balance:report` — lance 150 trials simulées et écrit `scripts/balance-report.json` (distribution des waves, builds, synergies, kills par type)
+- `npm run balance:meta-report` / `:quick` — Rust sim (voir section "Sim Rust")
 
 Lancer un test isolé (par fichier ou par nom):
 
@@ -245,12 +244,11 @@ Reproduis cette approche pour les nouveaux tests.
 
 ### Cibles prioritaires de couverture (ordre)
 
-1. `src/game/balance.ts` — **fait** (`balance.test.ts`, `balance-simulation.test.ts`)
+1. `sim/crates/voidline-sim` — **fait** (tests Rust dans `balance_curves.rs`, `effects.rs`, `simulation.rs`, `engine.rs`)
 2. `src/game/meta-upgrade-catalog.ts` — **fait** (`meta-upgrade-catalog.test.ts`: courbes de coût monotones, cap de niveau max, idempotence des uniques, complétude du catalogue) + migration couverte dans `src/systems/account.test.ts`
-3. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — TODO (application des effets, caps additifs)
-4. `src/systems/waves.ts` — TODO (progression de difficulté, invariants de spawn)
-5. `src/game/progression.ts` + `src/entities/experience.ts` — partiel (`experience.test.ts` couvre la collecte; level-up à compléter)
-6. `src/entities/powerups.ts` — TODO (heart / magnet / bomb)
+3. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — UI/catalogue TS; logique draft/apply couverte côté Rust
+4. `src/systems/waves.ts` — wrapper UI autour du moteur Rust
+5. XP, powerups, enemies, bullets, chests — couverts côté Rust; les anciens modules runtime TS ont été supprimés
 7. `src/utils.ts` — TODO (`distance`, `circleCollide`, `clamp`, `shuffle` — purs, ROI immédiat)
 
 Couverts hors-priorité (nouveaux systèmes): `relic-catalog.test.ts`, `roguelike.test.ts`, `relics.test.ts`, `simulation.test.ts`, `bullets.test.ts`, `enemies.test.ts`.

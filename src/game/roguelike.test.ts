@@ -16,10 +16,11 @@ describe("roguelike wave cadence", () => {
 
   it("guarantees a mini-boss after enough eligible misses", () => {
     const guaranteedMisses = bossBalance.miniBoss.guaranteeAfterEligibleWaves - 1;
+    const eligibleWave = bossBalance.miniBoss.startWave;
 
-    expect(shouldSpawnMiniBoss(3, 0, 0.99)).toBe(false);
-    expect(shouldSpawnMiniBoss(3, guaranteedMisses, 0.99)).toBe(true);
-    expect(nextMiniBossMisses(3, 2, false)).toBe(3);
-    expect(nextMiniBossMisses(3, 3, true)).toBe(0);
+    expect(shouldSpawnMiniBoss(eligibleWave, 0, 0.99)).toBe(false);
+    expect(shouldSpawnMiniBoss(eligibleWave, guaranteedMisses, 0.99)).toBe(true);
+    expect(nextMiniBossMisses(eligibleWave, 2, false)).toBe(3);
+    expect(nextMiniBossMisses(eligibleWave, 3, true)).toBe(0);
   });
 });

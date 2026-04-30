@@ -49,11 +49,13 @@ describe("enemy stat curves", () => {
   });
 
   it("starts boosting damage exactly at the late-wave boundary", () => {
-    expect(enemyDamageAt(9, "scout")).toBeCloseTo(
-      balance.enemies.find((t) => t.id === "scout")!.damage,
+    const startWave = balance.lateWave.startWave;
+    const baseDamage = balance.enemies.find((t) => t.id === "scout")!.damage;
+    expect(enemyDamageAt(startWave - 1, "scout")).toBeCloseTo(baseDamage);
+    expect(enemyDamageAt(startWave, "scout")).toBeGreaterThan(baseDamage);
+    expect(enemyDamageAt(startWave + 5, "scout")).toBeGreaterThan(
+      enemyDamageAt(startWave, "scout"),
     );
-    expect(enemyDamageAt(10, "scout")).toBeGreaterThan(enemyDamageAt(9, "scout"));
-    expect(enemyDamageAt(20, "scout")).toBeGreaterThan(enemyDamageAt(10, "scout"));
   });
 });
 

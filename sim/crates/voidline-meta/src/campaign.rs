@@ -47,8 +47,8 @@ impl Default for CampaignOptions {
         Self {
             seed: 0,
             runs_count: 30,
-            max_seconds: 45.0,
-            max_wave: 6,
+            max_seconds: 240.0,
+            max_wave: 30,
             step_seconds: 1.0 / 60.0,
             max_decisions_per_run: 16,
         }
@@ -101,7 +101,12 @@ pub fn run_meta_campaign<P: MetaPolicy>(
                         break;
                     }
                 }
-                StepKind::Run { wave, died, boss_stages, .. } => {
+                StepKind::Run {
+                    wave,
+                    died,
+                    boss_stages,
+                    ..
+                } => {
                     if !boss_stages.is_empty() {
                         first_boss_kill.get_or_insert(run_index);
                         for stage in boss_stages {

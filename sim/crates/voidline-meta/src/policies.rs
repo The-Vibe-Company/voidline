@@ -37,7 +37,10 @@ impl PolicyRng {
     }
 
     fn next_u32(&mut self) -> u32 {
-        self.0 = self.0.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        self.0 = self
+            .0
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         (self.0 >> 33) as u32
     }
 
@@ -52,7 +55,9 @@ pub struct RandomPolicy {
 
 impl RandomPolicy {
     pub fn new(seed: u64) -> Self {
-        Self { rng: PolicyRng::new(seed) }
+        Self {
+            rng: PolicyRng::new(seed),
+        }
     }
 }
 
@@ -146,7 +151,8 @@ impl MetaPolicy for HoarderPolicy {
         for meta in &env.bundle.meta_upgrades {
             if let Ok(cost) = can_purchase(&env.account, meta) {
                 let is_unique = meta.kind == "unique";
-                let is_big_or_unlock = cost >= 100 || (is_unique && (meta.weapon_id.is_some() || meta.character_id.is_some()));
+                let is_big_or_unlock = cost >= 100
+                    || (is_unique && (meta.weapon_id.is_some() || meta.character_id.is_some()));
                 if !is_big_or_unlock {
                     continue;
                 }

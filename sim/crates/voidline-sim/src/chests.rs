@@ -1,4 +1,4 @@
-//! Chest entity spawn + collection, mirroring `src/entities/chests.ts`.
+//! Chest entity spawn + collection owned by the Rust runtime engine.
 
 use crate::entities::ChestEntity;
 use crate::math::{circle_hit, CircleRef};
@@ -35,7 +35,11 @@ pub fn update_chests(
     dt: f64,
 ) {
     let damp = 1.0 - dt * 1.8;
-    let player_circle = CircleRef { x: player.x, y: player.y, radius: player.radius };
+    let player_circle = CircleRef {
+        x: player.x,
+        y: player.y,
+        radius: player.radius,
+    };
     let mut i = chests.len();
     while i > 0 {
         i -= 1;
@@ -46,7 +50,11 @@ pub fn update_chests(
             chest.y += chest.vy * dt;
             chest.vx *= damp;
             chest.vy *= damp;
-            CircleRef { x: chest.x, y: chest.y, radius: chest.radius }
+            CircleRef {
+                x: chest.x,
+                y: chest.y,
+                radius: chest.radius,
+            }
         };
         if !circle_hit(chest_circle, player_circle) {
             continue;

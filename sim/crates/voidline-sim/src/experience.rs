@@ -1,5 +1,4 @@
-//! Experience orb spawning + collection, mirroring
-//! `src/entities/experience.ts` and `experience-pickup.ts`.
+//! Experience orb spawning + collection owned by the Rust runtime engine.
 
 use voidline_data::balance::Balance;
 

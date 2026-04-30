@@ -1,4 +1,4 @@
-//! XP collection + level-up, mirroring `src/game/progression.ts:collectExperience`.
+//! XP collection + level-up owned by the Rust runtime engine.
 
 use voidline_data::balance::Balance;
 

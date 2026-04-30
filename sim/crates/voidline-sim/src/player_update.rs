@@ -1,4 +1,4 @@
-//! Player movement and firing tick, mirroring `src/entities/player.ts:updatePlayer`.
+//! Player movement and firing tick owned by the Rust runtime engine.
 
 use std::collections::HashSet;
 
@@ -75,11 +75,20 @@ pub fn update_player(
     player.ram_timer = (player.ram_timer - dt).max(0.0);
     player.magnet_storm_timer = (player.magnet_storm_timer - dt).max(0.0);
     if player.shield_max > 0.0 {
-        player.shield = player.shield_max.min(player.shield + player.shield_regen * dt);
+        player.shield = player
+            .shield_max
+            .min(player.shield + player.shield_regen * dt);
     }
 
     let arena_diag = (world.arena_width.powi(2) + world.arena_height.powi(2)).sqrt();
-    let target = nearest_enemy(enemies, grid, TARGET_SEARCH_RADIUS, arena_diag, player.x, player.y);
+    let target = nearest_enemy(
+        enemies,
+        grid,
+        TARGET_SEARCH_RADIUS,
+        arena_diag,
+        player.x,
+        player.y,
+    );
     if let Some(target_idx) = target {
         let e = &enemies[target_idx];
         player.aim_angle = (e.y - player.y).atan2(e.x - player.x);
@@ -92,7 +101,9 @@ pub fn update_player(
         let aim = player.aim_angle;
         let px = player.x;
         let py = player.y;
-        fire_volley(balance, pools, counters, bullets, player, rng, px, py, aim, false);
+        fire_volley(
+            balance, pools, counters, bullets, player, rng, px, py, aim, false,
+        );
         player.fire_timer = 1.0 / player.fire_rate;
     }
 
@@ -113,7 +124,8 @@ pub fn update_player(
             );
             let fi = &balance.player.drone.fire_interval;
             player.drone_timer = if player.traits.drone_swarm {
-                fi.min_swarm.max(fi.swarm - player.drones * fi.reduce_per_drone_swarm)
+                fi.min_swarm
+                    .max(fi.swarm - player.drones * fi.reduce_per_drone_swarm)
             } else {
                 fi.min.max(fi.base - player.drones * fi.reduce_per_drone)
             };
@@ -126,5 +138,9 @@ fn any(set: &HashSet<String>, keys: &[&str]) -> bool {
 }
 
 fn bool_to_int(b: bool) -> i32 {
-    if b { 1 } else { 0 }
+    if b {
+        1
+    } else {
+        0
+    }
 }

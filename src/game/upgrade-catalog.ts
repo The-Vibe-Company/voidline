@@ -52,7 +52,14 @@ export const upgradePool: Upgrade[] = [
     name: "Technologie cadence",
     description: "Accorde le reacteur au rythme des canons.",
     tags: ["cannon"],
-    effects: [{ type: "addPct", stat: "fireRate", amount: balance.upgrade.effects.fireRate }],
+    effects: [
+      {
+        type: "addCappedPctBonus",
+        stat: "fireRate",
+        amount: balance.upgrade.effects.fireRate,
+        cap: "fireRateMul",
+      },
+    ],
     effect(tier) {
       return `+${percent(balance.upgrade.effects.fireRate * tier.power)} cadence`;
     },
@@ -65,7 +72,12 @@ export const upgradePool: Upgrade[] = [
     description: "Charge les impacts avec une masse cinetique.",
     tags: ["cannon", "salvage"],
     effects: [
-      { type: "addPct", stat: "damage", amount: balance.upgrade.effects.damage },
+      {
+        type: "addCappedPctBonus",
+        stat: "damage",
+        amount: balance.upgrade.effects.damage,
+        cap: "damageMul",
+      },
       { type: "addPct", stat: "bulletSpeed", amount: balance.upgrade.effects.bulletSpeed },
     ],
     effect(tier) {

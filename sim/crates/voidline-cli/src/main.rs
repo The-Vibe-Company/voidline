@@ -31,12 +31,12 @@ struct Args {
     #[arg(long, conflicts_with = "default_mode")]
     quick: bool,
 
-    /// Default mode (≤5 min wall clock)
+    /// Default mode (deeper wave cap, ~30s wall-clock budget)
     #[arg(long = "default", conflicts_with = "quick")]
     default_mode: bool,
 
     /// Wall-clock budget (seconds), abort if exceeded
-    #[arg(long, default_value_t = 300.0)]
+    #[arg(long, default_value_t = 30.0)]
     max_seconds: f64,
 
     /// Override number of campaigns per policy
@@ -47,13 +47,13 @@ struct Args {
     #[arg(long)]
     runs: Option<u32>,
 
-    /// Override max wave per trial (default 6)
-    #[arg(long, default_value_t = 6)]
-    max_wave: u32,
+    /// Override max wave per trial
+    #[arg(long)]
+    max_wave: Option<u32>,
 
-    /// Override max seconds per trial (default 45)
-    #[arg(long, default_value_t = 45.0)]
-    trial_seconds: f64,
+    /// Override max simulated seconds per trial
+    #[arg(long)]
+    trial_seconds: Option<f64>,
 
     /// Threads (defaults to rayon's auto)
     #[arg(long)]
@@ -94,6 +94,34 @@ struct ReportConfig {
     elapsed_seconds: f64,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ReportProfile {
+    campaigns: u32,
+    runs: u32,
+    max_wave: u32,
+    trial_seconds: f64,
+}
+
+impl ReportProfile {
+    fn quick() -> Self {
+        Self {
+            campaigns: 15,
+            runs: 25,
+            max_wave: 12,
+            trial_seconds: 90.0,
+        }
+    }
+
+    fn default() -> Self {
+        Self {
+            campaigns: 50,
+            runs: 40,
+            max_wave: 30,
+            trial_seconds: 240.0,
+        }
+    }
+}
+
 fn percentile(mut values: Vec<f64>, p: f64) -> Option<f64> {
     if values.is_empty() {
         return None;
@@ -103,11 +131,7 @@ fn percentile(mut values: Vec<f64>, p: f64) -> Option<f64> {
     Some(values[idx.min(values.len() - 1)])
 }
 
-fn aggregate_by_upgrade<F>(
-    results: &[CampaignResult],
-    extract: F,
-    p: f64,
-) -> HashMap<String, f64>
+fn aggregate_by_upgrade<F>(results: &[CampaignResult], extract: F, p: f64) -> HashMap<String, f64>
 where
     F: Fn(&CampaignResult) -> &HashMap<String, u32>,
 {
@@ -164,7 +188,10 @@ fn build_section(
     for r in results {
         for entry in &r.timeline {
             if let (Some(wave), Some(died)) = (entry.wave_reached, entry.died) {
-                waves_at.entry(entry.run_index).or_default().push(wave as f64);
+                waves_at
+                    .entry(entry.run_index)
+                    .or_default()
+                    .push(wave as f64);
                 runs_total += 1.0;
                 if died {
                     deaths_total += 1.0;
@@ -205,7 +232,11 @@ fn build_section(
         median_first_stage2_clear: percentile(stage2, 0.5),
         median_first_boss_kill: percentile(boss, 0.5),
         median_final_crystals,
-        deaths_rate_per_run: if runs_total > 0.0 { deaths_total / runs_total } else { 0.0 },
+        deaths_rate_per_run: if runs_total > 0.0 {
+            deaths_total / runs_total
+        } else {
+            0.0
+        },
     }
 }
 
@@ -224,35 +255,37 @@ fn main() {
         None => load_default().expect("balance.json"),
     };
 
-    let (campaigns, runs) = if args.quick {
-        (15, 25)
+    let profile = if args.quick {
+        ReportProfile::quick()
     } else {
-        (50, 40)
+        ReportProfile::default()
     };
+    let (campaigns, runs) = (profile.campaigns, profile.runs);
     let campaigns = args.campaigns.unwrap_or(campaigns);
     let runs = args.runs.unwrap_or(runs);
+    let max_wave = args.max_wave.unwrap_or(profile.max_wave);
+    let trial_seconds = args.trial_seconds.unwrap_or(profile.trial_seconds);
 
     let options = CampaignOptions {
         seed: 1109,
         runs_count: runs,
-        max_seconds: args.trial_seconds,
-        max_wave: args.max_wave,
+        max_seconds: trial_seconds,
+        max_wave,
         step_seconds: 1.0 / 60.0,
         max_decisions_per_run: 16,
     };
 
     eprintln!(
         "voidline-cli: 4 policies × {campaigns} campaigns × {runs} runs (max_wave={}, trial_seconds={}s, budget={}s)",
-        args.max_wave, args.trial_seconds, args.max_seconds,
+        max_wave, trial_seconds, args.max_seconds,
     );
 
     let start = Instant::now();
     let mut sections = Vec::new();
 
     eprintln!("[random]");
-    let random_results = run_policy_campaigns(&bundle, options, campaigns, |seed| {
-        RandomPolicy::new(seed)
-    });
+    let random_results =
+        run_policy_campaigns(&bundle, options, campaigns, |seed| RandomPolicy::new(seed));
     sections.push(build_section(PolicyId::Random, runs, &random_results));
     check_budget(&start, args.max_seconds);
 
@@ -265,7 +298,11 @@ fn main() {
     let focused_results = run_policy_campaigns(&bundle, options, campaigns, |_| {
         FocusedAttackPolicy::default()
     });
-    sections.push(build_section(PolicyId::FocusedAttack, runs, &focused_results));
+    sections.push(build_section(
+        PolicyId::FocusedAttack,
+        runs,
+        &focused_results,
+    ));
     check_budget(&start, args.max_seconds);
 
     eprintln!("[hoarder]");
@@ -279,8 +316,8 @@ fn main() {
             quick: args.quick,
             campaigns,
             runs_per_campaign: runs,
-            max_wave: args.max_wave,
-            trial_seconds: args.trial_seconds,
+            max_wave,
+            trial_seconds,
             threads: rayon::current_num_threads(),
             elapsed_seconds: elapsed.as_secs_f64(),
         },
@@ -289,7 +326,12 @@ fn main() {
 
     let json = serde_json::to_string_pretty(&report).expect("serialize report");
     let output_path = resolve_output_path(&args.output);
-    std::fs::create_dir_all(output_path.parent().unwrap_or_else(|| std::path::Path::new("."))).ok();
+    std::fs::create_dir_all(
+        output_path
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new(".")),
+    )
+    .ok();
     std::fs::write(&output_path, json + "\n").expect("write report");
 
     eprintln!(

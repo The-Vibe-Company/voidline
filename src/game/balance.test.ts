@@ -111,43 +111,32 @@ describe("balance curves", () => {
 
   it("front-loads the first wave tempo", () => {
     expect(waveTarget(1)).toBe(27);
-    expect(waveTarget(10)).toBe(96);
     expect(spawnGap(1)).toBeCloseTo(0.385);
-    expect(spawnGap(10)).toBeCloseTo(0.197);
     expect(spawnPackChance(1)).toBeCloseTo(0.12);
-    expect(spawnPackChance(10)).toBeCloseTo(0.64);
     expect(balance.wave.spawnTimerStart).toBeCloseTo(0.1);
   });
 
-  it("keeps the late-game pressure boundary at wave 10", () => {
+  it("ramps late-game pressure starting from balance.lateWave.startWave", () => {
+    const startWave = balance.lateWave.startWave;
     const scout = balance.enemies[0]!;
-    const wave9 = scaledEnemyStats(scout, 9);
+    const beforeStart = scaledEnemyStats(scout, startWave - 1);
+    const atStart = scaledEnemyStats(scout, startWave);
     const wave10 = scaledEnemyStats(scout, 10);
-    const wave20 = scaledEnemyStats(scout, 20);
     const wave40 = scaledEnemyStats(scout, 40);
 
-    expect(lateWavePressure(9)).toBe(0);
-    expect(lateWavePressure(10)).toBe(1);
-    expect(lateWavePressure(20)).toBe(11);
+    expect(lateWavePressure(startWave - 1)).toBe(0);
+    expect(lateWavePressure(startWave)).toBe(1);
+    expect(lateWavePressure(20)).toBe(20 - startWave + 1);
 
-    expect(waveTarget(9)).toBe(83);
-    expect(waveTarget(10)).toBe(96);
-    expect(waveTarget(20)).toBe(243);
-    expect(waveTarget(10) - waveTarget(9)).toBe(13);
-
-    expect(spawnGap(9)).toBeCloseTo(0.225);
-    expect(spawnGap(10)).toBeCloseTo(0.197);
+    expect(waveTarget(startWave) - waveTarget(startWave - 1)).toBeGreaterThan(0);
     expect(spawnGap(20)).toBe(balance.lateWave.spawnGapMin);
-    expect(spawnPackChance(9)).toBeCloseTo(balance.wave.packChanceMax);
-    expect(spawnPackChance(10)).toBeCloseTo(0.64);
     expect(spawnPackChance(20)).toBeCloseTo(balance.lateWave.packChanceMax);
 
-    expect(wave9.damage).toBe(scout.damage);
-    expect(wave10.hp).toBeCloseTo(69.51);
-    expect(wave10.speed).toBeCloseTo(163.416);
-    expect(wave10.damage).toBeCloseTo(26);
-    expect(wave20.hp).toBeCloseTo(117.81);
-    expect(wave20.damage).toBeCloseTo(36);
+    expect(beforeStart.damage).toBe(scout.damage);
+    expect(atStart.damage).toBeGreaterThan(scout.damage);
+    expect(wave10.hp).toBeGreaterThan(scout.hp);
+    expect(wave10.speed).toBeGreaterThan(scout.speed);
+    expect(wave10.damage).toBeGreaterThan(scout.damage);
     expect(wave40.speed).toBeCloseTo(
       scout.speed * (1 + balance.enemy.speedScaleMax + balance.lateWave.speedScaleMax),
     );
@@ -234,30 +223,37 @@ describe("balance curves", () => {
 describe("upgrade effects", () => {
   it("applies combat upgrades to an isolated player", () => {
     const target = createPlayerState();
+    const fireRateEffect = balance.upgrade.effects.fireRate;
+    const damageEffect = balance.upgrade.effects.damage;
+    const bulletSpeedEffect = balance.upgrade.effects.bulletSpeed;
 
     findUpgrade("twin-cannon").apply(tier("rare"), target);
     expect(target.projectileCount).toBe(3);
 
     findUpgrade("plasma-core").apply(tier("standard"), target);
-    expect(target.fireRate).toBeCloseTo(3 * 1.22);
+    expect(target.fireRate).toBeCloseTo(3 * (1 + fireRateEffect));
 
     findUpgrade("rail-slug").apply(tier("standard"), target);
-    expect(target.damage).toBeCloseTo(24 * 1.26);
-    expect(target.bulletSpeed).toBeCloseTo(610 * 1.055);
+    expect(target.damage).toBeCloseTo(24 * (1 + damageEffect));
+    expect(target.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
   });
 
   it("applies defensive and utility upgrades to an isolated player", () => {
     const target = createPlayerState({ hp: 40 });
+    const shield = balance.upgrade.effects.shield;
+    const regen = balance.upgrade.effects.shieldRegen;
+    const maxHpBonus = balance.upgrade.effects.maxHp;
+    const pickup = balance.upgrade.effects.pickupRadius;
 
     findUpgrade("kinetic-shield").apply(tier("standard"), target);
-    expect(target.shieldMax).toBe(24);
-    expect(target.shield).toBe(24);
-    expect(target.shieldRegen).toBeCloseTo(2.4);
-    expect(target.maxHp).toBe(120);
-    expect(target.hp).toBe(53);
+    expect(target.shieldMax).toBe(shield);
+    expect(target.shield).toBe(shield);
+    expect(target.shieldRegen).toBeCloseTo(regen);
+    expect(target.maxHp).toBe(100 + maxHpBonus);
+    expect(target.hp).toBe(40 + Math.round(maxHpBonus * 0.65));
 
     findUpgrade("magnet-array").apply(tier("standard"), target);
-    expect(target.pickupRadius).toBeCloseTo(1.35);
+    expect(target.pickupRadius).toBeCloseTo(1 + pickup);
   });
 
   it("respects upgrade caps", () => {

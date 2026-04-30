@@ -1,8 +1,9 @@
-//! Entity pools mirroring `src/simulation/pools.ts`. Pools recycle
-//! entities to avoid allocations and to keep the iteration order identical
-//! to the TS reference (using swap_remove on release).
+//! Entity pools for the Rust runtime engine. Pools recycle entities to avoid
+//! allocations while keeping release behavior deterministic via swap_remove.
 
-use crate::entities::{Bullet, BulletSource, ChestEntity, Enemy, EnemyKind, ExperienceOrb, PowerupKind, PowerupOrb};
+use crate::entities::{
+    Bullet, BulletSource, ChestEntity, Enemy, EnemyKind, ExperienceOrb, PowerupKind, PowerupOrb,
+};
 use crate::state::EntityCounters;
 
 #[derive(Debug, Default)]
@@ -193,11 +194,7 @@ pub fn acquire_powerup_orb(
     orbs.len() - 1
 }
 
-pub fn release_powerup_orb(
-    pools: &mut EntityPools,
-    orbs: &mut Vec<PowerupOrb>,
-    index: usize,
-) {
+pub fn release_powerup_orb(pools: &mut EntityPools, orbs: &mut Vec<PowerupOrb>, index: usize) {
     let orb = orbs.swap_remove(index);
     pools.powerup_pool.push(orb);
 }

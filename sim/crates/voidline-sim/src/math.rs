@@ -52,10 +52,22 @@ mod tests {
 
     #[test]
     fn circle_hit_overlap_detection() {
-        let a = CircleRef { x: 0.0, y: 0.0, radius: 2.0 };
-        let b = CircleRef { x: 3.0, y: 0.0, radius: 1.5 };
+        let a = CircleRef {
+            x: 0.0,
+            y: 0.0,
+            radius: 2.0,
+        };
+        let b = CircleRef {
+            x: 3.0,
+            y: 0.0,
+            radius: 1.5,
+        };
         assert!(circle_hit(a, b));
-        let c = CircleRef { x: 10.0, y: 0.0, radius: 1.0 };
+        let c = CircleRef {
+            x: 10.0,
+            y: 0.0,
+            radius: 1.0,
+        };
         assert!(!circle_hit(a, c));
     }
 }

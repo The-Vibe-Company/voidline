@@ -1,5 +1,4 @@
-//! Powerup orb spawning, update, and effects.
-//! Mirrors `src/entities/powerups.ts`.
+//! Powerup orb spawning, update, and effects owned by the Rust runtime engine.
 
 use voidline_data::balance::Balance;
 
@@ -16,9 +15,18 @@ pub struct PowerupVariant {
 }
 
 pub const POWERUP_VARIANTS: [PowerupVariant; 3] = [
-    PowerupVariant { kind: PowerupKind::Heart, rarity: 4.0 },
-    PowerupVariant { kind: PowerupKind::Magnet, rarity: 4.0 },
-    PowerupVariant { kind: PowerupKind::Bomb, rarity: 3.0 },
+    PowerupVariant {
+        kind: PowerupKind::Heart,
+        rarity: 4.0,
+    },
+    PowerupVariant {
+        kind: PowerupKind::Magnet,
+        rarity: 4.0,
+    },
+    PowerupVariant {
+        kind: PowerupKind::Bomb,
+        rarity: 3.0,
+    },
 ];
 
 fn pick_variant(rng: &mut Mulberry32) -> PowerupKind {

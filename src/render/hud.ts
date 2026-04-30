@@ -699,7 +699,6 @@ export function showChest(): void {
 
 function onRelicChoice(choice: RelicChoice): void {
   applyRelicChoice(choice);
-  state.pendingChests = Math.max(0, state.pendingChests - 1);
   updateLoadout();
   if (state.pendingChests > 0) {
     showChest();

@@ -58,10 +58,10 @@ into the typed DSL variants.
 
 ### `voidline-sim`
 
-Bit-near port of `src/simulation/`, `src/entities/`, `src/systems/` from
-the TS codebase. Modules:
+Rust gameplay engine used by the browser WASM runtime and Node/headless
+balance tools. TypeScript owns rendering, input, menus, and UI wrappers.
 
-| Module | Mirrors TS |
+| Module | Responsibility |
 |---|---|
 | `rng` | `src/perf/rng.ts` (mulberry32 PRNG) |
 | `math` | `src/utils.ts` (clamp, distance, circle_hit) |
@@ -70,9 +70,9 @@ the TS codebase. Modules:
 | `player` | `Player` struct + `recomputeMultiplicativeStats` |
 | `entities` | Enemy, Bullet, ExperienceOrb, PowerupOrb, ChestEntity |
 | `state` / `world` | GameState + EntityCounters + World |
-| `spatial_grid` | `simulation/spatial-grid.ts` |
-| `pools` | `simulation/pools.ts` (acquire/release with swap_remove) |
-| `spawn` | `entities/enemies.ts` spawn + `enemyTypeWeights` |
+| `spatial_grid` | Runtime broad-phase lookup for collisions and pickups |
+| `pools` | Runtime acquire/release with swap_remove |
+| `spawn` | Enemy and elite spawn selection |
 | `bullets` / `enemies` | update loops + collisions + synergies |
 | `experience` / `powerups` / `chests` | drop + pickup + apply |
 | `synergies` | build-tag synergy detection |
@@ -106,8 +106,8 @@ Meta-progression layer:
 Binary that ties it all together:
 
 ```sh
-sim/target/release/voidline-cli --quick  # 4 × 15 × 25 = 1.5k trials, <1s
-sim/target/release/voidline-cli --default # 4 × 50 × 40 = 8k trials, <30s
+sim/target/release/voidline-cli --quick   # 4 × 15 × 25, max_wave=12
+sim/target/release/voidline-cli --default # 4 × 50 × 40, max_wave=30, ~30s budget
 ```
 
 Or via npm wrappers:

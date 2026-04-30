@@ -1,10 +1,9 @@
 import {
-  applyCrystalReward,
   createDefaultAccountProgress,
   emptyBreakdown,
   uniquePositiveNumbers,
 } from "../game/account-progression";
-import { applyCharacter, characterCatalog, findCharacter } from "../game/character-catalog";
+import { characterCatalog, findCharacter } from "../game/character-catalog";
 import {
   canPurchaseLevel,
   findMetaUpgrade,
@@ -20,7 +19,8 @@ import {
   STARTER_BUILD_TAGS,
   STARTER_TECHNOLOGY_IDS,
 } from "../game/shop-catalog";
-import { applyWeapon, findWeapon } from "../game/weapon-catalog";
+import { findWeapon } from "../game/weapon-catalog";
+import { applyRustRunReward } from "../simulation/rust-engine";
 import type {
   AccountProgress,
   AccountReward,
@@ -28,7 +28,6 @@ import type {
   BuildTag,
   CharacterId,
   MetaUpgradeId,
-  Player,
   ShopItemId,
   WeaponId,
 } from "../types";
@@ -294,12 +293,28 @@ export function awardRunAccountProgress(
   summary: AccountRunSummary,
   storage?: AccountStorage | null,
 ): AccountReward {
-  const reward = applyCrystalReward(accountProgress, {
+  const normalizedSummary = {
     ...summary,
     bossStages: uniquePositiveNumbers(summary.bossStages),
-  });
+  };
+  const rustResult = applyRustRunReward(accountProgress, normalizedSummary);
+  const reward = applyRustRewardResult(rustResult);
   saveAccountProgress(storage === undefined ? getStorage() : storage);
   return reward;
+}
+
+function applyRustRewardResult(result: ReturnType<typeof applyRustRunReward>): AccountReward {
+  accountProgress.crystals = result.progress.crystals;
+  accountProgress.spentCrystals = result.progress.spentCrystals;
+  accountProgress.upgradeLevels = result.progress.upgradeLevels;
+  accountProgress.selectedCharacterId = result.progress.selectedCharacterId as CharacterId;
+  accountProgress.selectedWeaponId = result.progress.selectedWeaponId as WeaponId;
+  accountProgress.selectedStartStage = result.progress.selectedStartStage;
+  accountProgress.highestStageCleared = result.progress.highestStageCleared;
+  accountProgress.highestStartStageUnlocked = result.progress.highestStartStageUnlocked;
+  accountProgress.records = result.progress.records;
+  accountProgress.lastRunReward = result.reward;
+  return result.reward;
 }
 
 export function purchaseMetaUpgradeLevel(
@@ -387,15 +402,6 @@ export function selectStartStage(
   return true;
 }
 
-export function applySelectedLoadout(target: Player): void {
-  applyCharacter(accountProgress.selectedCharacterId, target);
-  applyWeapon(accountProgress.selectedWeaponId, target);
-}
-
-export function applyEquippedWeapon(target: Player): void {
-  applySelectedLoadout(target);
-}
-
 export function currentUnlockedBuildTags(): Set<BuildTag> {
   const tags = new Set<BuildTag>(STARTER_BUILD_TAGS);
   for (const tag of unlockedBuildTagsFromMeta(accountProgress)) tags.add(tag);
@@ -422,9 +428,9 @@ export function currentRarityRank(): number {
 
 export function currentLevelUpChoiceCount(): number {
   const lvls = accountProgress.upgradeLevels;
-  const extra = (lvls["unique:extra-choice"] ?? 0) >= 1 ? 1 : 0;
-  const tempo = (lvls["category:tempo"] ?? 0) >= 4 ? 1 : 0;
-  return 3 + extra + tempo;
+  const hasExtra = (lvls["unique:extra-choice"] ?? 0) >= 1;
+  const hasTempo = (lvls["category:tempo"] ?? 0) >= 4;
+  return 3 + (hasExtra || hasTempo ? 1 : 0);
 }
 
 export function currentCrystalRewardMultiplier(): number {
