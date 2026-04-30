@@ -1,0 +1,45 @@
+sim/crates/voidline-meta/src/account.rs
+  b436ec68768bcd6e 1-292
+sim/crates/voidline-meta/src/campaign.rs
+  b436ec68768bcd6e 1-149
+.gitignore
+  b436ec68768bcd6e 8
+scripts/meta-progression-report.sh
+  b436ec68768bcd6e 1-14
+sim/Cargo.toml
+  b436ec68768bcd6e 6-7,19-20
+sim/crates/voidline-meta/src/lib.rs
+  b436ec68768bcd6e 1-11
+sim/crates/voidline-cli/Cargo.toml
+  b436ec68768bcd6e 1-19
+sim/crates/voidline-meta/src/policies.rs
+  b436ec68768bcd6e 1-163
+sim/crates/voidline-cli/src/main.rs
+  b436ec68768bcd6e 1-348
+sim/crates/voidline-meta/Cargo.toml
+  b436ec68768bcd6e 1-13
+sim/crates/voidline-meta/src/env.rs
+  b436ec68768bcd6e 1-189
+package.json
+  b436ec68768bcd6e 16-17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "16f9c7e358cc0a8aabf6a24c35d25f1d3b4b1c6a",
+  "prompts": {
+    "b436ec68768bcd6e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "189d391b-8435-4b4a-a1b1-3e0d0760e383",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1943,
+      "total_deletions": 102,
+      "accepted_lines": 1521,
+      "overriden_lines": 0
+    }
+  }
+}
