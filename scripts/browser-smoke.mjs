@@ -63,24 +63,18 @@ try {
 
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#gameCanvas");
-  const titleOverlayBefore = await page.locator("#titleOverlay.active").count();
-  await page.click("#playButton");
-  await page.waitForSelector("#dashboardOverlay.active");
-  await page.click("#continueButton");
-  await page.waitForSelector("#loadoutOverlay.active");
+  const hangarOverlayBefore = await page.locator("#hangarOverlay.active").count();
   await page.click("#startButton");
   await page.waitForTimeout(800);
-  const loadoutOverlayAfter = await page.locator("#loadoutOverlay.active").count();
-  const titleOverlayAfter = await page.locator("#titleOverlay.active").count();
+  const hangarOverlayAfter = await page.locator("#hangarOverlay.active").count();
   const canvasBox = await page.locator("#gameCanvas").boundingBox();
 
   if (
-    titleOverlayBefore !== 1 ||
-    titleOverlayAfter !== 0 ||
-    loadoutOverlayAfter !== 0 ||
+    hangarOverlayBefore !== 1 ||
+    hangarOverlayAfter !== 0 ||
     !canvasBox
   ) {
-    throw new Error("Game did not transition from menu to play state");
+    throw new Error("Game did not transition from hangar to play state");
   }
 
   const stressUrl =
@@ -112,7 +106,7 @@ try {
     JSON.stringify(
       {
         ok: true,
-        menu: { titleOverlayBefore, titleOverlayAfter, loadoutOverlayAfter, canvasBox },
+        menu: { hangarOverlayBefore, hangarOverlayAfter, canvasBox },
         stress: report,
       },
       null,

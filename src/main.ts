@@ -5,8 +5,7 @@ import {
   setControlMode,
   updateHud,
 } from "./render/hud";
-import { bindCockpit } from "./render/cockpit";
-import { bindTree } from "./render/orbital-tree";
+import { bindCockpit } from "./render/hangar";
 import { bindInput } from "./game/input";
 import { bindPerfOverlay } from "./render/perf-overlay";
 import { maybeStartStressMode } from "./perf/stress-mode";
@@ -25,10 +24,9 @@ initializeAccountProgress();
 initOverlayFocusScope();
 bindCockpit();
 bindMenuNavigation();
-bindTree();
 updateHud();
 bindInput();
 bindPerfOverlay();
-document.querySelector<HTMLButtonElement>("#playButton")?.focus();
+document.querySelector<HTMLButtonElement>("#startButton")?.focus();
 createVoidlineGame();
 maybeStartStressMode();

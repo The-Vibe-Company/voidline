@@ -6,11 +6,19 @@ import {
 } from "../game/account-progression";
 import { applyCharacter, characterCatalog, findCharacter } from "../game/character-catalog";
 import {
+  canPurchaseLevel,
+  findMetaUpgrade,
+  metaUpgradeCatalog,
+  metaUpgradeLevel,
+  unlockedBuildTagsFromMeta,
+  unlockedTechnologyIdsFromMeta,
+} from "../game/meta-upgrade-catalog";
+import {
   canPurchaseShopItem,
   findShopItem,
   shopCatalog,
-  unlockedBuildTags,
-  unlockedTechnologyIds,
+  STARTER_BUILD_TAGS,
+  STARTER_TECHNOLOGY_IDS,
 } from "../game/shop-catalog";
 import { applyWeapon, findWeapon } from "../game/weapon-catalog";
 import type {
@@ -19,10 +27,25 @@ import type {
   AccountRunSummary,
   BuildTag,
   CharacterId,
+  MetaUpgradeId,
   Player,
   ShopItemId,
   WeaponId,
 } from "../types";
+
+const SHOP_ITEM_TO_META: Partial<Record<ShopItemId, MetaUpgradeId>> = {
+  "weapon:scatter": "unique:weapon-scatter",
+  "weapon:lance": "unique:weapon-lance",
+  "weapon:drone": "unique:weapon-drone",
+  "character:runner": "unique:char-runner",
+  "character:tank": "unique:char-tank",
+};
+
+const REFUND_SHOP_ITEMS: ReadonlyArray<{ id: ShopItemId; cost: number }> = [
+  { id: "technology:heavy-caliber", cost: 80 },
+  { id: "technology:kinetic-shield", cost: 70 },
+  { id: "technology:crit-array", cost: 55 },
+];
 
 const STORAGE_KEY = "voidline:metaProgress:v1";
 const LEGACY_STORAGE_KEY = "voidline:accountProgress:v1";
@@ -84,21 +107,13 @@ function sanitizeAccountProgress(raw: unknown): AccountProgress {
 
   clean.crystals = saneInt(crystalCandidate, clean.crystals, 0);
   clean.spentCrystals = saneInt(source.spentCrystals, clean.spentCrystals, 0);
-  clean.purchasedUnlockIds = [
+  clean.upgradeLevels = sanitizeUpgradeLevels(source.upgradeLevels);
+
+  const legacyPurchases = [
     ...new Set(purchasedCandidates.filter((id): id is ShopItemId => shopIds.has(id))),
   ];
-  clean.selectedCharacterId =
-    typeof source.selectedCharacterId === "string" &&
-    characterIds.has(source.selectedCharacterId as CharacterId) &&
-    canUseCharacter(source.selectedCharacterId as CharacterId, clean)
-      ? (source.selectedCharacterId as CharacterId)
-      : "pilot";
-  clean.selectedWeaponId =
-    selectedWeaponCandidate &&
-    weaponIds.has(selectedWeaponCandidate as WeaponId) &&
-    canUseWeapon(selectedWeaponCandidate as WeaponId, clean)
-      ? (selectedWeaponCandidate as WeaponId)
-      : "pulse";
+  migrateLegacyUnlocks(clean, legacyPurchases);
+
   clean.highestStageCleared = saneInt(source.highestStageCleared, clean.highestStageCleared, 0);
   clean.highestStartStageUnlocked = Math.max(
     saneInt(source.highestStartStageUnlocked, clean.highestStartStageUnlocked, 1),
@@ -120,8 +135,50 @@ function sanitizeAccountProgress(raw: unknown): AccountProgress {
     clean.highestStageCleared + 1,
     clean.highestStartStageUnlocked,
   );
+  clean.selectedCharacterId =
+    typeof source.selectedCharacterId === "string" &&
+    characterIds.has(source.selectedCharacterId as CharacterId) &&
+    canUseCharacter(source.selectedCharacterId as CharacterId, clean)
+      ? (source.selectedCharacterId as CharacterId)
+      : "pilot";
+  clean.selectedWeaponId =
+    selectedWeaponCandidate &&
+    weaponIds.has(selectedWeaponCandidate as WeaponId) &&
+    canUseWeapon(selectedWeaponCandidate as WeaponId, clean)
+      ? (selectedWeaponCandidate as WeaponId)
+      : "pulse";
   clean.lastRunReward = cloneAccountReward(source.lastRunReward);
   return clean;
+}
+
+function sanitizeUpgradeLevels(
+  raw: unknown,
+): Partial<Record<MetaUpgradeId, number>> {
+  if (!raw || typeof raw !== "object") return {};
+  const result: Partial<Record<MetaUpgradeId, number>> = {};
+  for (const upgrade of metaUpgradeCatalog) {
+    const value = (raw as Record<string, unknown>)[upgrade.id];
+    if (typeof value !== "number" || !Number.isFinite(value)) continue;
+    const clamped = Math.max(0, Math.min(upgrade.maxLevel, Math.floor(value)));
+    if (clamped > 0) result[upgrade.id] = clamped;
+  }
+  return result;
+}
+
+function migrateLegacyUnlocks(progress: AccountProgress, legacyIds: ShopItemId[]): void {
+  if (legacyIds.length === 0) return;
+  const seen = new Set(legacyIds);
+  for (const [shopId, metaId] of Object.entries(SHOP_ITEM_TO_META) as ReadonlyArray<
+    [ShopItemId, MetaUpgradeId]
+  >) {
+    if (!seen.has(shopId)) continue;
+    progress.upgradeLevels[metaId] = Math.max(progress.upgradeLevels[metaId] ?? 0, 1);
+  }
+  for (const refund of REFUND_SHOP_ITEMS) {
+    if (!seen.has(refund.id)) continue;
+    progress.crystals += refund.cost;
+    progress.spentCrystals = Math.max(0, progress.spentCrystals - refund.cost);
+  }
 }
 
 function cloneAccountReward(reward: AccountReward | null | undefined): AccountReward | null {
@@ -144,20 +201,20 @@ function clampStartStage(stage: number, progress: AccountProgress): number {
   return Math.max(1, Math.min(Math.floor(stage), progress.highestStartStageUnlocked));
 }
 
-function ownsUnlock(progress: AccountProgress, id: ShopItemId): boolean {
-  return progress.purchasedUnlockIds.includes(id);
+function ownsMeta(progress: AccountProgress, id: MetaUpgradeId): boolean {
+  return metaUpgradeLevel(progress, id) >= 1;
 }
 
 function canUseCharacter(id: CharacterId, progress: AccountProgress): boolean {
   if (id === "pilot") return true;
-  const item = shopCatalog.find((candidate) => candidate.characterId === id);
-  return item !== undefined && ownsUnlock(progress, item.id);
+  const upgrade = metaUpgradeCatalog.find((candidate) => candidate.characterId === id);
+  return upgrade !== undefined && ownsMeta(progress, upgrade.id);
 }
 
 function canUseWeapon(id: WeaponId, progress: AccountProgress): boolean {
   if (id === "pulse") return true;
-  const item = shopCatalog.find((candidate) => candidate.weaponId === id);
-  return item !== undefined && ownsUnlock(progress, item.id);
+  const upgrade = metaUpgradeCatalog.find((candidate) => candidate.weaponId === id);
+  return upgrade !== undefined && ownsMeta(progress, upgrade.id);
 }
 
 export function initializeAccountProgress(storage: AccountStorage | null = getStorage()): void {
@@ -209,6 +266,29 @@ export function awardRunAccountProgress(
   });
   saveAccountProgress(storage === undefined ? getStorage() : storage);
   return reward;
+}
+
+export function purchaseMetaUpgradeLevel(
+  id: MetaUpgradeId,
+  storage?: AccountStorage | null,
+): { ok: true; level: number; cost: number } | { ok: false; reason: string } {
+  const upgrade = findMetaUpgrade(id);
+  const result = canPurchaseLevel(accountProgress, id);
+  if (!result.ok) return { ok: false, reason: result.reason };
+
+  const nextLevel = metaUpgradeLevel(accountProgress, id) + 1;
+  accountProgress.crystals -= result.cost;
+  accountProgress.spentCrystals += result.cost;
+  accountProgress.upgradeLevels[id] = nextLevel;
+  if (upgrade.characterId && upgrade.kind === "unique") {
+    accountProgress.selectedCharacterId = upgrade.characterId;
+  }
+  if (upgrade.weaponId && upgrade.kind === "unique") {
+    accountProgress.selectedWeaponId = upgrade.weaponId;
+  }
+
+  saveAccountProgress(storage === undefined ? getStorage() : storage);
+  return { ok: true, level: nextLevel, cost: result.cost };
 }
 
 export function purchaseShopItem(
@@ -283,17 +363,44 @@ export function applyEquippedWeapon(target: Player): void {
 }
 
 export function currentUnlockedBuildTags(): Set<BuildTag> {
-  const tags = unlockedBuildTags(accountProgress);
-  for (const tag of findWeapon(accountProgress.selectedWeaponId).tags) {
-    tags.add(tag);
-  }
+  const tags = new Set<BuildTag>(STARTER_BUILD_TAGS);
+  for (const tag of unlockedBuildTagsFromMeta(accountProgress)) tags.add(tag);
+  for (const tag of findWeapon(accountProgress.selectedWeaponId).tags) tags.add(tag);
   return tags;
 }
 
 export function currentUnlockedTechnologyIds(): Set<string> {
-  return unlockedTechnologyIds(accountProgress);
+  const ids = new Set<string>(STARTER_TECHNOLOGY_IDS);
+  for (const id of unlockedTechnologyIdsFromMeta(accountProgress)) ids.add(id);
+  return ids;
 }
 
 export function currentRarityRank(): number {
-  return 0;
+  const lvls = accountProgress.upgradeLevels;
+  const max = Math.max(
+    lvls["category:attack"] ?? 0,
+    lvls["category:defense"] ?? 0,
+    lvls["category:salvage"] ?? 0,
+    lvls["category:tempo"] ?? 0,
+  );
+  return Math.max(0, Math.min(3, max));
+}
+
+export function currentLevelUpChoiceCount(): number {
+  const lvls = accountProgress.upgradeLevels;
+  const extra = (lvls["unique:extra-choice"] ?? 0) >= 1 ? 1 : 0;
+  const tempo = (lvls["category:tempo"] ?? 0) >= 4 ? 1 : 0;
+  return 3 + extra + tempo;
+}
+
+export function currentRerollCount(): number {
+  const lvls = accountProgress.upgradeLevels;
+  const reroll = (lvls["unique:reroll"] ?? 0) >= 1 ? 1 : 0;
+  const tempo = (lvls["category:tempo"] ?? 0) >= 2 ? 1 : 0;
+  return reroll + tempo;
+}
+
+export function currentCrystalRewardMultiplier(): number {
+  const salvage = accountProgress.upgradeLevels["category:salvage"] ?? 0;
+  return 1 + (salvage >= 2 ? 0.10 : 0);
 }

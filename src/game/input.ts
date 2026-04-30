@@ -8,6 +8,7 @@ import {
   selectRelicByIndex,
   selectUpgradeByIndex,
   setControlMode,
+  showHangar,
   updateChallengePanels,
   updateHangarPanels,
   updateHud,
@@ -65,17 +66,17 @@ export function bindInput(): void {
     }
 
     if (state.mode === "menu" && action) {
-      const loadoutActive = document
-        .querySelector<HTMLElement>("#loadoutOverlay")
+      const hangarActive = document
+        .querySelector<HTMLElement>("#hangarOverlay")
         ?.classList.contains("active");
-      if (loadoutActive) {
+      if (hangarActive) {
         resetGame();
       }
       return;
     }
 
     if (state.mode === "gameover" && action) {
-      resetGame();
+      showHangar();
       return;
     }
 
@@ -207,7 +208,7 @@ export function bindInput(): void {
     ?.addEventListener("click", resetGame);
   document
     .querySelector<HTMLButtonElement>("#restartButton")
-    ?.addEventListener("click", resetGame);
+    ?.addEventListener("click", showHangar);
   document
     .querySelector<HTMLButtonElement>("#resetChallengesButton")
     ?.addEventListener("click", () => {

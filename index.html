@@ -144,113 +144,85 @@
         </div>
       </aside>
 
-      <section class="overlay active title-overlay" id="titleOverlay">
-        <div class="title-stack" role="dialog" aria-modal="true" aria-labelledby="titleBrand">
-          <span class="title-eyebrow" aria-hidden="true">◇ rogue-lite spatial</span>
-          <h1 class="title-brand" id="titleBrand">VOIDLINE</h1>
-          <p class="title-tagline">Survis, ramasse, choisis &mdash; meurs, recommence.</p>
-          <div class="title-actions">
-            <button class="primary-action title-play" id="playButton" type="button">JOUER &rarr;</button>
-            <button class="secondary-action title-settings" id="settingsButton" type="button">Reglages</button>
-          </div>
-        </div>
-      </section>
-
-      <section class="overlay dashboard-overlay" id="dashboardOverlay" aria-hidden="true">
-        <div class="modal dashboard-modal" role="dialog" aria-modal="true" aria-labelledby="dashboardTitle">
-          <header class="cockpit-hud-strip dashboard-hud-strip">
-            <span class="cockpit-brand">VOIDLINE / DASHBOARD</span>
-            <span class="cockpit-pill cockpit-pill--accent dashboard-crystals">
-              <span class="cockpit-pill-glyph" aria-hidden="true">◆</span>
-              <strong data-account-crystals>0</strong> cristaux
+      <section class="overlay active hangar-overlay" id="hangarOverlay" aria-labelledby="hangarTitle">
+        <div class="hangar-modal">
+          <header class="hangar-header">
+            <h1 class="hangar-brand" id="hangarTitle">VOIDLINE</h1>
+            <span class="hangar-crystals" aria-live="polite" aria-label="Cristaux disponibles">
+              <strong data-account-crystals>0</strong>
+              <span class="hangar-crystal-glyph" aria-hidden="true">&#9670;</span>
             </span>
-            <span class="cockpit-pill" data-account-record>Record N1</span>
-            <span class="cockpit-pill cockpit-pill--muted" data-account-reward>Aucun cristal gagne</span>
-          </header>
-          <h2 id="dashboardTitle" class="sr-only">Dashboard du pilote</h2>
-
-          <div class="dashboard-body">
-            <section class="dashboard-panel" aria-labelledby="dashboardProgressTitle">
-              <div class="cockpit-stack-head">
-                <span class="cockpit-stack-title" id="dashboardProgressTitle">Progression</span>
-              </div>
-              <dl class="dashboard-stats">
-                <div>
-                  <dt>Objectifs</dt>
-                  <dd id="startChallengeSummary">0/16</dd>
-                </div>
-                <div>
-                  <dt>Arbre</dt>
-                  <dd data-tree-progress>0/0 noeuds</dd>
-                </div>
-                <div>
-                  <dt>Prochain</dt>
-                  <dd data-next-unlock>&mdash;</dd>
-                </div>
-              </dl>
-            </section>
-
-            <aside class="dashboard-panel dashboard-tree" aria-labelledby="dashboardTreeTitle">
-              <div class="cockpit-stack-head">
-                <span class="cockpit-stack-title" id="dashboardTreeTitle">Arbre orbital</span>
-                <button class="cockpit-link" type="button" data-open-tree>tout voir &rarr;</button>
-              </div>
-              <div class="cockpit-stack-list" data-tree-preview></div>
-              <button class="secondary-action cockpit-tree-button" type="button" data-open-tree>
-                <span class="cockpit-pill-glyph" aria-hidden="true">◈</span> Ouvrir l'arbre
-              </button>
-            </aside>
-          </div>
-
-          <footer class="dashboard-foot">
-            <button class="secondary-action" id="dashboardBackButton" type="button">&larr; Retour</button>
-            <button class="dashboard-reset-link" id="resetChallengesButton" type="button">reinitialiser progression</button>
-            <button class="primary-action" id="continueButton" type="button">CONTINUER &rarr;</button>
-          </footer>
-        </div>
-      </section>
-
-      <section class="overlay loadout-overlay" id="loadoutOverlay" aria-hidden="true">
-        <div class="modal cockpit-modal loadout-modal" role="dialog" aria-modal="true" aria-labelledby="loadoutTitle">
-          <header class="cockpit-hud-strip">
-            <span class="cockpit-brand">VOIDLINE / LOADOUT</span>
-            <span class="cockpit-pill cockpit-pill--accent">
-              <span class="cockpit-pill-glyph" aria-hidden="true">◆</span>
-              <strong data-account-crystals>0</strong> cristaux
-            </span>
-            <span class="cockpit-spacer"></span>
-            <h2 id="loadoutTitle" class="cockpit-brand cockpit-brand--right">Choix du vaisseau</h2>
+            <button class="hangar-cog" id="settingsButton" type="button" aria-label="Reglages">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                <path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.05.24.25.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.22.09.48 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
+              </svg>
+            </button>
           </header>
 
-          <div class="cockpit-body loadout-body">
-            <aside class="cockpit-stack" aria-labelledby="loadoutCharacterTitle">
-              <div class="cockpit-stack-head">
-                <span class="cockpit-stack-title" id="loadoutCharacterTitle">Personnage</span>
+          <section class="hangar-launch" aria-labelledby="launchHeading">
+            <h2 id="launchHeading" class="sr-only">Loadout et lancement</h2>
+            <div class="hangar-pills" role="group" aria-label="Loadout">
+              <div class="hangar-pill" data-pill="character">
+                <button class="hangar-pill-arrow" data-pill-prev type="button" aria-label="Personnage precedent">&#9666;</button>
+                <div class="hangar-pill-body">
+                  <span class="hangar-pill-label">Pilote</span>
+                  <span class="hangar-pill-value" data-pill-character>Pilot</span>
+                </div>
+                <button class="hangar-pill-arrow" data-pill-next type="button" aria-label="Personnage suivant">&#9656;</button>
               </div>
-              <div class="cockpit-stack-list" data-character-list></div>
-            </aside>
+              <div class="hangar-pill" data-pill="weapon">
+                <button class="hangar-pill-arrow" data-pill-prev type="button" aria-label="Arme precedente">&#9666;</button>
+                <div class="hangar-pill-body">
+                  <span class="hangar-pill-label">Arme</span>
+                  <span class="hangar-pill-value" data-pill-weapon>Pulse</span>
+                </div>
+                <button class="hangar-pill-arrow" data-pill-next type="button" aria-label="Arme suivante">&#9656;</button>
+              </div>
+              <div class="hangar-pill" data-pill="stage">
+                <button class="hangar-pill-arrow" data-pill-prev type="button" aria-label="Stage precedent">&#9666;</button>
+                <div class="hangar-pill-body">
+                  <span class="hangar-pill-label">Stage</span>
+                  <span class="hangar-pill-value" data-pill-stage>1</span>
+                </div>
+                <button class="hangar-pill-arrow" data-pill-next type="button" aria-label="Stage suivant">&#9656;</button>
+              </div>
+            </div>
+            <button class="hangar-launch-button" id="startButton" type="button">LANCER &rarr;</button>
+            <span class="hangar-launch-hint">espace pour lancer</span>
+          </section>
 
-            <aside class="cockpit-stack" aria-labelledby="loadoutWeaponTitle">
-              <div class="cockpit-stack-head">
-                <span class="cockpit-stack-title" id="loadoutWeaponTitle">Arme de depart</span>
-              </div>
-              <div class="cockpit-stack-list" data-weapon-list></div>
-            </aside>
-
-            <aside class="cockpit-stack loadout-stage" aria-labelledby="loadoutStageTitle">
-              <div class="cockpit-stack-head">
-                <span class="cockpit-stack-title" id="loadoutStageTitle">Niveau de depart</span>
-              </div>
-              <div class="cockpit-stage-row loadout-stage-row" role="group" aria-label="Niveau de depart" data-stage-list></div>
-              <p class="loadout-stage-hint">Demarrer plus loin donne un bonus de cristaux mais aucune puissance gratuite.</p>
-            </aside>
+          <div class="hangar-reward" data-reward hidden>
+            <span class="hangar-reward-text" data-reward-text></span>
+            <button class="hangar-reward-dismiss" type="button" data-reward-dismiss aria-label="Masquer">&times;</button>
           </div>
 
-          <footer class="cockpit-footstrip loadout-foot">
-            <button class="secondary-action" id="loadoutBackButton" type="button">&larr; Retour</button>
-            <span class="cockpit-launch-hint">Espace &middot; lancer &middot; 1 &middot; 2 &middot; 3 &middot; stage</span>
-            <button class="primary-action cockpit-launch" id="startButton" type="button">LANCER &rarr;</button>
-          </footer>
+          <section class="hangar-section" aria-labelledby="uniquesHeading">
+            <header class="hangar-section-head">
+              <h2 id="uniquesHeading" class="hangar-section-title">Uniques</h2>
+              <span class="hangar-section-meta">achats a vie</span>
+            </header>
+            <ul class="hangar-list" data-uniques-list></ul>
+          </section>
+
+          <section class="hangar-section" aria-labelledby="categoriesHeading">
+            <header class="hangar-section-head">
+              <h2 id="categoriesHeading" class="hangar-section-title">Categories</h2>
+              <span class="hangar-section-meta">niveaux 1 a 4</span>
+            </header>
+            <ul class="hangar-list hangar-list--categories" data-categories-list></ul>
+          </section>
+
+          <details class="hangar-records">
+            <summary class="hangar-records-summary" data-records-summary>Records: stage 1 &middot; 0:00 &middot; 0 boss tues</summary>
+            <dl class="hangar-records-grid">
+              <div><dt>Stage</dt><dd id="recordStage">1</dd></div>
+              <div><dt>Temps</dt><dd id="recordTime">0:00</dd></div>
+              <div><dt>Score</dt><dd id="recordScore">0</dd></div>
+              <div><dt>Boss</dt><dd id="recordBosses">0</dd></div>
+              <div><dt>Niveau</dt><dd id="recordLevel">1</dd></div>
+            </dl>
+            <button class="hangar-reset-link" id="resetChallengesButton" type="button">reinitialiser la progression</button>
+          </details>
         </div>
       </section>
 
@@ -270,39 +242,6 @@
             <span>Afficher la zone de ramassage</span>
           </label>
           <button class="secondary-action settings-back" id="settingsBackButton" type="button">&larr; Retour</button>
-        </div>
-      </section>
-
-      <section class="overlay" id="treeOverlay" aria-hidden="true">
-        <div class="modal tree-modal" role="dialog" aria-modal="true" aria-labelledby="treeTitle">
-          <header class="tree-toolbar">
-            <button class="secondary-action tree-back" type="button" data-close-tree>&larr; retour hangar</button>
-            <h2 class="tree-title" id="treeTitle">Upgrade Tree &mdash; Orbital</h2>
-            <span class="cockpit-spacer"></span>
-            <span class="cockpit-pill cockpit-pill--accent">
-              <span class="cockpit-pill-glyph" aria-hidden="true">◆</span>
-              <strong data-account-crystals>0</strong>
-            </span>
-          </header>
-          <div class="tree-canvas-wrap">
-            <svg id="orbitalSvg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Arbre d'upgrades orbital"></svg>
-            <aside class="tree-legend" aria-hidden="true">
-              <div class="tree-legend-row"><span class="tree-legend-dot tree-legend-dot--owned"></span> acheté</div>
-              <div class="tree-legend-row"><span class="tree-legend-dot tree-legend-dot--avail"></span> disponible</div>
-              <div class="tree-legend-row"><span class="tree-legend-dot tree-legend-dot--locked"></span> verrouillé</div>
-              <div class="tree-legend-row"><span class="tree-legend-bridge">↔</span> pont synergie</div>
-            </aside>
-            <aside class="tree-detail" id="treeDetail" hidden aria-live="polite">
-              <div class="tree-detail-meta" data-tree-detail-meta>SELECTIONNE UN NOEUD</div>
-              <h3 class="tree-detail-title" data-tree-detail-title>—</h3>
-              <p class="tree-detail-desc" data-tree-detail-desc></p>
-              <p class="tree-detail-req" data-tree-detail-req></p>
-              <div class="tree-detail-buy">
-                <span class="cockpit-pill cockpit-pill--accent" data-tree-detail-cost>—</span>
-                <button class="primary-action tree-detail-buy-button" type="button" data-tree-detail-buy>Acheter</button>
-              </div>
-            </aside>
-          </div>
         </div>
       </section>
 
@@ -370,11 +309,11 @@
               <p class="eyebrow">Signal perdu</p>
               <h2 id="gameOverTitle">Debrief de run</h2>
               <p class="tagline">
-                Score final <strong id="finalScore">0</strong> -
+                Score final <strong id="finalScore">0</strong> &middot;
                 niveau <strong id="finalWave">1</strong>
               </p>
             </div>
-            <button class="primary-action" id="restartButton" type="button">Relancer</button>
+            <button class="primary-action" id="restartButton" type="button">Hangar &rarr;</button>
           </header>
 
           <section class="run-recap-panel" aria-labelledby="runRecapTitle">
@@ -384,46 +323,6 @@
             </div>
             <div class="run-recap-grid" id="runRecapGrid"></div>
             <div class="run-breakdown" id="runRewardBreakdown"></div>
-          </section>
-
-          <section class="cockpit-recap" aria-labelledby="gameOverHangarTitle">
-            <header class="cockpit-recap-head">
-              <div>
-                <h2 id="gameOverHangarTitle">Cristaux / Unlocks</h2>
-                <span data-account-reward>Aucun cristal gagne</span>
-              </div>
-              <div class="cockpit-recap-counters">
-                <span class="cockpit-pill cockpit-pill--accent">
-                  <span class="cockpit-pill-glyph" aria-hidden="true">◆</span>
-                  <strong data-account-crystals>0</strong> cristaux
-                </span>
-                <span class="cockpit-pill" data-account-record>Record N1</span>
-              </div>
-            </header>
-            <div class="cockpit-recap-grid">
-              <div class="cockpit-stack">
-                <span class="cockpit-stack-title">Personnage</span>
-                <div class="cockpit-stack-list" data-character-list></div>
-              </div>
-              <div class="cockpit-stack">
-                <span class="cockpit-stack-title">Arme de depart</span>
-                <div class="cockpit-stack-list" data-weapon-list></div>
-              </div>
-              <div class="cockpit-stack">
-                <span class="cockpit-stack-title">Niveau de depart</span>
-                <div class="cockpit-stage-row" data-stage-list></div>
-                <button class="secondary-action cockpit-tree-button" type="button" data-open-tree>
-                  <span class="cockpit-pill-glyph" aria-hidden="true">◈</span> Ouvrir l'arbre
-                </button>
-              </div>
-            </div>
-          </section>
-          <section class="challenge-panel compact-challenges" aria-labelledby="gameOverChallengesTitle">
-            <div class="challenge-panel-header">
-              <h2 id="gameOverChallengesTitle">Objectifs</h2>
-              <span id="gameOverChallengeSummary">0/16</span>
-            </div>
-            <div class="challenge-list" id="gameOverChallengeList"></div>
           </section>
         </div>
       </section>

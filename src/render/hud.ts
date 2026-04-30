@@ -13,14 +13,11 @@ import type {
 import { consumeSimulationEvents } from "../simulation/events";
 import { activeSynergiesForLoadout, BUILD_TAG_META } from "../systems/synergies";
 import {
-  challengeCatalog,
-  challengeValueLabel,
-  nextChallengeThreshold,
-  unlockedTierCount,
-} from "../game/challenge-catalog";
-import { challengeProgress, challengeSummary } from "../systems/challenges";
-import { accountProgress, awardRunAccountProgress } from "../systems/account";
-import { renderCockpit } from "./cockpit";
+  accountProgress,
+  awardRunAccountProgress,
+  currentLevelUpChoiceCount,
+} from "../systems/account";
+import { renderCockpit } from "./hangar";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -57,9 +54,7 @@ const hud = {
   itemHeartCell: document.querySelector<HTMLElement>(".item-cell[data-kind='heart']")!,
   itemMagnetCell: document.querySelector<HTMLElement>(".item-cell[data-kind='magnet']")!,
   itemBombCell: document.querySelector<HTMLElement>(".item-cell[data-kind='bomb']")!,
-  titleOverlay: document.querySelector<HTMLElement>("#titleOverlay")!,
-  dashboardOverlay: document.querySelector<HTMLElement>("#dashboardOverlay")!,
-  loadoutOverlay: document.querySelector<HTMLElement>("#loadoutOverlay")!,
+  hangarOverlay: document.querySelector<HTMLElement>("#hangarOverlay")!,
   settingsOverlay: document.querySelector<HTMLElement>("#settingsOverlay")!,
   upgradeOverlay: document.querySelector<HTMLElement>("#upgradeOverlay")!,
   chestOverlay: document.querySelector<HTMLElement>("#chestOverlay")!,
@@ -75,9 +70,6 @@ const hud = {
   finalScore: document.querySelector<HTMLElement>("#finalScore")!,
   finalWave: document.querySelector<HTMLElement>("#finalWave")!,
   pickupZonesToggle: document.querySelector<HTMLInputElement>("#togglePickupZones")!,
-  startChallengeSummary: document.querySelector<HTMLElement>("#startChallengeSummary")!,
-  gameOverChallengeList: document.querySelector<HTMLElement>("#gameOverChallengeList")!,
-  gameOverChallengeSummary: document.querySelector<HTMLElement>("#gameOverChallengeSummary")!,
   runRecapGrid: document.querySelector<HTMLElement>("#runRecapGrid")!,
   runRewardBreakdown: document.querySelector<HTMLElement>("#runRewardBreakdown")!,
   runRecapBadges: document.querySelector<HTMLElement>("#runRecapBadges")!,
@@ -182,38 +174,50 @@ export function getUpgradeGrid(): HTMLElement {
 }
 
 type OverlayId =
-  | "titleOverlay"
-  | "dashboardOverlay"
-  | "loadoutOverlay"
+  | "hangarOverlay"
   | "settingsOverlay"
   | "upgradeOverlay"
   | "chestOverlay"
   | "pauseOverlay"
-  | "gameOverOverlay"
-  | "treeOverlay";
+  | "gameOverOverlay";
 
-const MENU_OVERLAY_IDS = [
-  "titleOverlay",
-  "dashboardOverlay",
-  "loadoutOverlay",
-  "settingsOverlay",
-] as const satisfies readonly OverlayId[];
+export function showHangar(): void {
+  state.mode = "menu";
+  hud.hangarOverlay.classList.add("active");
+  hud.hangarOverlay.removeAttribute("aria-hidden");
+  hud.settingsOverlay.classList.remove("active");
+  hud.settingsOverlay.setAttribute("aria-hidden", "true");
+  hud.gameOverOverlay.classList.remove("active");
+  hud.upgradeOverlay.classList.remove("active");
+  hud.chestOverlay.classList.remove("active");
+  hud.pauseOverlay.classList.remove("active");
+  renderCockpit();
+  setOverlayFocusScope("hangarOverlay");
+  requestAnimationFrame(() =>
+    document.querySelector<HTMLButtonElement>("#startButton")?.focus(),
+  );
+}
 
-type MenuOverlayId = (typeof MENU_OVERLAY_IDS)[number];
+export function showSettings(): void {
+  hud.settingsOverlay.classList.add("active");
+  hud.settingsOverlay.removeAttribute("aria-hidden");
+  setOverlayFocusScope("settingsOverlay");
+  requestAnimationFrame(() =>
+    hud.settingsOverlay
+      .querySelector<HTMLButtonElement>("button:not([disabled])")
+      ?.focus(),
+  );
+}
 
-export function showMenuOverlay(id: MenuOverlayId): void {
-  for (const overlayId of MENU_OVERLAY_IDS) {
-    const el = document.querySelector<HTMLElement>(`#${overlayId}`);
-    if (!el) continue;
-    if (overlayId === id) {
-      el.classList.add("active");
-      el.removeAttribute("aria-hidden");
-    } else {
-      el.classList.remove("active");
-      el.setAttribute("aria-hidden", "true");
-    }
+export function closeSettings(): void {
+  hud.settingsOverlay.classList.remove("active");
+  hud.settingsOverlay.setAttribute("aria-hidden", "true");
+  if (hud.hangarOverlay.classList.contains("active")) {
+    setOverlayFocusScope("hangarOverlay");
+    document.querySelector<HTMLButtonElement>("#settingsButton")?.focus();
+  } else {
+    setOverlayFocusScope();
   }
-  setOverlayFocusScope(id);
 }
 
 export function initOverlayFocusScope(): void {
@@ -222,15 +226,12 @@ export function initOverlayFocusScope(): void {
 }
 
 export function hideOverlays(): void {
-  hud.titleOverlay.classList.remove("active");
-  hud.dashboardOverlay.classList.remove("active");
-  hud.loadoutOverlay.classList.remove("active");
+  hud.hangarOverlay.classList.remove("active");
   hud.settingsOverlay.classList.remove("active");
   hud.upgradeOverlay.classList.remove("active");
   hud.chestOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
-  document.querySelector("#treeOverlay")?.classList.remove("active");
   setOverlayFocusScope();
 }
 
@@ -335,40 +336,8 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
-function renderChallengeList(target: HTMLElement): void {
-  target.innerHTML = "";
-  for (const challenge of challengeCatalog) {
-    const value = challengeProgress[challenge.metric] ?? 0;
-    const unlocked = unlockedTierCount(challenge, challengeProgress);
-    const nextThreshold = nextChallengeThreshold(challenge, challengeProgress);
-    const total = challenge.tiers.length;
-    const progressMax = nextThreshold ?? challenge.tiers[total - 1]!.threshold;
-    const pct = clamp(value / progressMax, 0, 1) * 100;
-    const row = document.createElement("article");
-    row.className = "challenge-row";
-    row.dataset.complete = unlocked === total ? "true" : "false";
-    row.innerHTML = `
-      <span class="challenge-icon" aria-hidden="true">${challenge.icon}</span>
-      <span class="challenge-copy">
-        <strong>${challenge.name}</strong>
-        <span>${challenge.description}</span>
-        <span class="challenge-meter" aria-hidden="true"><span style="width: ${pct}%"></span></span>
-      </span>
-      <span class="challenge-progress">
-        <strong>${unlocked}/${total}</strong>
-        <span>${challengeValueLabel(challenge.metric, value)}${nextThreshold === null ? "" : `/${challengeValueLabel(challenge.metric, nextThreshold)}`}</span>
-        <span>${nextThreshold === null ? "Complete" : "Objectif"}</span>
-      </span>
-    `;
-    target.appendChild(row);
-  }
-}
-
 export function updateChallengePanels(): void {
-  const summary = `${challengeSummary()} - objectifs d'unlocks`;
-  hud.startChallengeSummary.textContent = summary;
-  hud.gameOverChallengeSummary.textContent = summary;
-  renderChallengeList(hud.gameOverChallengeList);
+  // Challenges removed from the simplified hangar. Stub kept so existing call sites compile.
 }
 
 export function updateHangarPanels(): void {
@@ -455,10 +424,6 @@ export function updateHud(): void {
   }
   updateStats();
   updateItemBar();
-  if (state.mode !== "playing" && state.mode !== "paused") {
-    updateChallengePanels();
-    updateHangarPanels();
-  }
 }
 
 export function flushSimulationHud(force = false): void {
@@ -502,7 +467,7 @@ export function showUpgrade(): void {
 
   hud.upgradeGrid.innerHTML = "";
 
-  const choices = pickUpgrades(3);
+  const choices = pickUpgrades(currentLevelUpChoiceCount());
   for (const [index, choice] of choices.entries()) {
     const { upgrade, tier } = choice;
     const choiceId = `upgrade-choice-${index + 1}`;
@@ -739,37 +704,12 @@ export function resumeGame(): void {
 
 export function bindMenuNavigation(): void {
   document
-    .querySelector<HTMLButtonElement>("#playButton")
-    ?.addEventListener("click", () => {
-      renderCockpit();
-      showMenuOverlay("dashboardOverlay");
-    });
-  document
     .querySelector<HTMLButtonElement>("#settingsButton")
-    ?.addEventListener("click", () => {
-      showMenuOverlay("settingsOverlay");
-    });
+    ?.addEventListener("click", showSettings);
   document
     .querySelector<HTMLButtonElement>("#settingsBackButton")
-    ?.addEventListener("click", () => {
-      showMenuOverlay("titleOverlay");
-    });
-  document
-    .querySelector<HTMLButtonElement>("#dashboardBackButton")
-    ?.addEventListener("click", () => {
-      showMenuOverlay("titleOverlay");
-    });
-  document
-    .querySelector<HTMLButtonElement>("#continueButton")
-    ?.addEventListener("click", () => {
-      renderCockpit();
-      showMenuOverlay("loadoutOverlay");
-    });
-  document
-    .querySelector<HTMLButtonElement>("#loadoutBackButton")
-    ?.addEventListener("click", () => {
-      showMenuOverlay("dashboardOverlay");
-    });
+    ?.addEventListener("click", closeSettings);
+  renderCockpit();
 }
 
 export function setControlMode(mode: ControlMode): void {

@@ -2,8 +2,13 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createDefaultAccountProgress } from "../game/account-progression";
 import {
   accountProgress,
+  currentCrystalRewardMultiplier,
+  currentLevelUpChoiceCount,
+  currentRarityRank,
+  currentRerollCount,
   equipWeapon,
   initializeAccountProgress,
+  purchaseMetaUpgradeLevel,
   purchaseShopItem,
   resetAccountProgress,
   restoreAccountProgress,
@@ -91,7 +96,7 @@ describe("crystal persistence and unlock shop", () => {
     expect(accountProgress.records.bestStage).toBe(2);
   });
 
-  it("accepts legacy purchased ids when they still match shop unlocks", () => {
+  it("migrates legacy weapon purchases into upgrade levels", () => {
     storage.setItem(
       "voidline:metaProgress:v1",
       JSON.stringify({
@@ -103,11 +108,11 @@ describe("crystal persistence and unlock shop", () => {
 
     initializeAccountProgress(storage);
 
-    expect(accountProgress.purchasedUnlockIds).toContain("weapon:scatter");
+    expect(accountProgress.upgradeLevels["unique:weapon-scatter"]).toBe(1);
     expect(accountProgress.selectedWeaponId).toBe("scatter");
   });
 
-  it("falls back to the previous account storage key when the crystal save is missing", () => {
+  it("falls back to the previous account storage key and migrates unlocks", () => {
     storage.setItem(
       "voidline:accountProgress:v1",
       JSON.stringify({
@@ -120,9 +125,27 @@ describe("crystal persistence and unlock shop", () => {
     initializeAccountProgress(storage);
 
     expect(accountProgress.crystals).toBe(80);
-    expect(accountProgress.purchasedUnlockIds).toContain("weapon:scatter");
+    expect(accountProgress.upgradeLevels["unique:weapon-scatter"]).toBe(1);
     expect(accountProgress.selectedWeaponId).toBe("scatter");
-    expect(storage.getItem("voidline:metaProgress:v1")).toContain("weapon:scatter");
+    expect(storage.getItem("voidline:metaProgress:v1")).toContain("unique:weapon-scatter");
+  });
+
+  it("refunds spent crystals when migrating legacy technology purchases", () => {
+    storage.setItem(
+      "voidline:metaProgress:v1",
+      JSON.stringify({
+        crystals: 0,
+        spentCrystals: 100,
+        purchasedUnlockIds: ["technology:crit-array"],
+      }),
+    );
+
+    initializeAccountProgress(storage);
+
+    expect(accountProgress.crystals).toBe(55);
+    expect(accountProgress.spentCrystals).toBe(45);
+    expect(accountProgress.upgradeLevels["unique:weapon-scatter"]).toBeUndefined();
+    expect(accountProgress.purchasedUnlockIds).toEqual([]);
   });
 
   it("uses recoverable legacy tokens when a stored crystal balance is malformed", () => {
@@ -284,5 +307,158 @@ describe("crystal persistence and unlock shop", () => {
 
     expect(selectStartStage(2, storage)).toBe(true);
     expect(accountProgress.selectedStartStage).toBe(2);
+  });
+});
+
+describe("meta upgrade derivations", () => {
+  let storage: MemoryStorage;
+
+  beforeEach(() => {
+    storage = new MemoryStorage();
+    resetAccountProgress(storage);
+  });
+
+  it("returns rarity rank 0 by default and clamps to 3", () => {
+    expect(currentRarityRank()).toBe(0);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:attack": 4, "category:tempo": 1 },
+    });
+    expect(currentRarityRank()).toBe(3);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:defense": 2, "category:salvage": 2 },
+    });
+    expect(currentRarityRank()).toBe(2);
+  });
+
+  it("computes level-up choice count from extra-choice unique and tempo L4", () => {
+    expect(currentLevelUpChoiceCount()).toBe(3);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "unique:extra-choice": 1 },
+    });
+    expect(currentLevelUpChoiceCount()).toBe(4);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:tempo": 4 },
+    });
+    expect(currentLevelUpChoiceCount()).toBe(4);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "unique:extra-choice": 1, "category:tempo": 4 },
+    });
+    expect(currentLevelUpChoiceCount()).toBe(5);
+  });
+
+  it("computes reroll count from reroll unique and tempo L2+", () => {
+    expect(currentRerollCount()).toBe(0);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "unique:reroll": 1 },
+    });
+    expect(currentRerollCount()).toBe(1);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:tempo": 3 },
+    });
+    expect(currentRerollCount()).toBe(1);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "unique:reroll": 1, "category:tempo": 4 },
+    });
+    expect(currentRerollCount()).toBe(2);
+  });
+
+  it("applies a +10% crystal multiplier from salvage L2", () => {
+    expect(currentCrystalRewardMultiplier()).toBe(1);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:salvage": 1 },
+    });
+    expect(currentCrystalRewardMultiplier()).toBe(1);
+
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:salvage": 2 },
+    });
+    expect(currentCrystalRewardMultiplier()).toBeCloseTo(1.1);
+  });
+});
+
+describe("purchaseMetaUpgradeLevel", () => {
+  let storage: MemoryStorage;
+
+  beforeEach(() => {
+    storage = new MemoryStorage();
+    resetAccountProgress(storage);
+  });
+
+  it("respects max level even when called repeatedly", () => {
+    restoreAccountProgress({ ...createDefaultAccountProgress(), crystals: 99999 });
+
+    let totalSpent = 0;
+    for (let i = 0; i < 10; i += 1) {
+      const result = purchaseMetaUpgradeLevel("category:attack", storage);
+      if (result.ok) totalSpent += result.cost;
+    }
+
+    expect(accountProgress.upgradeLevels["category:attack"]).toBe(4);
+    expect(totalSpent).toBe(40 + 75 + 130 + 220);
+  });
+
+  it("rejects unique upgrades after the first purchase", () => {
+    restoreAccountProgress({ ...createDefaultAccountProgress(), crystals: 999 });
+
+    expect(purchaseMetaUpgradeLevel("unique:extra-choice", storage).ok).toBe(true);
+    const second = purchaseMetaUpgradeLevel("unique:extra-choice", storage);
+    expect(second.ok).toBe(false);
+    if (!second.ok) expect(second.reason).toBe("max-level");
+  });
+
+  it("equips a unique weapon upgrade on purchase", () => {
+    restoreAccountProgress({ ...createDefaultAccountProgress(), crystals: 100 });
+
+    expect(purchaseMetaUpgradeLevel("unique:weapon-scatter", storage).ok).toBe(true);
+    expect(accountProgress.selectedWeaponId).toBe("scatter");
+  });
+});
+
+describe("upgrade levels sanitization", () => {
+  let storage: MemoryStorage;
+
+  beforeEach(() => {
+    storage = new MemoryStorage();
+    resetAccountProgress(storage);
+  });
+
+  it("clamps malformed upgrade levels and drops unknown ids", () => {
+    storage.setItem(
+      "voidline:metaProgress:v1",
+      JSON.stringify({
+        upgradeLevels: {
+          "category:attack": 99,
+          "category:defense": -5,
+          "unknown:foo": 3,
+          "unique:extra-choice": "not-a-number",
+        },
+      }),
+    );
+
+    initializeAccountProgress(storage);
+
+    expect(accountProgress.upgradeLevels["category:attack"]).toBe(4);
+    expect(accountProgress.upgradeLevels["category:defense"]).toBeUndefined();
+    expect(accountProgress.upgradeLevels["unique:extra-choice"]).toBeUndefined();
+    expect((accountProgress.upgradeLevels as Record<string, unknown>)["unknown:foo"]).toBeUndefined();
   });
 });
