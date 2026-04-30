@@ -450,6 +450,7 @@ export interface Weapon {
   description: string;
   tags: readonly BuildTag[];
   apply: (target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
 }
 
 export interface Character {
@@ -459,6 +460,7 @@ export interface Character {
   description: string;
   bonusLabel: string;
   apply: (target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
 }
 
 export type UpgradeSoftCappedStat = "drones" | "projectileCount" | "pierce";

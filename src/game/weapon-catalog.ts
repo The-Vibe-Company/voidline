@@ -1,60 +1,61 @@
 import type { Player, Weapon, WeaponId } from "../types";
-import { balance, recomputeMultiplicativeStats } from "./balance";
+import { runEffects, type EffectOp } from "./effect-dsl";
+
+type WeaponSpec = Omit<Weapon, "apply"> & { effects: readonly EffectOp[] };
+
+function defineWeapon(spec: WeaponSpec): Weapon {
+  return {
+    ...spec,
+    apply: (target) => runEffects(spec.effects, 1, target),
+  };
+}
 
 export const weaponCatalog: readonly Weapon[] = [
-  {
+  defineWeapon({
     id: "pulse",
     name: "Pulse Rifle",
     icon: "PUL",
     description: "Arme standard, fiable, sans faiblesse majeure.",
     tags: ["cannon"],
-    apply() {
-      // Baseline ship state already represents the pulse rifle.
-    },
-  },
-  {
+    effects: [],
+  }),
+  defineWeapon({
     id: "scatter",
     name: "Scatter Cannon",
     icon: "SCT",
     description: "Plus de projectiles, impacts plus legers.",
     tags: ["cannon", "crit"],
-    apply(target) {
-      target.projectileCount = Math.min(
-        target.projectileCount + 1,
-        balance.upgrade.caps.projectiles,
-      );
-      target.bonus.damagePct -= 0.16;
-      target.bonus.bulletRadiusPct -= 0.08;
-      recomputeMultiplicativeStats(target);
-    },
-  },
-  {
+    effects: [
+      { type: "addCapped", stat: "projectileCount", amount: 1, cap: "projectiles" },
+      { type: "addPct", stat: "damage", amount: -0.16, scale: 1 },
+      { type: "addPct", stat: "bulletRadius", amount: -0.08, scale: 1 },
+    ],
+  }),
+  defineWeapon({
     id: "lance",
     name: "Rail Lance",
     icon: "RLG",
     description: "Cadence basse, degats lourds et penetration de base.",
     tags: ["pierce", "cannon"],
-    apply(target) {
-      target.pierce = Math.max(target.pierce, 1);
-      target.bonus.fireRatePct -= 0.34;
-      target.bonus.damagePct += 0.48;
-      target.bonus.bulletSpeedPct += 0.2;
-      recomputeMultiplicativeStats(target);
-    },
-  },
-  {
+    effects: [
+      { type: "setMin", stat: "pierce", value: 1 },
+      { type: "addPct", stat: "fireRate", amount: -0.34, scale: 1 },
+      { type: "addPct", stat: "damage", amount: 0.48, scale: 1 },
+      { type: "addPct", stat: "bulletSpeed", amount: 0.2, scale: 1 },
+    ],
+  }),
+  defineWeapon({
     id: "drone",
     name: "Drone Core",
     icon: "DRN",
     description: "Un drone autonome des le depart, faible burst principal.",
     tags: ["drone", "salvage"],
-    apply(target) {
-      target.drones = Math.max(target.drones, 1);
-      target.bonus.fireRatePct -= 0.12;
-      target.bonus.damagePct -= 0.1;
-      recomputeMultiplicativeStats(target);
-    },
-  },
+    effects: [
+      { type: "setMin", stat: "drones", value: 1 },
+      { type: "addPct", stat: "fireRate", amount: -0.12, scale: 1 },
+      { type: "addPct", stat: "damage", amount: -0.1, scale: 1 },
+    ],
+  }),
 ];
 
 export function findWeapon(id: WeaponId): Weapon {

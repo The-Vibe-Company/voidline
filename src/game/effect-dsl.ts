@@ -73,6 +73,12 @@ export interface AddMaxHpEffect {
   scale?: EffectScale;
 }
 
+export interface SetMinEffect {
+  type: "setMin";
+  stat: CappedIntStat;
+  value: number;
+}
+
 export type EffectOp =
   | AddPctEffect
   | AddCappedEffect
@@ -81,7 +87,8 @@ export type EffectOp =
   | AddLifestealEffect
   | HealFlatEffect
   | HealPctEffect
-  | AddMaxHpEffect;
+  | AddMaxHpEffect
+  | SetMinEffect;
 
 const PERCENT_BONUS_KEY: Record<PercentStat, keyof PlayerBonus> = {
   fireRate: "fireRatePct",
@@ -178,7 +185,12 @@ function applyEffectStep(op: EffectOp, tierPower: number, target: Player): void 
     }
     case "addMaxHp": {
       const scale = resolveScale(op.scale, tierPower);
-      target.maxHp += op.amount * scale;
+      target.maxHp = Math.max(1, target.maxHp + op.amount * scale);
+      target.hp = Math.min(target.hp, target.maxHp);
+      return;
+    }
+    case "setMin": {
+      target[op.stat] = Math.max(target[op.stat], op.value);
       return;
     }
   }
