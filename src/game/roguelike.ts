@@ -1,26 +1,6 @@
-export const bossBalance = {
-  stageDurationSeconds: 600,
-  waveOffsetPerStage: 9,
-  boss: {
-    hpMultiplier: 22,
-    speedMultiplier: 0.54,
-    damageMultiplier: 1.8,
-    radiusMultiplier: 2.15,
-    scoreMultiplier: 7,
-    contactCooldown: 0.95,
-  },
-  miniBoss: {
-    startWave: 3,
-    spawnChance: 0.24,
-    guaranteeAfterEligibleWaves: 4,
-    hpMultiplier: 6.4,
-    speedMultiplier: 0.74,
-    damageMultiplier: 1.35,
-    radiusMultiplier: 1.55,
-    scoreMultiplier: 3.2,
-    contactCooldown: 1.05,
-  },
-};
+import { bossBalance } from "./balance";
+
+export { bossBalance };
 
 export function startingWaveForStage(stage: number): number {
   return 1 + Math.max(0, Math.floor(stage) - 1) * bossBalance.waveOffsetPerStage;

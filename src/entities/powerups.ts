@@ -9,6 +9,7 @@ import {
 import type { EnemyEntity, PowerupKind, PowerupVariant } from "../types";
 import { burst, pulseText } from "./particles";
 import { killEnemy } from "./enemies";
+import { balance } from "../game/balance";
 import { markHudDirty } from "../simulation/events";
 import { acquirePowerupOrb, releasePowerupOrb } from "../simulation/pools";
 import { random } from "../simulation/random";
@@ -48,14 +49,6 @@ export function getVariant(kind: PowerupKind): PowerupVariant {
   return VARIANT_BY_KIND.get(kind)!;
 }
 
-const DROP_CHANCE: Record<EnemyEntity["kind"], number> = {
-  scout: 0.012,
-  hunter: 0.03,
-  brute: 0.09,
-};
-
-const HEART_HEAL_RATIO = 0.5;
-
 let suppressDrops = false;
 
 function pickVariant(): PowerupVariant {
@@ -71,7 +64,7 @@ function pickVariant(): PowerupVariant {
 
 export function maybeDropPowerup(enemy: EnemyEntity): void {
   if (suppressDrops) return;
-  if (random() > DROP_CHANCE[enemy.kind]) return;
+  if (random() > balance.powerups.dropChance[enemy.kind]) return;
   const variant = pickVariant();
   const angle = random() * Math.PI * 2;
   const speed = 80 + random() * 80;
@@ -88,7 +81,7 @@ export function maybeDropPowerup(enemy: EnemyEntity): void {
 export function applyPowerup(kind: PowerupKind): void {
   switch (kind) {
     case "heart":
-      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * HEART_HEAL_RATIO);
+      player.hp = Math.min(player.maxHp, player.hp + player.maxHp * balance.powerups.heartHealRatio);
       state.heartsCarried += 1;
       break;
     case "magnet":
@@ -105,11 +98,10 @@ export function applyPowerup(kind: PowerupKind): void {
   markHudDirty();
 }
 
-const POWERUP_PULL_RADIUS = 70;
-const POWERUP_PULL_RADIUS_SQ = POWERUP_PULL_RADIUS * POWERUP_PULL_RADIUS;
-
 export function updatePowerups(dt: number): void {
-  const damp = 1 - dt * 1.6;
+  const pullRadius = balance.powerups.pullRadius;
+  const pullRadiusSq = pullRadius * pullRadius;
+  const damp = 1 - dt * balance.powerups.velocityDamping;
   for (let i = powerupOrbs.length - 1; i >= 0; i -= 1) {
     const orb = powerupOrbs[i]!;
     orb.age += dt;
@@ -136,9 +128,9 @@ export function updatePowerups(dt: number): void {
       continue;
     }
 
-    if (distSq < POWERUP_PULL_RADIUS_SQ) {
+    if (distSq < pullRadiusSq) {
       const distance = Math.sqrt(distSq);
-      const pull = (1 - distance / POWERUP_PULL_RADIUS) * 380;
+      const pull = (1 - distance / pullRadius) * balance.powerups.pullStrength;
       const inv = 1 / Math.max(1, distance);
       orb.vx += dx * inv * pull * dt;
       orb.vy += dy * inv * pull * dt;

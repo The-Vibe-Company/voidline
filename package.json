@@ -10,11 +10,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:balance": "vitest run src/game/balance.test.ts src/game/balance-simulation.test.ts",
+    "balance:report": "cross-env RUN_BALANCE_REPORT=1 vitest run scripts/balance-report.test.ts",
     "test:watch": "vitest",
     "bench": "vitest bench --run",
     "smoke": "npm run build && node scripts/browser-smoke.mjs"
   },
   "devDependencies": {
+    "cross-env": "^10.1.0",
     "playwright": "1.58.1",
     "typescript": "^5.6.3",
     "vite": "^5.4.10",

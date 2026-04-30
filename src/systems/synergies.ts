@@ -24,6 +24,9 @@ export const SYNERGY_DEFINITIONS: readonly SynergyDefinition[] = [
     description: "Les tirs principaux ricochent vers une cible proche.",
     color: "#ff5af0",
     requiredTags: { cannon: 1, crit: 1, pierce: 1 },
+    apply(traits) {
+      traits.railSplitter = true;
+    },
   },
   {
     id: "drone-swarm",
@@ -31,6 +34,9 @@ export const SYNERGY_DEFINITIONS: readonly SynergyDefinition[] = [
     description: "Les drones tirent plus vite et percent une cible en plus.",
     color: "#ffbf47",
     requiredTags: { drone: 1, cannon: 1 },
+    apply(traits) {
+      traits.droneSwarm = true;
+    },
   },
   {
     id: "kinetic-ram",
@@ -38,6 +44,12 @@ export const SYNERGY_DEFINITIONS: readonly SynergyDefinition[] = [
     description: "Le bouclier charge les collisions a haute vitesse.",
     color: "#72ffb1",
     requiredTags: { shield: 1, salvage: 1 },
+    apply(traits) {
+      traits.kineticRam = true;
+    },
+    reset(target) {
+      target.ramTimer = 0;
+    },
   },
   {
     id: "magnet-storm",
@@ -45,6 +57,13 @@ export const SYNERGY_DEFINITIONS: readonly SynergyDefinition[] = [
     description: "Les gros ramassages d'XP declenchent une nova.",
     color: "#39d9ff",
     requiredTags: { magnet: 2 },
+    apply(traits) {
+      traits.magnetStorm = true;
+    },
+    reset(target) {
+      target.magnetStormCharge = 0;
+      target.magnetStormTimer = 0;
+    },
   },
 ];
 
@@ -110,32 +129,19 @@ export function refreshPlayerTraits(
   relics: Iterable<OwnedRelic>,
 ): SynergyDefinition[] {
   const active = activeSynergiesForLoadout(upgrades, relics);
+  const activeIds = new Set(active.map((synergy) => synergy.id));
   const next = createPlayerTraits();
 
   for (const synergy of active) {
-    switch (synergy.id) {
-      case "rail-splitter":
-        next.railSplitter = true;
-        break;
-      case "drone-swarm":
-        next.droneSwarm = true;
-        break;
-      case "kinetic-ram":
-        next.kineticRam = true;
-        break;
-      case "magnet-storm":
-        next.magnetStorm = true;
-        break;
-    }
+    synergy.apply(next);
   }
 
   target.traits = next;
-  if (!next.kineticRam) {
-    target.ramTimer = 0;
-  }
-  if (!next.magnetStorm) {
-    target.magnetStormCharge = 0;
-    target.magnetStormTimer = 0;
+
+  for (const definition of SYNERGY_DEFINITIONS) {
+    if (!activeIds.has(definition.id)) {
+      definition.reset?.(target);
+    }
   }
 
   return active;

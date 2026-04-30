@@ -2,6 +2,7 @@ import { enemies, keys, player, pointer, state, world } from "../state";
 import { clamp, distanceSq, screenToWorld } from "../utils";
 import { pulseText } from "./particles";
 import type { EnemyEntity } from "../types";
+import { balance } from "../game/balance";
 import { enemyGrid, targetSearchRadius } from "../simulation/grids";
 import { markHudDirty } from "../simulation/events";
 import { acquireBullet } from "../simulation/pools";
@@ -35,18 +36,20 @@ export function nearestEnemy(x: number, y: number): EnemyEntity | null {
 
 export function fireVolley(x: number, y: number, angle: number, drone: boolean): void {
   const count = drone ? 1 : player.projectileCount;
-  const spread = drone ? 0 : Math.min(0.82, 0.13 * (count - 1));
+  const spreadCfg = balance.player.weaponSpread;
+  const spread = drone ? 0 : Math.min(spreadCfg.max, spreadCfg.perExtraProjectile * (count - 1));
   const start = angle - spread / 2;
   const step = count > 1 ? spread / (count - 1) : 0;
+  const droneCfg = balance.player.drone;
 
   for (let i = 0; i < count; i += 1) {
     const bulletAngle = start + step * i;
-    const speed = drone ? player.bulletSpeed * 0.9 : player.bulletSpeed;
+    const speed = drone ? player.bulletSpeed * droneCfg.bulletSpeedMul : player.bulletSpeed;
     const isCrit = random() < player.critChance;
     const baseDamage = drone
-      ? player.damage * (player.traits.droneSwarm ? 0.66 : 0.58)
+      ? player.damage * (player.traits.droneSwarm ? droneCfg.damageMulSwarm : droneCfg.damageMul)
       : player.damage;
-    const baseRadius = drone ? 4 : 5;
+    const baseRadius = drone ? droneCfg.bulletRadius : 5;
     const bullet = acquireBullet();
     bullet.x = x + Math.cos(bulletAngle) * 20;
     bullet.y = y + Math.sin(bulletAngle) * 20;
@@ -56,7 +59,7 @@ export function fireVolley(x: number, y: number, angle: number, drone: boolean):
     bullet.damage = isCrit ? baseDamage * 2 : baseDamage;
     bullet.pierce =
       drone && player.traits.droneSwarm ? Math.max(1, Math.floor(player.pierce / 2)) : player.pierce;
-    bullet.life = drone ? 0.9 : 1.15;
+    bullet.life = drone ? droneCfg.bulletLife : 1.15;
     bullet.color = drone ? "#ffbf47" : isCrit ? "#ff5af0" : "#39d9ff";
     bullet.trail = 0;
     bullet.source = drone ? "drone" : "player";
@@ -66,10 +69,11 @@ export function fireVolley(x: number, y: number, angle: number, drone: boolean):
 
 export function fireDrones(): void {
   if (!enemies.length) return;
+  const droneCfg = balance.player.drone;
   for (let i = 0; i < player.drones; i += 1) {
-    const angle = world.time * 1.9 + (Math.PI * 2 * i) / player.drones;
-    const x = player.x + Math.cos(angle) * 48;
-    const y = player.y + Math.sin(angle) * 48;
+    const angle = world.time * droneCfg.orbitAngularVelocity + (Math.PI * 2 * i) / player.drones;
+    const x = player.x + Math.cos(angle) * droneCfg.orbitRadius;
+    const y = player.y + Math.sin(angle) * droneCfg.orbitRadius;
     const target = nearestEnemy(x, y);
     if (target) {
       fireVolley(x, y, Math.atan2(target.y - y, target.x - x), true);
@@ -162,9 +166,10 @@ export function updatePlayer(dt: number): void {
     player.droneTimer -= dt;
     if (player.droneTimer <= 0) {
       fireDrones();
+      const fi = balance.player.drone.fireInterval;
       player.droneTimer = player.traits.droneSwarm
-        ? Math.max(0.12, 0.52 - player.drones * 0.055)
-        : Math.max(0.18, 0.72 - player.drones * 0.05);
+        ? Math.max(fi.minSwarm, fi.swarm - player.drones * fi.reducePerDroneSwarm)
+        : Math.max(fi.min, fi.base - player.drones * fi.reducePerDrone);
     }
   }
 }

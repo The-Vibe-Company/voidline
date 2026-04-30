@@ -52,6 +52,7 @@ export const state: GameState = {
   highestStageReached: 1,
   score: 0,
   waveKills: 0,
+  killsByKind: { scout: 0, hunter: 0, brute: 0 },
   waveTarget: 0,
   spawnRemaining: 0,
   spawnTimer: 0,

@@ -138,6 +138,7 @@ export function resetSimulation(seed?: number): void {
   state.highestStageReached = startStage;
   state.score = 0;
   state.waveKills = 0;
+  state.killsByKind = { scout: 0, hunter: 0, brute: 0 };
   state.bestCombo = 0;
   state.miniBossEligibleMisses = 0;
   state.miniBossPending = false;

@@ -1,4 +1,11 @@
-import type { EnemyKind, EnemyType, Player, PlayerBonus, UpgradeTier } from "../types";
+import type {
+  EnemyKind,
+  EnemySpawnPolicy,
+  EnemyType,
+  Player,
+  PlayerBonus,
+  UpgradeTier,
+} from "../types";
 
 export type PlayerStatBalance = Pick<
   Player,
@@ -51,9 +58,32 @@ export const playerStatBalance: PlayerStatBalance = {
   bulletRadius: 1,
 };
 
+export const droneBalance = {
+  bulletSpeedMul: 0.9,
+  damageMul: 0.58,
+  damageMulSwarm: 0.66,
+  bulletLife: 0.9,
+  bulletRadius: 4,
+  orbitRadius: 48,
+  orbitAngularVelocity: 1.9,
+  fireInterval: {
+    base: 0.72,
+    swarm: 0.52,
+    reducePerDrone: 0.05,
+    reducePerDroneSwarm: 0.055,
+    min: 0.18,
+    minSwarm: 0.12,
+  },
+};
+
 export const playerBalance = {
   stats: playerStatBalance,
   resetInvulnerability: 0.2,
+  weaponSpread: {
+    max: 0.82,
+    perExtraProjectile: 0.13,
+  },
+  drone: droneBalance,
 };
 
 export const waveBalance = {
@@ -103,6 +133,45 @@ export const xpBalance = {
   pickupBaseRadius: 36,
 };
 
+export const bossBalance = {
+  stageDurationSeconds: 600,
+  waveOffsetPerStage: 9,
+  contactBackoff: 0.45,
+  stageScaling: {
+    hpPerStage: 0,
+    damagePerStage: 0,
+    speedPerStage: 0,
+  },
+  wobble: {
+    boss: { value: 0.05, rate: 1.1 },
+    miniBoss: { value: 0.09, rate: 1.7 },
+  },
+  spawnOffsets: {
+    miniBoss: { eligibleFromWave: 7, offset: 3, fallbackWave: 8, fallbackRoll: 0.95 },
+    waveBoss: { offset: 8, roll: 0.98 },
+    stageBoss: { offset: 8, stageMultiplier: 4, roll: 0.98 },
+  },
+  boss: {
+    hpMultiplier: 22,
+    speedMultiplier: 0.54,
+    damageMultiplier: 1.8,
+    radiusMultiplier: 2.15,
+    scoreMultiplier: 7,
+    contactCooldown: 0.95,
+  },
+  miniBoss: {
+    startWave: 3,
+    spawnChance: 0.24,
+    guaranteeAfterEligibleWaves: 4,
+    hpMultiplier: 6.4,
+    speedMultiplier: 0.74,
+    damageMultiplier: 1.35,
+    radiusMultiplier: 1.55,
+    scoreMultiplier: 3.2,
+    contactCooldown: 1.05,
+  },
+};
+
 export const enemyTypes = [
   {
     id: "scout",
@@ -148,6 +217,29 @@ export const enemyBalance = {
   bruteChanceOffsetWave: 3,
   bruteChancePerWave: 0.05,
   bruteChanceMax: 0.25,
+  wobble: {
+    scout: 0.18,
+    hunter: 0.18,
+    brute: 0.08,
+    rateBase: 2,
+    rateRandom: 2,
+  } satisfies Record<EnemyKind, number> & { rateBase: number; rateRandom: number },
+};
+
+export const enemySpawnRules: Record<EnemyKind, EnemySpawnPolicy> = {
+  scout: "residual",
+  hunter: {
+    baseChance: 0,
+    perWave: enemyBalance.hunterChancePerWave,
+    maxChance: enemyBalance.hunterChanceMax,
+    waveOnset: 0,
+  },
+  brute: {
+    baseChance: 0,
+    perWave: enemyBalance.bruteChancePerWave,
+    maxChance: enemyBalance.bruteChanceMax,
+    waveOnset: enemyBalance.bruteChanceOffsetWave,
+  },
 };
 
 export const upgradeTiers = [
@@ -205,12 +297,14 @@ export const upgradeBalance = {
     standardPerWave: 5.5,
     rareBase: 18,
     rarePerWave: 2.8,
-    prototypeUnlockWave: 2,
-    prototypeLockedWeight: 1,
     prototypeBase: 3,
     prototypePerWave: 1.45,
-    singularityUnlockWave: 5,
     singularityPerWave: 0.75,
+  },
+  gates: {
+    rare: { minWave: 1, rampWaves: 0 },
+    prototype: { minWave: 2, rampWaves: 0, lockedWeight: 1 },
+    singularity: { minWave: 5, rampWaves: 0, lockedWeight: 0 },
   },
   effects: {
     fireRate: 0.22,
@@ -230,6 +324,42 @@ export const upgradeBalance = {
   },
 };
 
+export const synergyBalance = {
+  kineticRam: {
+    minSpeed: 150,
+    minShieldRatio: 0.28,
+    cooldown: 0.16,
+    hitDuration: 0.16,
+    knockback: 86,
+    damage: { vsDamage: 1.8, vsShield: 0.55, vsSpeed: 0.08 },
+    shieldCost: { flat: 8, perRadius: 0.42 },
+  },
+  magnetStorm: {
+    threshold: 24,
+    cooldown: 2.35,
+    hitDuration: 0.18,
+    knockback: 42,
+    radius: { base: 180, pickupFactor: 42, maxBonus: 115 },
+    damage: { vsDamage: 2.15, vsCharge: 1.65 },
+  },
+};
+
+export const powerupBalance = {
+  heartHealRatio: 0.5,
+  pullRadius: 70,
+  pullStrength: 380,
+  velocityDamping: 1.6,
+  dropChance: {
+    scout: 0.012,
+    hunter: 0.03,
+    brute: 0.09,
+  } satisfies Record<EnemyKind, number>,
+};
+
+export const progressionBalance = {
+  relicUnlockWaves: [10, 20, 30] as const,
+};
+
 export const balance = {
   player: playerBalance,
   wave: waveBalance,
@@ -239,6 +369,10 @@ export const balance = {
   enemies: enemyTypes,
   upgrade: upgradeBalance,
   tiers: upgradeTiers,
+  bosses: bossBalance,
+  synergies: synergyBalance,
+  powerups: powerupBalance,
+  progression: progressionBalance,
 };
 
 export function createPlayerBonus(): PlayerBonus {
@@ -361,25 +495,34 @@ export function experienceOrbRadius(value: number): number {
   );
 }
 
-export function enemyTypeWeights(wave: number): WeightedEnemyType[] {
-  const bruteChance = Math.min(
-    enemyBalance.bruteChanceMax,
-    Math.max(
-      0,
-      (wave - enemyBalance.bruteChanceOffsetWave) * enemyBalance.bruteChancePerWave,
-    ),
+function applyEnemySpawnRule(rule: { baseChance: number; perWave: number; maxChance: number; waveOnset: number }, wave: number): number {
+  return Math.min(
+    rule.maxChance,
+    Math.max(0, rule.baseChance + Math.max(0, wave - rule.waveOnset) * rule.perWave),
   );
-  const hunterChance = Math.min(
-    enemyBalance.hunterChanceMax,
-    wave * enemyBalance.hunterChancePerWave,
-  );
-  const scoutChance = Math.max(0, 1 - bruteChance - hunterChance);
+}
 
-  return [
-    { type: enemyTypes[2]!, weight: bruteChance },
-    { type: enemyTypes[1]!, weight: hunterChance },
-    { type: enemyTypes[0]!, weight: scoutChance },
-  ];
+export function enemyTypeWeights(wave: number): WeightedEnemyType[] {
+  const result: WeightedEnemyType[] = [];
+  let residual: EnemyType | null = null;
+  let nonResidualSum = 0;
+
+  for (const type of enemyTypes) {
+    const policy = enemySpawnRules[type.id];
+    if (policy === "residual") {
+      residual = type;
+      continue;
+    }
+    const weight = applyEnemySpawnRule(policy, wave);
+    result.push({ type, weight });
+    nonResidualSum += weight;
+  }
+
+  if (residual) {
+    result.push({ type: residual, weight: Math.max(0, 1 - nonResidualSum) });
+  }
+
+  return result;
 }
 
 export function selectEnemyType(wave: number, roll: number): EnemyType {
@@ -439,9 +582,21 @@ function lateWaveTargetBonus(wave: number): number {
   );
 }
 
+function gateRampMultiplier(
+  wave: number,
+  gate: { minWave: number; rampWaves: number },
+): number {
+  if (wave < gate.minWave) return 0;
+  if (gate.rampWaves <= 0) return 1;
+  return Math.min(1, (wave - gate.minWave + 1) / gate.rampWaves);
+}
+
 export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[] {
   const weights = upgradeBalance.tierWeights;
+  const gates = upgradeBalance.gates;
   const rank = Math.max(0, Math.min(3, Math.floor(rarityRank)));
+  const protoRamp = gateRampMultiplier(wave, gates.prototype);
+  const singularityRamp = gateRampMultiplier(wave, gates.singularity);
   return [
     {
       tier: upgradeTiers[0]!,
@@ -457,16 +612,16 @@ export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[]
     {
       tier: upgradeTiers[2]!,
       weight:
-        wave >= weights.prototypeUnlockWave
-          ? weights.prototypeBase + wave * weights.prototypePerWave + rank * 3
-          : weights.prototypeLockedWeight,
+        protoRamp > 0
+          ? (weights.prototypeBase + wave * weights.prototypePerWave + rank * 3) * protoRamp
+          : gates.prototype.lockedWeight,
     },
     {
       tier: upgradeTiers[3]!,
       weight:
-        wave >= weights.singularityUnlockWave
-          ? wave * weights.singularityPerWave + rank * 1.5
-          : 0,
+        singularityRamp > 0
+          ? (wave * weights.singularityPerWave + rank * 1.5) * singularityRamp
+          : gates.singularity.lockedWeight,
     },
   ];
 }

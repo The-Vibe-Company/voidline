@@ -89,6 +89,7 @@ export interface GameState {
   highestStageReached: number;
   score: number;
   waveKills: number;
+  killsByKind: Record<EnemyKind, number>;
   waveTarget: number;
   spawnRemaining: number;
   spawnTimer: number;
@@ -387,6 +388,38 @@ export type BuildTag =
   | "magnet"
   | "salvage";
 
+export interface EnemySpawnRule {
+  baseChance: number;
+  perWave: number;
+  maxChance: number;
+  waveOnset: number;
+}
+
+export type EnemySpawnPolicy = EnemySpawnRule | "residual";
+
+export type BossRole = "mini-boss" | "boss";
+
+export type BossId = string;
+
+export interface BossDef {
+  id: BossId;
+  role: BossRole;
+  label: string;
+  stats: {
+    hpMultiplier: number;
+    speedMultiplier: number;
+    damageMultiplier: number;
+    radiusMultiplier: number;
+    scoreMultiplier: number;
+    contactCooldown: number;
+    color: string;
+    accent: string;
+    sides: number;
+    wobble: number;
+    wobbleRate: number;
+  };
+}
+
 export type SynergyId =
   | "rail-splitter"
   | "drone-swarm"
@@ -406,6 +439,8 @@ export interface SynergyDefinition {
   description: string;
   color: string;
   requiredTags: Partial<Record<BuildTag, number>>;
+  apply: (traits: PlayerTraits) => void;
+  reset?: (target: Player) => void;
 }
 
 export interface Weapon {
@@ -426,6 +461,13 @@ export interface Character {
   apply: (target: Player) => void;
 }
 
+export type UpgradeSoftCappedStat = "drones" | "projectileCount" | "pierce";
+
+export interface UpgradeSoftCap {
+  stat: UpgradeSoftCappedStat;
+  max: number;
+}
+
 export interface Upgrade {
   id: string;
   kind: "technology" | "weapon";
@@ -436,6 +478,7 @@ export interface Upgrade {
   tags: readonly BuildTag[];
   effect: (tier: UpgradeTier) => string;
   apply: (tier: UpgradeTier, target: Player) => void;
+  softCap?: UpgradeSoftCap;
 }
 
 export interface UpgradeChoice {

@@ -24,6 +24,57 @@ function tier(id: string) {
   return found;
 }
 
+describe("balance namespace integrity", () => {
+  it("contains no NaN, Infinity, or negative numeric leaves", () => {
+    const offenders: string[] = [];
+    walk(balance, "balance", (path, value) => {
+      if (typeof value !== "number") return;
+      if (!Number.isFinite(value)) {
+        offenders.push(`${path} = ${value}`);
+        return;
+      }
+      if (value < 0) {
+        offenders.push(`${path} = ${value} (negative)`);
+      }
+    });
+    expect(offenders).toEqual([]);
+  });
+
+  it("exposes the new namespaces wired in Phase A", () => {
+    expect(balance.bosses).toBeDefined();
+    expect(balance.bosses.spawnOffsets.miniBoss.eligibleFromWave).toBe(7);
+    expect(balance.synergies.kineticRam.minSpeed).toBe(150);
+    expect(balance.synergies.magnetStorm.threshold).toBe(24);
+    expect(balance.powerups.heartHealRatio).toBe(0.5);
+    expect(balance.powerups.dropChance.brute).toBeGreaterThan(balance.powerups.dropChance.scout);
+    expect(balance.player.drone.fireInterval.minSwarm).toBeLessThan(
+      balance.player.drone.fireInterval.min,
+    );
+    expect(balance.progression.relicUnlockWaves).toEqual([10, 20, 30]);
+  });
+});
+
+function walk(
+  node: unknown,
+  path: string,
+  visit: (path: string, value: number) => void,
+): void {
+  if (node === null || node === undefined) return;
+  if (typeof node === "number") {
+    visit(path, node);
+    return;
+  }
+  if (Array.isArray(node)) {
+    node.forEach((child, index) => walk(child, `${path}[${index}]`, visit));
+    return;
+  }
+  if (typeof node === "object") {
+    for (const [key, child] of Object.entries(node as Record<string, unknown>)) {
+      walk(child, `${path}.${key}`, visit);
+    }
+  }
+}
+
 describe("balance curves", () => {
   it("keeps XP and wave targets monotonic", () => {
     let previousXp = xpToNextLevel(1);

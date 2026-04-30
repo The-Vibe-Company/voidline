@@ -11,7 +11,9 @@ import { pickUpgrades, applyUpgrade } from "../systems/upgrades";
 import { resetSimulation, stepSimulation } from "../simulation/simulation";
 import { setSimulationSeed } from "../simulation/random";
 import { mulberry32 } from "../perf/rng";
-import type { UpgradeChoice } from "../types";
+import { ownedUpgrades, ownedRelics } from "../state";
+import { activeSynergiesForLoadout } from "../systems/synergies";
+import type { BuildTag, EnemyKind, SynergyId, TierId, UpgradeChoice } from "../types";
 import {
   currentChallengeProgress,
   isChallengeTrackingEnabled,
@@ -20,12 +22,14 @@ import {
   setChallengeTrackingEnabled,
 } from "../systems/challenges";
 import {
+  accountProgress,
   currentAccountProgress,
   resetAccountProgress,
   restoreAccountProgress,
 } from "../systems/account";
+import { metaUpgradeCatalog } from "./meta-upgrade-catalog";
 
-export type BalancePersonaId = "idle" | "panic" | "kiter" | "optimizer";
+export type BalancePersonaId = "idle" | "panic" | "kiter" | "optimizer" | "randomized";
 
 export interface BalanceTrialOptions {
   seed: number;
@@ -33,6 +37,10 @@ export interface BalanceTrialOptions {
   maxWave: number;
   maxSeconds: number;
   stepSeconds?: number;
+  buildSeed?: number;
+  randomBuildPicks?: number;
+  excludedTags?: readonly BuildTag[];
+  fullyUnlocked?: boolean;
 }
 
 export interface BalanceTrialResult {
@@ -47,6 +55,12 @@ export interface BalanceTrialResult {
   level: number;
   score: number;
   upgradesApplied: number;
+  killsByKind: Record<EnemyKind, number>;
+  upgradesByTag: Record<BuildTag, number>;
+  upgradesByTier: Record<TierId, number>;
+  bossesDefeatedWaves: number[];
+  bossesDefeatedStages: number[];
+  synergiesActivated: SynergyId[];
 }
 
 export interface BalanceSummary {
@@ -69,6 +83,9 @@ interface PersonaRuntime {
   nextDecisionSeconds: number;
   moveX: number;
   moveY: number;
+  buildRng: () => number;
+  remainingRandomBuildPicks: number;
+  excludedTags: ReadonlySet<BuildTag>;
 }
 
 const DEFAULT_STEP_SECONDS = 1 / 60;
@@ -146,11 +163,20 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
 
   try {
     prepareHeadlessWorld(options.seed);
+    if (options.fullyUnlocked) {
+      for (const upgrade of metaUpgradeCatalog) {
+        accountProgress.upgradeLevels[upgrade.id] = upgrade.maxLevel;
+      }
+    }
     const runtime: PersonaRuntime = {
       rng: mulberry32(options.seed ^ personaSeedSalt(options.persona)),
       nextDecisionSeconds: 0,
       moveX: 0,
       moveY: 0,
+      buildRng: mulberry32((options.buildSeed ?? options.seed) ^ 0xb1d5),
+      remainingRandomBuildPicks:
+        options.buildSeed !== undefined ? Math.max(0, options.randomBuildPicks ?? 3) : 0,
+      excludedTags: new Set(options.excludedTags ?? []),
     };
     let elapsedSeconds = 0;
     let lowestHp = player.hp;
@@ -158,13 +184,29 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
     let totalKills = 0;
     let trackedWave = state.wave;
     let trackedWaveKills = state.waveKills;
+    const upgradesByTag: Record<BuildTag, number> = {
+      cannon: 0,
+      crit: 0,
+      pierce: 0,
+      drone: 0,
+      shield: 0,
+      magnet: 0,
+      salvage: 0,
+    };
+    const upgradesByTier: Record<TierId, number> = {
+      standard: 0,
+      rare: 0,
+      prototype: 0,
+      singularity: 0,
+    };
+    const trialContext: TrialContext = { upgradesByTag, upgradesByTier, runtime };
 
     while (
       elapsedSeconds < options.maxSeconds &&
       state.mode !== "gameover" &&
       state.wave < options.maxWave
     ) {
-      upgradesApplied += spendPendingUpgrades(options.persona);
+      upgradesApplied += spendPendingUpgrades(options.persona, trialContext);
       updatePersonaMovement(options.persona, runtime, elapsedSeconds);
       stepSimulation(stepSeconds);
       elapsedSeconds += stepSeconds;
@@ -178,6 +220,8 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
     }
     totalKills += trackedWaveKills;
 
+    const synergies = activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values());
+
     return {
       seed: options.seed,
       persona: options.persona,
@@ -190,6 +234,12 @@ export function runBalanceTrial(options: BalanceTrialOptions): BalanceTrialResul
       level: state.level,
       score: Math.round(state.score),
       upgradesApplied,
+      killsByKind: { ...state.killsByKind },
+      upgradesByTag,
+      upgradesByTier,
+      bossesDefeatedWaves: [...state.runBossWaves],
+      bossesDefeatedStages: [...state.runBossStages],
+      synergiesActivated: synergies.map((s) => s.id),
     };
   } finally {
     cleanupHeadlessWorld();
@@ -281,14 +331,49 @@ function validateTrialOptions(
   }
 }
 
-function spendPendingUpgrades(persona: BalancePersonaId): number {
+interface TrialContext {
+  upgradesByTag: Record<BuildTag, number>;
+  upgradesByTier: Record<TierId, number>;
+  runtime: PersonaRuntime;
+}
+
+function spendPendingUpgrades(persona: BalancePersonaId, ctx: TrialContext): number {
   if (persona === "idle") return 0;
 
   let spent = 0;
   while (state.pendingUpgrades > 0) {
     const choices = pickUpgrades(3);
     if (!choices.length) break;
-    applyUpgrade(selectUpgradeChoice(persona, choices));
+
+    let pool: UpgradeChoice[];
+    if (ctx.runtime.excludedTags.size > 0) {
+      pool = choices.filter(
+        (choice) => !choice.upgrade.tags.some((tag) => ctx.runtime.excludedTags.has(tag)),
+      );
+      if (pool.length === 0) {
+        state.pendingUpgrades = Math.max(0, state.pendingUpgrades - 1);
+        continue;
+      }
+    } else {
+      pool = choices;
+    }
+
+    let choice: UpgradeChoice;
+    if (persona === "randomized" || ctx.runtime.remainingRandomBuildPicks > 0) {
+      const idx = Math.min(pool.length - 1, Math.floor(ctx.runtime.buildRng() * pool.length));
+      choice = pool[idx]!;
+      if (ctx.runtime.remainingRandomBuildPicks > 0) {
+        ctx.runtime.remainingRandomBuildPicks -= 1;
+      }
+    } else {
+      choice = selectUpgradeChoice(persona, pool);
+    }
+
+    applyUpgrade(choice);
+    ctx.upgradesByTier[choice.tier.id] += 1;
+    for (const tag of choice.upgrade.tags) {
+      ctx.upgradesByTag[tag] += 1;
+    }
     spent += 1;
   }
   return spent;
@@ -344,6 +429,20 @@ function updatePersonaMovement(
       runtime.nextDecisionSeconds = elapsedSeconds + 0.11;
     }
     setAnalogMovement(runtime.moveX, runtime.moveY);
+    return;
+  }
+
+  if (persona === "randomized") {
+    if (elapsedSeconds >= runtime.nextDecisionSeconds) {
+      const [kx, ky] = kiteDirection();
+      const jitter = (runtime.rng() - 0.5) * 0.6;
+      const cos = Math.cos(jitter);
+      const sin = Math.sin(jitter);
+      runtime.moveX = kx * cos - ky * sin;
+      runtime.moveY = kx * sin + ky * cos;
+      runtime.nextDecisionSeconds = elapsedSeconds + 0.18 + runtime.rng() * 0.12;
+    }
+    setMovement(runtime.moveX, runtime.moveY);
     return;
   }
 
@@ -631,6 +730,8 @@ function personaSeedSalt(persona: BalancePersonaId): number {
       return 0x71e5;
     case "optimizer":
       return 0x0f71;
+    case "randomized":
+      return 0xa9e3;
   }
 }
 

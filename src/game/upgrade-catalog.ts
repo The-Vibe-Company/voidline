@@ -23,6 +23,7 @@ export const upgradePool: Upgrade[] = [
     name: "Technologie salves",
     description: "Elargit les tirs de l'arme active.",
     tags: ["cannon"],
+    softCap: { stat: "projectileCount", max: balance.upgrade.caps.projectiles },
     effect(tier) {
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve`;
     },
@@ -172,6 +173,7 @@ export const upgradePool: Upgrade[] = [
     name: "Scatter loader",
     description: "Level-up du Scatter: densifie la salve et compense les impacts.",
     tags: ["cannon", "crit"],
+    softCap: { stat: "projectileCount", max: balance.upgrade.caps.projectiles },
     effect(tier) {
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, +${percent(
         0.08 * tier.power,
@@ -194,6 +196,7 @@ export const upgradePool: Upgrade[] = [
     name: "Lance capacitor",
     description: "Level-up du Rail Lance: penetration et charge de tir.",
     tags: ["pierce", "cannon"],
+    softCap: { stat: "pierce", max: balance.upgrade.caps.pierce },
     effect(tier) {
       return `+${pierceGain(tier)} penetration, +${percent(0.18 * tier.power)} degats`;
     },
@@ -211,6 +214,7 @@ export const upgradePool: Upgrade[] = [
     name: "Drone uplink",
     description: "Level-up du Drone Core: ajoute des tourelles autonomes.",
     tags: ["drone", "salvage"],
+    softCap: { stat: "drones", max: balance.upgrade.caps.drones },
     effect(tier) {
       return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
     },
@@ -245,16 +249,7 @@ export function availableUpgradesForPlayer(
     if (!hasUnlockedTags(upgrade.tags, unlockedTags)) {
       return false;
     }
-    if (upgrade.id === "drone-uplink" && target.drones >= balance.upgrade.caps.drones) {
-      return false;
-    }
-    if (
-      (upgrade.id === "twin-cannon" || upgrade.id === "scatter-loader") &&
-      target.projectileCount >= balance.upgrade.caps.projectiles
-    ) {
-      return false;
-    }
-    if (upgrade.id === "lance-capacitor" && target.pierce >= balance.upgrade.caps.pierce) {
+    if (upgrade.softCap && target[upgrade.softCap.stat] >= upgrade.softCap.max) {
       return false;
     }
     return true;

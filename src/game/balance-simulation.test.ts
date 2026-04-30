@@ -74,6 +74,12 @@ function syntheticResult(
     level: 1,
     score: 0,
     upgradesApplied: 0,
+    killsByKind: { scout: 0, hunter: 0, brute: 0 },
+    upgradesByTag: { cannon: 0, crit: 0, pierce: 0, drone: 0, shield: 0, magnet: 0, salvage: 0 },
+    upgradesByTier: { standard: 0, rare: 0, prototype: 0, singularity: 0 },
+    bossesDefeatedWaves: [],
+    bossesDefeatedStages: [],
+    synergiesActivated: [],
     ...overrides,
   };
 }
@@ -286,4 +292,62 @@ describe("headless early-wave balance", () => {
     });
     expect(state.controlMode).toBe("trackpad");
   });
+});
+
+describe("randomized persona explores the build space (fully unlocked account)", () => {
+  function explore(): BalanceTrialResult[] {
+    return FAST_BALANCE_SEEDS.flatMap((seed) =>
+      [7, 13, 19].map((buildSeed) =>
+        runBalanceTrial({
+          seed,
+          persona: "randomized",
+          maxWave: 8,
+          maxSeconds: 220,
+          buildSeed,
+          fullyUnlocked: true,
+        }),
+      ),
+    );
+  }
+
+  it("activates at least one synergy in a meaningful share of seeds", () => {
+    const results = explore();
+    const totalRuns = results.length;
+    const runsWithSynergy = results.filter((r) => r.synergiesActivated.length > 0).length;
+    expect(totalRuns).toBeGreaterThan(0);
+    expect(runsWithSynergy / totalRuns).toBeGreaterThanOrEqual(0.05);
+  }, 60_000);
+
+  it("keeps a healthy majority of tags reachable across explored builds (pierce/drone are weapon-locked, so excluded)", () => {
+    const results = explore();
+    const totals: Record<string, number> = {};
+    let total = 0;
+    for (const r of results) {
+      for (const [tag, count] of Object.entries(r.upgradesByTag)) {
+        totals[tag] = (totals[tag] ?? 0) + count;
+        total += count;
+      }
+    }
+    expect(total).toBeGreaterThan(0);
+    const tagsWithSomeUsage = Object.values(totals).filter((count) => count > 0).length;
+    expect(tagsWithSomeUsage).toBeGreaterThanOrEqual(4);
+  }, 60_000);
+
+  it("strictly honors excludedTags even when every offered upgrade matches an excluded tag", () => {
+    const results = FAST_BALANCE_SEEDS.slice(0, 6).map((seed) =>
+      runBalanceTrial({
+        seed,
+        persona: "randomized",
+        maxWave: 5,
+        maxSeconds: 120,
+        buildSeed: seed + 1,
+        fullyUnlocked: true,
+        excludedTags: ["cannon"],
+      }),
+    );
+
+    for (const result of results) {
+      expect(result.upgradesByTag.cannon, `seed ${result.seed}`).toBe(0);
+    }
+  }, 60_000);
 });

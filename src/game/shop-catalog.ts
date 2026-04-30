@@ -1,4 +1,26 @@
-import type { AccountProgress, BuildTag, ShopItem, ShopItemId } from "../types";
+import type {
+  AccountProgress,
+  BuildTag,
+  ShopItem,
+  ShopItemId,
+  UnlockRequirement,
+} from "../types";
+
+export const unlockPredicates: Record<UnlockRequirement, (progress: AccountProgress) => boolean> = {
+  available: () => true,
+  "reach-10m": (progress) => progress.records.bestTimeSeconds >= 600,
+  "clear-stage-1": (progress) => progress.highestStageCleared >= 1,
+  "reach-stage-2": (progress) =>
+    progress.records.bestStage >= 2 || progress.highestStartStageUnlocked >= 2,
+  "boss-kill": (progress) => progress.records.bossKills > 0,
+};
+
+export function isUnlockRequirementMet(
+  progress: AccountProgress,
+  requirement: UnlockRequirement,
+): boolean {
+  return unlockPredicates[requirement](progress);
+}
 
 export const STARTER_TECHNOLOGY_IDS = [
   "twin-cannon",
@@ -106,18 +128,7 @@ export function purchasedSet(progress: AccountProgress): ReadonlySet<ShopItemId>
 }
 
 export function isShopItemRevealed(progress: AccountProgress, item: ShopItem): boolean {
-  switch (item.requirement) {
-    case "available":
-      return true;
-    case "reach-10m":
-      return progress.records.bestTimeSeconds >= 600;
-    case "clear-stage-1":
-      return progress.highestStageCleared >= 1;
-    case "reach-stage-2":
-      return progress.records.bestStage >= 2 || progress.highestStartStageUnlocked >= 2;
-    case "boss-kill":
-      return progress.records.bossKills > 0;
-  }
+  return isUnlockRequirementMet(progress, item.requirement);
 }
 
 export function canPurchaseShopItem(
