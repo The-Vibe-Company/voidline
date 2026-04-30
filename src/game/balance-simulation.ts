@@ -345,10 +345,18 @@ function spendPendingUpgrades(persona: BalancePersonaId, ctx: TrialContext): num
     const choices = pickUpgrades(3);
     if (!choices.length) break;
 
-    const eligible = ctx.runtime.excludedTags.size > 0
-      ? choices.filter((choice) => !choice.upgrade.tags.some((tag) => ctx.runtime.excludedTags.has(tag)))
-      : choices;
-    const pool = eligible.length > 0 ? eligible : choices;
+    let pool: UpgradeChoice[];
+    if (ctx.runtime.excludedTags.size > 0) {
+      pool = choices.filter(
+        (choice) => !choice.upgrade.tags.some((tag) => ctx.runtime.excludedTags.has(tag)),
+      );
+      if (pool.length === 0) {
+        state.pendingUpgrades = Math.max(0, state.pendingUpgrades - 1);
+        continue;
+      }
+    } else {
+      pool = choices;
+    }
 
     let choice: UpgradeChoice;
     if (persona === "randomized" || ctx.runtime.remainingRandomBuildPicks > 0) {

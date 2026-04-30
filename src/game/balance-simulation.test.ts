@@ -332,4 +332,22 @@ describe("randomized persona explores the build space (fully unlocked account)",
     const tagsWithSomeUsage = Object.values(totals).filter((count) => count > 0).length;
     expect(tagsWithSomeUsage).toBeGreaterThanOrEqual(4);
   }, 60_000);
+
+  it("strictly honors excludedTags even when every offered upgrade matches an excluded tag", () => {
+    const results = FAST_BALANCE_SEEDS.slice(0, 6).map((seed) =>
+      runBalanceTrial({
+        seed,
+        persona: "randomized",
+        maxWave: 5,
+        maxSeconds: 120,
+        buildSeed: seed + 1,
+        fullyUnlocked: true,
+        excludedTags: ["cannon"],
+      }),
+    );
+
+    for (const result of results) {
+      expect(result.upgradesByTag.cannon, `seed ${result.seed}`).toBe(0);
+    }
+  }, 60_000);
 });
