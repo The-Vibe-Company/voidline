@@ -18,6 +18,23 @@ Les challenges ne donnent pas de bonus permanents directs. Ils servent d'objecti
 
 La home est un hangar jouable, pas une landing page: le premier ecran doit permettre de lancer une run, voir les cristaux, choisir personnage/arme/niveau de depart, acheter des technologies et lire les objectifs. L'ecran de mort doit aider le joueur a comprendre ce qu'il a gagne et quoi acheter ensuite.
 
+## Sim Rust (parité TS↔Rust pour balance massif)
+
+Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo workspace) qui exécute jusqu'à **100k campaigns en quelques secondes** via `rayon`. Tous les knobs et effets sont déclaratifs : `data/balance.json` est la source unique de vérité, généré depuis `balance.ts` + catalogs via `npm run data:export`.
+
+**Maintenance** :
+- Modifier un knob (`balance.ts`) → `npm run data:export` → Rust pick-up auto.
+- Ajouter une upgrade (avec `effects: EffectOp[]`) → `npm run data:export` → 0 Rust.
+- Ajouter un type d'ennemi → `data:export` + 1 entry dans `EnemyKind` (Rust).
+- Voir `sim/README.md` pour l'architecture complète.
+
+**Commands** :
+- `npm run balance:meta-report:quick` — 1.5k trials en <1s
+- `npm run balance:meta-report` — 8k trials en <30s
+- `npm run data:export` — régénère `data/balance.json`
+- `npm run data:check` — vérifie que `data/balance.json` est à jour
+- `cd sim && cargo test --workspace` — tests parité Rust (28 tests)
+
 ## Architecture (rappel)
 
 - **Logique pure** (testable): `src/game/`, `src/entities/`, `src/systems/`, `src/simulation/`, `src/utils.ts`
