@@ -1,0 +1,67 @@
+src/state.ts
+  d66c21fb88c10276 55
+src/game/balance-simulation.ts
+  d66c21fb88c10276 14-16,25,30,32,40-43,58-63,86-88,166-170,176-179,187-202,209,223-224,237-242,334-340,347-368,427-440,725-726
+src/entities/powerups.ts
+  d66c21fb88c10276 12,67,84,102-104,131,133
+src/game/balance-curves.test.ts
+  d66c21fb88c10276 1-190
+src/game/shop-catalog.ts
+  d66c21fb88c10276 1-23,131
+src/game/meta-upgrade-catalog.ts
+  d66c21fb88c10276 1,180
+src/simulation/simulation.ts
+  d66c21fb88c10276 141
+src/game/balance-simulation.test.ts
+  d66c21fb88c10276 77-82,296-335
+src/entities/player.ts
+  d66c21fb88c10276 5,39-40,43,47,50,52,62,72,74-76,169,171-172
+package.json
+  d66c21fb88c10276 13
+src/game/balance.ts
+  d66c21fb88c10276 1-8,61-78,82-86,136-174,220-242,304-308,327-362,372-375,498-501,503,505-525,585-593,596,598-599,615-617,622-624
+.gitignore
+  d66c21fb88c10276 7
+src/types.ts
+  d66c21fb88c10276 92,391-422,442-443,464-470,481
+src/game/roguelike.ts
+  d66c21fb88c10276 1-3
+src/entities/enemies.ts
+  d66c21fb88c10276 8,10-11,14,59-60,65-66,79-81,84-85,87,91,95,97-100,104-106,110-115,121,124,196-197,210,212,216,222-225,227-234,248,252,258-259,261,270,282-284
+src/game/relic-catalog.ts
+  d66c21fb88c10276 14-23
+CLAUDE.md
+  d66c21fb88c10276 40-83,121
+src/game/boss-catalog.ts
+  d66c21fb88c10276 1-49
+src/game/balance.test.ts
+  d66c21fb88c10276 27-77
+scripts/balance-report.test.ts
+  d66c21fb88c10276 1-171
+src/systems/synergies.ts
+  d66c21fb88c10276 27-29,37-39,47-52,60-66,132,136,140-144
+src/game/upgrade-catalog.ts
+  d66c21fb88c10276 26,176,199,217,252
+src/game/balance-curves.ts
+  d66c21fb88c10276 1-137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c4d603d76f61d3506caf888fd850408e41a8f170",
+  "prompts": {
+    "d66c21fb88c10276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "162ff876-f4f5-4324-958e-62f48d23a832",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1357,
+      "total_deletions": 238,
+      "accepted_lines": 1311,
+      "overriden_lines": 1
+    }
+  }
+}
