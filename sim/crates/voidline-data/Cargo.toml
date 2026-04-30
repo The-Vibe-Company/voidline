@@ -1,0 +1,11 @@
+[package]
+name = "voidline-data"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Serde types for Voidline balance data shared with the TS source of truth."
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
