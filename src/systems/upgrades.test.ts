@@ -119,7 +119,7 @@ describe("upgrade draft", () => {
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      purchasedUnlockIds: ["technology:kinetic-shield", "technology:crit-array"],
+      upgradeLevels: { "category:defense": 1, "category:tempo": 1 },
     });
     ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
 
@@ -134,7 +134,7 @@ describe("upgrade draft", () => {
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      purchasedUnlockIds: ["weapon:lance"],
+      upgradeLevels: { "unique:weapon-lance": 1 },
       selectedWeaponId: "lance",
     });
     ids = pickUpgrades(12).map((choice) => choice.upgrade.id);

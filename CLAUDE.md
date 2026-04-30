@@ -24,12 +24,44 @@ La home est un hangar jouable, pas une landing page: le premier ecran doit perme
 - **État centralisé**: `src/state.ts` — muté en place; les collections (`enemies`, `bullets`, `experienceOrbs`, `chests`, …) y vivent
 - **Boucle de tick** (testable, déterministe): `src/simulation/simulation.ts` exporte `stepSimulation(input, deltaMs)` — appelé chaque frame depuis `BattleScene.preupdate()`. RNG seedé dans `src/simulation/random.ts`. Spatial grid pour collisions O(1) dans `src/simulation/spatial-grid.ts`.
 - **Rendu Phaser** (NON testé): `src/phaser/` — `game.ts` (init WebGL), `scenes/BootScene`, `scenes/BattleScene` (lit l'état post-simulation, pousse les display objects), `pools.ts` (recyclage), `textures.ts` (textures générées).
-- **Rendu DOM** (NON testé): `src/render/*` — HUD, perf overlay.
+- **Rendu DOM** (NON testé): `src/render/*` — HUD, perf overlay, hangar (`src/render/hangar.ts`).
 - **Entrée**: `src/game/input.ts` — teste les handlers, pas le wiring `addEventListener`.
 
 Stack: TypeScript 5.6 (strict) + Vite + **Phaser 4 (WebGL)** + Vitest. Migration depuis Canvas 2D dans `c255df0` pour GPU + scene management.
 
 Flux: `main.ts` → `createSimulation()` → `bindInput()` → `createVoidlineGame()` (Phaser). Chaque frame: `BattleScene.preupdate()` → `stepSimulation()` mute l'état → `BattleScene` rend, `updateHud()` lit l'état. Unidirectionnel.
+
+### Home / Hangar
+
+La home est un **unique overlay** `#hangarOverlay` (markup dans `index.html`), plus `#settingsOverlay`. Pas d'écran titre, pas d'arbre orbital séparé. Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit` / `renderCockpit` pour rétro-compat avec `src/main.ts` et `src/render/hud.ts`). À la mort, le bouton "Hangar →" du gameover overlay appelle `showHangar()`; un nouveau run se lance via le bouton LANCER du hangar.
+
+`src/render/hud.ts` n'exporte plus que `showHangar()`, `showSettings()`, `closeSettings()`. Les anciens helpers multi-écrans (`MENU_OVERLAY_IDS`, `showMenuOverlay`, `bindMenuNavigation`) ont été supprimés.
+
+### Méta-progression — catalogue unique
+
+Source de vérité: `src/game/meta-upgrade-catalog.ts`. Deux types d'upgrade:
+
+- **Uniques** (`kind: "unique"`, `maxLevel: 1`): unlocks one-shot — armes (`scatter`, `lance`, `drone`), personnages (`runner`, `tank`), et bonus définitifs (`extra-choice` = +1 choix au level-up; `reroll` = 1 reroll par chest).
+- **Categories** (`kind: "category"`, `maxLevel: 4`): chemins paliers — `attack` (cannon), `defense` (shield), `salvage`, `tempo` (crit). Coûts par niveau: `[40, 75, 130, 220]`. Une catégorie qui porte un `technologyId` injecte automatiquement cette tech dans le pool des tech débloquées dès le niveau 1.
+
+Helpers exposés: `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPurchaseLevel`, `unlockedTechnologyIdsFromMeta`, `unlockedBuildTagsFromMeta`. Achat via `purchaseMetaUpgradeLevel(id)` dans `src/systems/account.ts`.
+
+Hooks runtime branchés sur le catalogue (dans `src/systems/account.ts`):
+- `currentRarityRank()` = `min(3, max(level over 4 categories))` → alimente `upgradeTierWeights(wave, rarityRank)` dans `src/game/balance.ts`.
+- `currentLevelUpChoiceCount()` = `3 + (extra-choice ? 1 : 0) + (tempo>=4 ? 1 : 0)` → consommé par `pickUpgrades(...)` dans `src/render/hud.ts`. Volontairement **non câblé** dans `src/game/balance-simulation.ts` (les trials de balance gardent un 3 fixe pour le déterminisme).
+- `currentRerollCount()` = `reroll-unique + (tempo>=2 ? 1 : 0)`. Computé mais **UI non implémentée** côté chest/upgrade overlay (deferred).
+- `currentCrystalRewardMultiplier()` = `1 + (salvage>=2 ? 0.10 : 0)` → appliqué dans `applyCrystalReward` (`src/game/account-progression.ts`).
+
+#### Migration legacy
+
+`AccountProgress.upgradeLevels: Partial<Record<MetaUpgradeId, number>>` est la nouvelle structure. Le champ `purchasedUnlockIds: ShopItemId[]` reste dans le type pour rétro-compat et est migré au load par `sanitizeAccountProgress` → `migrateLegacyUnlocks` (`src/systems/account.ts`):
+- `weapon:scatter|lance|drone`, `character:runner|tank` → `upgradeLevels["unique:..."] = 1`.
+- `technology:heavy-caliber|kinetic-shield|crit-array` → **refundés** (crystals += cost, spentCrystals -= cost), aucune entrée ajoutée; les catégories les possèdent désormais.
+- `purchasedUnlockIds` est ensuite vidé → migration idempotente.
+
+Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress` réinitialise `upgradeLevels` à `{}`. Ne pas recréer cette migration: elle s'exécute au load et est idempotente.
+
+`purchaseShopItem` (legacy) reste dans le code mais n'a plus de consommateur en prod (seuls ses tests l'appellent).
 
 ## Commands
 
@@ -125,11 +157,12 @@ Reproduis cette approche pour les nouveaux tests.
 ### Cibles prioritaires de couverture (ordre)
 
 1. `src/game/balance.ts` — **fait** (`balance.test.ts`, `balance-simulation.test.ts`)
-2. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — TODO (application des effets, caps additifs)
-3. `src/systems/waves.ts` — TODO (progression de difficulté, invariants de spawn)
-4. `src/game/progression.ts` + `src/entities/experience.ts` — partiel (`experience.test.ts` couvre la collecte; level-up à compléter)
-5. `src/entities/powerups.ts` — TODO (heart / magnet / bomb)
-6. `src/utils.ts` — TODO (`distance`, `circleCollide`, `clamp`, `shuffle` — purs, ROI immédiat)
+2. `src/game/meta-upgrade-catalog.ts` — **fait** (`meta-upgrade-catalog.test.ts`: courbes de coût monotones, cap de niveau max, idempotence des uniques, complétude du catalogue) + migration couverte dans `src/systems/account.test.ts`
+3. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — TODO (application des effets, caps additifs)
+4. `src/systems/waves.ts` — TODO (progression de difficulté, invariants de spawn)
+5. `src/game/progression.ts` + `src/entities/experience.ts` — partiel (`experience.test.ts` couvre la collecte; level-up à compléter)
+6. `src/entities/powerups.ts` — TODO (heart / magnet / bomb)
+7. `src/utils.ts` — TODO (`distance`, `circleCollide`, `clamp`, `shuffle` — purs, ROI immédiat)
 
 Couverts hors-priorité (nouveaux systèmes): `relic-catalog.test.ts`, `roguelike.test.ts`, `relics.test.ts`, `simulation.test.ts`, `bullets.test.ts`, `enemies.test.ts`.
 

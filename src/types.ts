@@ -35,6 +35,36 @@ export type ShopItemId =
   | "technology:crit-array"
   | "technology:heavy-caliber";
 
+export type MetaUpgradeId =
+  | "unique:weapon-scatter"
+  | "unique:weapon-lance"
+  | "unique:weapon-drone"
+  | "unique:char-runner"
+  | "unique:char-tank"
+  | "unique:extra-choice"
+  | "unique:reroll"
+  | "category:attack"
+  | "category:defense"
+  | "category:salvage"
+  | "category:tempo";
+
+export type MetaUpgradeKind = "unique" | "category";
+
+export interface MetaUpgrade {
+  id: MetaUpgradeId;
+  kind: MetaUpgradeKind;
+  name: string;
+  description: string;
+  maxLevel: number;
+  costAt: (level: number) => number;
+  requirement: UnlockRequirement;
+  tag?: BuildTag;
+  weaponId?: WeaponId;
+  characterId?: CharacterId;
+  technologyId?: string;
+  levels?: ReadonlyArray<{ summary: string }>;
+}
+
 export interface World {
   width: number;
   height: number;
@@ -177,6 +207,7 @@ export interface AccountProgress {
   crystals: number;
   spentCrystals: number;
   purchasedUnlockIds: ShopItemId[];
+  upgradeLevels: Partial<Record<MetaUpgradeId, number>>;
   selectedCharacterId: CharacterId;
   selectedWeaponId: WeaponId;
   selectedStartStage: number;

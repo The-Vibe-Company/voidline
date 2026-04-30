@@ -14,6 +14,7 @@ export function createDefaultAccountProgress(): AccountProgress {
     crystals: 0,
     spentCrystals: 0,
     purchasedUnlockIds: [],
+    upgradeLevels: {},
     selectedCharacterId: "pilot",
     selectedWeaponId: "pulse",
     selectedStartStage: 1,
@@ -95,12 +96,19 @@ export function totalCrystalBreakdown(breakdown: AccountRewardBreakdown): number
   );
 }
 
+export function crystalRewardMultiplier(progress: AccountProgress): number {
+  const salvage = progress.upgradeLevels?.["category:salvage"] ?? 0;
+  return 1 + (salvage >= 2 ? 0.10 : 0);
+}
+
 export function applyCrystalReward(
   progress: AccountProgress,
   summary: AccountRunSummary,
   breakdown: AccountRewardBreakdown = computeRunCrystalBreakdown(progress, summary),
 ): AccountReward {
-  const crystalsGained = totalCrystalBreakdown(breakdown);
+  const crystalsGained = Math.floor(
+    totalCrystalBreakdown(breakdown) * crystalRewardMultiplier(progress),
+  );
   const previousStartStage = progress.highestStartStageUnlocked;
   const previousRecords = { ...progress.records };
   const uniqueBossStages = uniquePositiveNumbers(summary.bossStages);
