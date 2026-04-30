@@ -3,9 +3,13 @@
 
 pub mod balance_curves;
 pub mod effects;
+pub mod entities;
 pub mod math;
 pub mod player;
 pub mod rng;
+pub mod spatial_grid;
+pub mod state;
+pub mod world;
 
 pub use balance_curves::{
     experience_drop_total, experience_orb_radius, experience_shard_count,
