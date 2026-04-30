@@ -1,0 +1,12 @@
+[package]
+name = "voidline-sim"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "Headless port of the Voidline gameplay simulation."
+
+[dependencies]
+voidline-data = { path = "../voidline-data" }
+serde = { workspace = true }
+serde_json = { workspace = true }
