@@ -2,13 +2,26 @@
 //! Designed for parity with the TS sim (deterministic with the same seed).
 
 pub mod balance_curves;
+pub mod bullets;
+pub mod chests;
 pub mod effects;
+pub mod enemies;
 pub mod entities;
+pub mod experience;
+pub mod input;
 pub mod math;
 pub mod player;
+pub mod player_update;
+pub mod pools;
+pub mod powerups;
+pub mod progression;
 pub mod rng;
+pub mod roguelike;
+pub mod simulation;
 pub mod spatial_grid;
+pub mod spawn;
 pub mod state;
+pub mod synergies;
 pub mod world;
 
 pub use balance_curves::{
