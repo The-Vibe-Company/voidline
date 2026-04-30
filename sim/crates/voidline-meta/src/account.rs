@@ -85,6 +85,8 @@ pub enum PurchaseError {
 }
 
 pub fn requirement_met(account: &AccountSnapshot, requirement: &str) -> bool {
+    // Fail closed on unknown requirements: a typo in balance.json should
+    // gate the upgrade rather than silently unlock everything.
     match requirement {
         "available" => true,
         "reach-10m" => account.records.best_time_seconds >= 600,
@@ -93,7 +95,7 @@ pub fn requirement_met(account: &AccountSnapshot, requirement: &str) -> bool {
             account.records.best_stage >= 2 || account.highest_start_stage_unlocked >= 2
         }
         "boss-kill" => account.records.boss_kills > 0,
-        _ => true,
+        _ => false,
     }
 }
 
@@ -127,10 +129,12 @@ pub fn purchase(account: &mut AccountSnapshot, meta: &MetaUpgrade) -> Result<u64
 }
 
 pub fn current_rarity_rank(account: &AccountSnapshot) -> u32 {
+    // Mirrors `currentRarityRank` in src/systems/account.ts: max raw level
+    // across the 4 category upgrades, capped at 3.
     let categories = ["category:attack", "category:defense", "category:salvage", "category:tempo"];
     let max = categories
         .iter()
-        .map(|c| account.level_of(c) / 4)
+        .map(|c| account.level_of(c))
         .max()
         .unwrap_or(0);
     max.min(3)
@@ -271,6 +275,7 @@ pub fn apply_run_reward(account: &mut AccountSnapshot, outcome: &RunOutcome) -> 
     let highest_boss_stage = unique_boss.iter().copied().max().unwrap_or(0);
     let highest_stage_cleared = account.highest_stage_cleared.max(highest_boss_stage);
     let highest_reached = highest_reached_stage(outcome);
+    let previous_start_stage = account.highest_start_stage_unlocked;
     let highest_start_stage_unlocked = account
         .highest_start_stage_unlocked
         .max(1)
@@ -279,6 +284,14 @@ pub fn apply_run_reward(account: &mut AccountSnapshot, outcome: &RunOutcome) -> 
     account.crystals += gained;
     account.highest_stage_cleared = highest_stage_cleared;
     account.highest_start_stage_unlocked = highest_start_stage_unlocked;
+    // Mirrors src/game/account-progression.ts:applyCrystalReward:
+    // promote selected_start_stage when a new tier unlocks, otherwise
+    // clamp the existing selection to the (possibly tightened) ceiling.
+    account.selected_start_stage = if highest_start_stage_unlocked > previous_start_stage {
+        highest_start_stage_unlocked
+    } else {
+        account.selected_start_stage.min(highest_start_stage_unlocked)
+    };
     account.records.best_stage = account.records.best_stage.max(highest_reached);
     account.records.best_time_seconds = account
         .records

@@ -168,7 +168,7 @@ impl<'a> MetaProgressionEnv<'a> {
             start_stage: self.account.selected_start_stage,
             died,
         };
-        let crystals_before = self.account.crystals;
+        let _crystals_before = self.account.crystals;
         apply_run_reward(&mut self.account, &outcome);
         let reward = (final_wave as f64) - (current_rarity_rank(&self.account) as f64) * 0.1;
         self.run_index += 1;
