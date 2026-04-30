@@ -71,15 +71,6 @@ export const metaUpgradeCatalog: readonly MetaUpgrade[] = [
     requirement: "available",
   },
   {
-    id: "unique:reroll",
-    kind: "unique",
-    name: "Reroll",
-    description: "1 reroll par chest pour relancer les choix.",
-    maxLevel: 1,
-    costAt: () => 100,
-    requirement: "clear-stage-1",
-  },
-  {
     id: "category:attack",
     kind: "category",
     name: "Attaque",
@@ -141,7 +132,7 @@ export const metaUpgradeCatalog: readonly MetaUpgrade[] = [
     requirement: "available",
     levels: [
       { summary: "Débloque la tech Critique et les rares de précision." },
-      { summary: "+1 reroll disponible." },
+      { summary: "+25% chance de rare globale." },
       { summary: "Débloque les prototypes." },
       { summary: "+1 choix au level-up." },
     ],
@@ -173,6 +164,32 @@ export function nextLevelCost(progress: AccountProgress, id: MetaUpgradeId): num
 
 export type MetaPurchaseError = "max-level" | "locked" | "crystals";
 
+export type MetaUpgradeRecommendation =
+  | {
+      state: "purchase";
+      upgrade: MetaUpgrade;
+      level: number;
+      cost: number;
+      missing: 0;
+    }
+  | {
+      state: "save";
+      upgrade: MetaUpgrade;
+      level: number;
+      cost: number;
+      missing: number;
+    }
+  | {
+      state: "locked";
+      upgrade: MetaUpgrade;
+      level: number;
+      cost: number;
+      missing: 0;
+    }
+  | {
+      state: "complete";
+    };
+
 export function isMetaUpgradeRevealed(
   progress: AccountProgress,
   upgrade: MetaUpgrade,
@@ -191,6 +208,69 @@ export function canPurchaseLevel(
   const cost = upgrade.costAt(current + 1);
   if (progress.crystals < cost) return { ok: false, reason: "crystals" };
   return { ok: true, cost };
+}
+
+export function recommendMetaUpgrade(progress: AccountProgress): MetaUpgradeRecommendation {
+  const pending = metaUpgradeCatalog
+    .map((upgrade, index) => {
+      const current = metaUpgradeLevel(progress, upgrade.id);
+      const cost = current >= upgrade.maxLevel ? null : upgrade.costAt(current + 1);
+      return {
+        upgrade,
+        index,
+        level: current + 1,
+        cost,
+        revealed: isMetaUpgradeRevealed(progress, upgrade),
+      };
+    })
+    .filter((entry) => entry.cost !== null);
+
+  const revealed = pending.filter((entry) => entry.revealed);
+  const affordable = cheapestMetaCandidate(
+    revealed.filter((entry) => (entry.cost ?? Infinity) <= progress.crystals),
+  );
+  if (affordable) {
+    return {
+      state: "purchase",
+      upgrade: affordable.upgrade,
+      level: affordable.level,
+      cost: affordable.cost ?? 0,
+      missing: 0,
+    };
+  }
+
+  const savingTarget = cheapestMetaCandidate(revealed);
+  if (savingTarget) {
+    const cost = savingTarget.cost ?? 0;
+    return {
+      state: "save",
+      upgrade: savingTarget.upgrade,
+      level: savingTarget.level,
+      cost,
+      missing: Math.max(0, cost - progress.crystals),
+    };
+  }
+
+  const lockedTarget = pending.find((entry) => !entry.revealed);
+  if (lockedTarget) {
+    return {
+      state: "locked",
+      upgrade: lockedTarget.upgrade,
+      level: lockedTarget.level,
+      cost: lockedTarget.cost ?? 0,
+      missing: 0,
+    };
+  }
+
+  return { state: "complete" };
+}
+
+function cheapestMetaCandidate<T extends { cost: number | null; index: number }>(
+  entries: readonly T[],
+): T | undefined {
+  return [...entries].sort(
+    (a, b) => (a.cost ?? Infinity) - (b.cost ?? Infinity) || a.index - b.index,
+  )[0];
 }
 
 export function unlockedTechnologyIdsFromMeta(progress: AccountProgress): Set<string> {
@@ -214,4 +294,3 @@ export function unlockedBuildTagsFromMeta(progress: AccountProgress): Set<BuildT
   }
   return tags;
 }
-

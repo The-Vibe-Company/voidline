@@ -42,7 +42,6 @@ export type MetaUpgradeId =
   | "unique:char-runner"
   | "unique:char-tank"
   | "unique:extra-choice"
-  | "unique:reroll"
   | "category:attack"
   | "category:defense"
   | "category:salvage"

@@ -6,6 +6,7 @@ import {
   activeSynergiesFromTagCounts,
   buildTagCountsFromLoadout,
   refreshPlayerTraits,
+  synergyHintsForTags,
 } from "./synergies";
 
 const tier = upgradeTiers[0]!;
@@ -69,5 +70,45 @@ describe("build synergy calculation", () => {
       kineticRam: true,
       magnetStorm: true,
     });
+  });
+
+  it("marks a choice that completes a synergy", () => {
+    const counts = buildTagCountsFromLoadout(
+      [
+        { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
+        { upgrade: findUpgrade("crit-array"), tier, count: 1 },
+      ],
+      [],
+    );
+
+    expect(synergyHintsForTags(["pierce"], counts)).toMatchObject([
+      { id: "rail-splitter", state: "complete" },
+    ]);
+  });
+
+  it("marks a choice that advances an unfinished synergy", () => {
+    const counts = buildTagCountsFromLoadout(
+      [{ upgrade: findUpgrade("rail-slug"), tier, count: 1 }],
+      [],
+    );
+
+    expect(synergyHintsForTags(["crit"], counts)).toMatchObject([
+      { id: "rail-splitter", state: "advance", missingTags: ["pierce"] },
+    ]);
+  });
+
+  it("marks a choice that supports an already active synergy", () => {
+    const counts = buildTagCountsFromLoadout(
+      [
+        { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
+        { upgrade: findUpgrade("crit-array"), tier, count: 1 },
+        { upgrade: findUpgrade("lance-capacitor"), tier, count: 1 },
+      ],
+      [],
+    );
+
+    expect(synergyHintsForTags(["cannon"], counts)).toMatchObject([
+      { id: "rail-splitter", state: "active" },
+    ]);
   });
 });

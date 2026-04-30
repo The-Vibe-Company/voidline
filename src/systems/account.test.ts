@@ -5,7 +5,6 @@ import {
   currentCrystalRewardMultiplier,
   currentLevelUpChoiceCount,
   currentRarityRank,
-  currentRerollCount,
   equipWeapon,
   initializeAccountProgress,
   purchaseMetaUpgradeLevel,
@@ -148,6 +147,28 @@ describe("crystal persistence and unlock shop", () => {
     expect(accountProgress.purchasedUnlockIds).toEqual([]);
   });
 
+  it("refunds and removes the deleted reroll meta upgrade from stored saves", () => {
+    storage.setItem(
+      "voidline:metaProgress:v1",
+      JSON.stringify({
+        crystals: 20,
+        spentCrystals: 140,
+        upgradeLevels: {
+          "unique:reroll": 1,
+          "category:attack": 1,
+        },
+      }),
+    );
+
+    initializeAccountProgress(storage);
+
+    expect(accountProgress.crystals).toBe(120);
+    expect(accountProgress.spentCrystals).toBe(40);
+    expect(accountProgress.upgradeLevels["category:attack"]).toBe(1);
+    expect(accountProgress.upgradeLevels).not.toHaveProperty("unique:reroll");
+    expect(storage.getItem("voidline:metaProgress:v1")).not.toContain("unique:reroll");
+  });
+
   it("uses recoverable legacy tokens when a stored crystal balance is malformed", () => {
     storage.setItem(
       "voidline:metaProgress:v1",
@@ -198,6 +219,27 @@ describe("crystal persistence and unlock shop", () => {
     expect(accountProgress.crystals).toBe(20);
     expect(accountProgress.purchasedUnlockIds).not.toContain("weapon:scatter");
     expect(accountProgress.selectedWeaponId).toBe("pulse");
+  });
+
+  it("does not refund deleted meta upgrades from ignored legacy storage", () => {
+    storage.setItem(
+      "voidline:accountProgress:v1",
+      JSON.stringify({
+        crystals: 999,
+        upgradeLevels: { "unique:reroll": 1 },
+      }),
+    );
+    storage.setItem(
+      "voidline:metaProgress:v1",
+      JSON.stringify({
+        crystals: 20,
+      }),
+    );
+
+    initializeAccountProgress(storage);
+
+    expect(accountProgress.crystals).toBe(20);
+    expect(storage.getItem("voidline:metaProgress:v1")).not.toContain("unique:reroll");
   });
 
   it("restores in-memory snapshots without dropping last run rewards", () => {
@@ -354,28 +396,6 @@ describe("meta upgrade derivations", () => {
       upgradeLevels: { "unique:extra-choice": 1, "category:tempo": 4 },
     });
     expect(currentLevelUpChoiceCount()).toBe(5);
-  });
-
-  it("computes reroll count from reroll unique and tempo L2+", () => {
-    expect(currentRerollCount()).toBe(0);
-
-    restoreAccountProgress({
-      ...createDefaultAccountProgress(),
-      upgradeLevels: { "unique:reroll": 1 },
-    });
-    expect(currentRerollCount()).toBe(1);
-
-    restoreAccountProgress({
-      ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:tempo": 3 },
-    });
-    expect(currentRerollCount()).toBe(1);
-
-    restoreAccountProgress({
-      ...createDefaultAccountProgress(),
-      upgradeLevels: { "unique:reroll": 1, "category:tempo": 4 },
-    });
-    expect(currentRerollCount()).toBe(2);
   });
 
   it("applies a +10% crystal multiplier from salvage L2", () => {

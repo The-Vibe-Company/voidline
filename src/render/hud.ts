@@ -11,7 +11,13 @@ import type {
   SynergyDefinition,
 } from "../types";
 import { consumeSimulationEvents } from "../simulation/events";
-import { activeSynergiesForLoadout, BUILD_TAG_META } from "../systems/synergies";
+import {
+  activeSynergiesForLoadout,
+  BUILD_TAG_META,
+  buildTagCountsFromLoadout,
+  synergyHintsForTags,
+  type SynergyHint,
+} from "../systems/synergies";
 import {
   accountProgress,
   awardRunAccountProgress,
@@ -134,9 +140,35 @@ function renderSynergyBadges(synergies: readonly SynergyDefinition[]): string {
     .join("")}</span>`;
 }
 
+function renderSynergyHints(hints: readonly SynergyHint[]): string {
+  if (hints.length === 0) return "";
+  return `<span class="synergy-hints" aria-hidden="true">${hints
+    .map(
+      (hint) =>
+        `<span class="synergy-hint" data-state="${hint.state}" style="--tag-color: ${hint.color}">${synergyHintText(hint)}</span>`,
+    )
+    .join("")}</span>`;
+}
+
+function renderOwnedBadge(count: number): string {
+  return count > 0 ? `<span class="owned-badge" aria-hidden="true">x${count}</span>` : "";
+}
+
+function synergyHintText(hint: SynergyHint): string {
+  switch (hint.state) {
+    case "complete":
+      return `Complete ${hint.name}`;
+    case "advance":
+      return `Avance ${hint.name}`;
+    case "active":
+      return `Active ${hint.name}`;
+  }
+}
+
 function buildInfoText(
   tags: readonly BuildTag[],
   synergies: readonly SynergyDefinition[],
+  hints: readonly SynergyHint[],
 ): string {
   const segments: string[] = [];
   if (tags.length > 0) {
@@ -144,6 +176,9 @@ function buildInfoText(
   }
   if (synergies.length > 0) {
     segments.push(`Synergies actives: ${synergies.map((synergy) => synergy.name).join(", ")}`);
+  }
+  if (hints.length > 0) {
+    segments.push(`Pistes de synergie: ${hints.map(synergyHintText).join(", ")}`);
   }
   return segments.join(". ");
 }
@@ -153,6 +188,18 @@ function activeSynergiesForTags(tags: readonly BuildTag[]): SynergyDefinition[] 
   return active.filter((synergy) =>
     (Object.keys(synergy.requiredTags) as BuildTag[]).some((tag) => tags.includes(tag)),
   );
+}
+
+function ownedUpgradeCount(upgradeId: string): number {
+  let count = 0;
+  for (const owned of ownedUpgrades.values()) {
+    if (owned.upgrade.id === upgradeId) count += owned.count;
+  }
+  return count;
+}
+
+function ownedRelicCount(relicId: string): number {
+  return ownedRelics.get(relicId)?.count ?? 0;
 }
 
 function cipherFor(upgradeId: string, tierShort: string, index: number): string {
@@ -468,6 +515,7 @@ export function showUpgrade(): void {
   hud.upgradeGrid.innerHTML = "";
 
   const choices = pickUpgrades(currentLevelUpChoiceCount());
+  const buildTagCounts = buildTagCountsFromLoadout(ownedUpgrades.values(), ownedRelics.values());
   for (const [index, choice] of choices.entries()) {
     const { upgrade, tier } = choice;
     const choiceId = `upgrade-choice-${index + 1}`;
@@ -477,6 +525,8 @@ export function showUpgrade(): void {
     const effectId = `${choiceId}-effect`;
     const buildInfoId = `${choiceId}-build-info`;
     const activeSynergies = activeSynergiesForTags(upgrade.tags);
+    const synergyHints = synergyHintsForTags(upgrade.tags, buildTagCounts);
+    const ownedCount = ownedUpgradeCount(upgrade.id);
     const rank = tierRank(tier.id);
     const cipher = cipherFor(upgrade.id, tier.short, index);
     const card = document.createElement("button");
@@ -511,9 +561,13 @@ export function showUpgrade(): void {
         <span class="tier-chevrons" aria-hidden="true">${chevrons}</span>
         <span class="tier-name" aria-hidden="true">${tier.name}</span>
       </span>
-      ${renderBuildTags(upgrade.tags)}
+      <span class="choice-meta-row">
+        ${renderBuildTags(upgrade.tags)}
+        ${renderOwnedBadge(ownedCount)}
+      </span>
       ${renderSynergyBadges(activeSynergies)}
-      <span class="sr-only" id="${buildInfoId}">${buildInfoText(upgrade.tags, activeSynergies)}</span>
+      ${renderSynergyHints(synergyHints)}
+      <span class="sr-only" id="${buildInfoId}">${buildInfoText(upgrade.tags, activeSynergies, synergyHints)}</span>
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${upgrade.icon}</span>
@@ -569,6 +623,7 @@ export function showChest(): void {
   hud.chestGrid.innerHTML = "";
 
   const choices = pickRelicChoices(3);
+  const buildTagCounts = buildTagCountsFromLoadout(ownedUpgrades.values(), ownedRelics.values());
   for (const [index, choice] of choices.entries()) {
     const { relic } = choice;
     const choiceId = `relic-choice-${index + 1}`;
@@ -577,6 +632,8 @@ export function showChest(): void {
     const effectId = `${choiceId}-effect`;
     const buildInfoId = `${choiceId}-build-info`;
     const activeSynergies = activeSynergiesForTags(relic.tags);
+    const synergyHints = synergyHintsForTags(relic.tags, buildTagCounts);
+    const ownedCount = ownedRelicCount(relic.id);
     const cipher = cipherFor(relic.id, "R", index);
     const card = document.createElement("button");
     card.className = "upgrade-card relic-card";
@@ -610,9 +667,13 @@ export function showChest(): void {
         </span>
         <span class="tier-name">Relique de run</span>
       </span>
-      ${renderBuildTags(relic.tags)}
+      <span class="choice-meta-row">
+        ${renderBuildTags(relic.tags)}
+        ${renderOwnedBadge(ownedCount)}
+      </span>
       ${renderSynergyBadges(activeSynergies)}
-      <span class="sr-only" id="${buildInfoId}">${buildInfoText(relic.tags, activeSynergies)}</span>
+      ${renderSynergyHints(synergyHints)}
+      <span class="sr-only" id="${buildInfoId}">${buildInfoText(relic.tags, activeSynergies, synergyHints)}</span>
       <span class="upgrade-stamp" aria-hidden="true">
         <span class="upgrade-stamp-rivet"></span>
         <span class="upgrade-stamp-glyph">${relic.icon}</span>

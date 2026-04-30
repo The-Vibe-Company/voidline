@@ -47,6 +47,10 @@ const REFUND_SHOP_ITEMS: ReadonlyArray<{ id: ShopItemId; cost: number }> = [
   { id: "technology:crit-array", cost: 55 },
 ];
 
+const REMOVED_META_UPGRADE_REFUNDS: ReadonlyArray<{ id: string; cost: number }> = [
+  { id: "unique:reroll", cost: 100 },
+];
+
 const STORAGE_KEY = "voidline:metaProgress:v1";
 const LEGACY_STORAGE_KEY = "voidline:accountProgress:v1";
 
@@ -108,6 +112,7 @@ function sanitizeAccountProgress(raw: unknown): AccountProgress {
   clean.crystals = saneInt(crystalCandidate, clean.crystals, 0);
   clean.spentCrystals = saneInt(source.spentCrystals, clean.spentCrystals, 0);
   clean.upgradeLevels = sanitizeUpgradeLevels(source.upgradeLevels);
+  refundRemovedMetaUpgrades(clean, source.upgradeLevels);
 
   const legacyPurchases = [
     ...new Set(purchasedCandidates.filter((id): id is ShopItemId => shopIds.has(id))),
@@ -181,6 +186,35 @@ function migrateLegacyUnlocks(progress: AccountProgress, legacyIds: ShopItemId[]
   }
 }
 
+function refundRemovedMetaUpgrades(
+  progress: AccountProgress,
+  upgradeLevels: unknown,
+): void {
+  if (!upgradeLevels || typeof upgradeLevels !== "object") return;
+  const source = upgradeLevels as Record<string, unknown>;
+  for (const refund of REMOVED_META_UPGRADE_REFUNDS) {
+    const level = source[refund.id];
+    if (typeof level !== "number" || !Number.isFinite(level) || level < 1) continue;
+    progress.crystals += refund.cost;
+    progress.spentCrystals = Math.max(0, progress.spentCrystals - refund.cost);
+  }
+}
+
+function hasRemovedMetaUpgrades(raw: string | null): boolean {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw) as Partial<AccountProgress>;
+    const levels = parsed.upgradeLevels;
+    if (!levels || typeof levels !== "object") return false;
+    return REMOVED_META_UPGRADE_REFUNDS.some((refund) => {
+      const level = (levels as Record<string, unknown>)[refund.id];
+      return typeof level === "number" && Number.isFinite(level) && level >= 1;
+    });
+  } catch {
+    return false;
+  }
+}
+
 function cloneAccountReward(reward: AccountReward | null | undefined): AccountReward | null {
   return reward
     ? {
@@ -221,7 +255,7 @@ export function initializeAccountProgress(storage: AccountStorage | null = getSt
   const storedRaw = storage?.getItem(STORAGE_KEY) ?? null;
   const legacyRaw = storedRaw ? null : (storage?.getItem(LEGACY_STORAGE_KEY) ?? null);
   assignAccountProgress(parseStoredProgress(storedRaw ?? legacyRaw));
-  if (!storedRaw && legacyRaw) saveAccountProgress(storage);
+  if ((!storedRaw && legacyRaw) || hasRemovedMetaUpgrades(storedRaw)) saveAccountProgress(storage);
 }
 
 export function saveAccountProgress(storage: AccountStorage | null = getStorage()): void {
@@ -391,13 +425,6 @@ export function currentLevelUpChoiceCount(): number {
   const extra = (lvls["unique:extra-choice"] ?? 0) >= 1 ? 1 : 0;
   const tempo = (lvls["category:tempo"] ?? 0) >= 4 ? 1 : 0;
   return 3 + extra + tempo;
-}
-
-export function currentRerollCount(): number {
-  const lvls = accountProgress.upgradeLevels;
-  const reroll = (lvls["unique:reroll"] ?? 0) >= 1 ? 1 : 0;
-  const tempo = (lvls["category:tempo"] ?? 0) >= 2 ? 1 : 0;
-  return reroll + tempo;
 }
 
 export function currentCrystalRewardMultiplier(): number {
