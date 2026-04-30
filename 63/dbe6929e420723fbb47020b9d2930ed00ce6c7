@@ -1,0 +1,23 @@
+.gitignore
+  d66c21fb88c10276 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "63dbe6929e420723fbb47020b9d2930ed00ce6c7",
+  "prompts": {
+    "d66c21fb88c10276": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "162ff876-f4f5-4324-958e-62f48d23a832",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": null,
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 1,
+      "accepted_lines": 147,
+      "overriden_lines": 0
+    }
+  }
+}
