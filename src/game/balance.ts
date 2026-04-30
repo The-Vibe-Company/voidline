@@ -89,9 +89,9 @@ export const playerBalance = {
 export const waveBalance = {
   targetBase: 21,
   targetLinear: 5,
-  targetExponent: 1.22,
+  targetExponent: 1.28,
   spawnGapStart: 0.405,
-  spawnGapPerWave: 0.015,
+  spawnGapPerWave: 0.02,
   spawnGapMin: 0.14,
   spawnTimerStart: 0.1,
   packChancePerWave: 0.12,
@@ -161,7 +161,7 @@ export const bossBalance = {
   },
   miniBoss: {
     startWave: 3,
-    spawnChance: 0.24,
+    spawnChance: 0.32,
     guaranteeAfterEligibleWaves: 4,
     hpMultiplier: 6.4,
     speedMultiplier: 0.74,
@@ -209,12 +209,12 @@ export const enemyTypes = [
 ] satisfies EnemyType[];
 
 export const enemyBalance = {
-  hpScalePerWave: 0.05,
+  hpScalePerWave: 0.06,
   speedScalePerWave: 0.022,
   speedScaleMax: 0.4,
-  hunterChancePerWave: 0.05,
+  hunterChancePerWave: 0.07,
   hunterChanceMax: 0.4,
-  bruteChanceOffsetWave: 3,
+  bruteChanceOffsetWave: 2,
   bruteChancePerWave: 0.05,
   bruteChanceMax: 0.25,
   wobble: {
@@ -292,19 +292,19 @@ export const upgradeBalance = {
     singularity: 3,
   },
   tierWeights: {
-    standardMin: 42,
+    standardMin: 24,
     standardBase: 100,
     standardPerWave: 5.5,
-    rareBase: 18,
+    rareBase: 28,
     rarePerWave: 2.8,
-    prototypeBase: 3,
+    prototypeBase: 7,
     prototypePerWave: 1.45,
-    singularityPerWave: 0.75,
+    singularityPerWave: 1.4,
   },
   gates: {
     rare: { minWave: 1, rampWaves: 0 },
-    prototype: { minWave: 2, rampWaves: 0, lockedWeight: 1 },
-    singularity: { minWave: 5, rampWaves: 0, lockedWeight: 0 },
+    prototype: { minWave: 2, rampWaves: 0, lockedWeight: 4 },
+    singularity: { minWave: 3, rampWaves: 0, lockedWeight: 0 },
   },
   effects: {
     fireRate: 0.22,

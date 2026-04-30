@@ -28,9 +28,10 @@ export const STARTER_TECHNOLOGY_IDS = [
   "rail-slug",
   "ion-engine",
   "magnet-array",
+  "crit-array",
 ] as const;
 
-export const STARTER_BUILD_TAGS = ["cannon", "salvage", "magnet"] as const satisfies BuildTag[];
+export const STARTER_BUILD_TAGS = ["cannon", "salvage", "magnet", "crit"] as const satisfies BuildTag[];
 
 export const shopCatalog: readonly ShopItem[] = [
   {
