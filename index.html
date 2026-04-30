@@ -145,96 +145,141 @@
       </aside>
 
       <section class="overlay active hangar-overlay" id="hangarOverlay" aria-labelledby="hangarTitle">
-        <div class="hangar-modal">
-          <header class="hangar-header">
-            <div class="hangar-titleblock">
-              <h1 class="hangar-brand" id="hangarTitle">VOIDLINE</h1>
-              <span class="hangar-subtitle">console de hangar</span>
+        <div class="hangar-stage" data-screen-stage>
+          <span class="hangar-backdrop" aria-hidden="true"></span>
+
+          <button class="hangar-back-btn" type="button" data-hangar-back aria-label="Retour au menu">
+            <span class="arrow" aria-hidden="true">&lsaquo;</span>
+            Retour
+          </button>
+
+          <span class="hangar-crystal-hud" aria-live="polite" aria-label="Cristaux disponibles">
+            <span class="glyph" aria-hidden="true">&#9670;</span>
+            <strong data-account-crystals>0</strong>
+            <span class="lbl">cristaux</span>
+          </span>
+
+          <button class="hangar-cog" id="settingsButton" type="button" aria-label="Reglages">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.05.24.25.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.22.09.48 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
+            </svg>
+          </button>
+
+          <section class="hangar-screen hangar-screen--title" data-screen="title" data-active="true" aria-labelledby="hangarTitle">
+            <div class="hangar-brand-block">
+              <span class="hangar-brand-pre"><span class="dot" aria-hidden="true"></span> Console de hangar</span>
+              <h1 class="hangar-brand-mark" id="hangarTitle">VOIDLINE</h1>
+              <p class="hangar-brand-tagline">Survis 10 minutes, bats le boss, reviens plus fort</p>
             </div>
-            <div class="hangar-command">
-              <span class="hangar-crystals" aria-live="polite" aria-label="Cristaux disponibles">
-                <strong data-account-crystals>0</strong>
-                <span class="hangar-crystal-glyph" aria-hidden="true">&#9670;</span>
-              </span>
+
+            <div class="hangar-menu" role="menu">
+              <button class="hangar-menu-item primary" id="startButton" type="button" role="menuitem" data-action="play">
+                <span class="marker" aria-hidden="true"></span>
+                <span class="hangar-menu-text">
+                  <span class="label">JOUER</span>
+                  <span class="sub" data-loadout-summary>Pilot &middot; Pulse Rifle &middot; Stage 1</span>
+                </span>
+                <span class="key" aria-hidden="true">ESPACE</span>
+              </button>
+              <button class="hangar-menu-item" type="button" role="menuitem" data-action="loadout">
+                <span class="marker" aria-hidden="true"></span>
+                <span class="hangar-menu-text">
+                  <span class="label">Loadout</span>
+                  <span class="sub">Pilote &middot; Arme &middot; Stage</span>
+                </span>
+                <span class="key" aria-hidden="true">L</span>
+              </button>
+              <button class="hangar-menu-item" type="button" role="menuitem" data-action="shop">
+                <span class="marker" aria-hidden="true"></span>
+                <span class="hangar-menu-text">
+                  <span class="label">Boutique</span>
+                  <span class="sub" data-shop-summary>Investis tes cristaux</span>
+                </span>
+                <span class="key" aria-hidden="true">B</span>
+              </button>
             </div>
-            <button class="hangar-cog" id="settingsButton" type="button" aria-label="Reglages">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-                <path d="M19.43 12.98c.04-.32.07-.65.07-.98s-.03-.66-.07-.98l2.11-1.65c.19-.15.24-.42.12-.64l-2-3.46a.5.5 0 0 0-.61-.22l-2.49 1c-.52-.4-1.08-.73-1.69-.98l-.38-2.65A.5.5 0 0 0 14 2h-4a.5.5 0 0 0-.49.42l-.38 2.65c-.61.25-1.17.59-1.69.98l-2.49-1a.5.5 0 0 0-.61.22l-2 3.46c-.13.22-.07.49.12.64L4.57 11c-.04.32-.07.65-.07.98s.03.66.07.98l-2.11 1.65c-.19.15-.24.42-.12.64l2 3.46c.13.22.39.31.61.22l2.49-1c.52.4 1.08.73 1.69.98l.38 2.65c.05.24.25.42.49.42h4c.24 0 .44-.18.49-.42l.38-2.65c.61-.25 1.17-.59 1.69-.98l2.49 1c.22.09.48 0 .61-.22l2-3.46c.12-.22.07-.49-.12-.64l-2.11-1.65zM12 15.5A3.5 3.5 0 1 1 12 8.5a3.5 3.5 0 0 1 0 7z" />
-              </svg>
-            </button>
-          </header>
 
-          <div class="hangar-topgrid">
-            <section class="hangar-launch hangar-panel" aria-labelledby="launchHeading">
-              <header class="hangar-panel-head">
-                <span class="hangar-panel-kicker">Sortie</span>
-                <h2 id="launchHeading" class="hangar-panel-title">Preparer la run</h2>
-              </header>
-              <div class="hangar-pills" role="group" aria-label="Loadout">
-                <div class="hangar-pill" data-pill="character">
-                  <button class="hangar-pill-arrow" data-pill-prev type="button" aria-label="Personnage precedent">&#9666;</button>
-                  <div class="hangar-pill-body">
-                    <span class="hangar-pill-label">Pilote</span>
-                    <span class="hangar-pill-value" data-pill-character>Pilot</span>
-                  </div>
-                  <button class="hangar-pill-arrow" data-pill-next type="button" aria-label="Personnage suivant">&#9656;</button>
-                </div>
-                <div class="hangar-pill" data-pill="weapon">
-                  <button class="hangar-pill-arrow" data-pill-prev type="button" aria-label="Arme precedente">&#9666;</button>
-                  <div class="hangar-pill-body">
-                    <span class="hangar-pill-label">Arme</span>
-                    <span class="hangar-pill-value" data-pill-weapon>Pulse</span>
-                  </div>
-                  <button class="hangar-pill-arrow" data-pill-next type="button" aria-label="Arme suivante">&#9656;</button>
-                </div>
-                <div class="hangar-pill" data-pill="stage">
-                  <button class="hangar-pill-arrow" data-pill-prev type="button" aria-label="Stage precedent">&#9666;</button>
-                  <div class="hangar-pill-body">
-                    <span class="hangar-pill-label">Stage</span>
-                    <span class="hangar-pill-value" data-pill-stage>1</span>
-                  </div>
-                  <button class="hangar-pill-arrow" data-pill-next type="button" aria-label="Stage suivant">&#9656;</button>
-                </div>
-              </div>
-              <button class="hangar-launch-button" id="startButton" type="button">LANCER &rarr;</button>
-              <span class="hangar-launch-hint">espace pour lancer</span>
+            <div class="hangar-reward" data-reward hidden>
+              <span class="hangar-reward-text" data-reward-text></span>
+              <button class="hangar-reward-dismiss" type="button" data-reward-dismiss aria-label="Masquer">&times;</button>
+            </div>
 
-              <div class="hangar-reward" data-reward hidden>
-                <span class="hangar-reward-text" data-reward-text></span>
-                <button class="hangar-reward-dismiss" type="button" data-reward-dismiss aria-label="Masquer">&times;</button>
-              </div>
-            </section>
+            <details class="hangar-records">
+              <summary class="hangar-records-summary" data-records-summary>Records: stage 1 &middot; 0:00 &middot; 0 boss tues</summary>
+              <dl class="hangar-records-grid">
+                <div><dt>Stage</dt><dd id="recordStage">1</dd></div>
+                <div><dt>Temps</dt><dd id="recordTime">0:00</dd></div>
+                <div><dt>Score</dt><dd id="recordScore">0</dd></div>
+                <div><dt>Boss</dt><dd id="recordBosses">0</dd></div>
+                <div><dt>Niveau</dt><dd id="recordLevel">1</dd></div>
+              </dl>
+              <button class="hangar-reset-link" id="resetChallengesButton" type="button">reinitialiser la progression</button>
+            </details>
 
-            <aside class="hangar-recommendation hangar-panel" data-recommendation aria-live="polite"></aside>
-          </div>
-
-          <section class="hangar-section" aria-labelledby="uniquesHeading">
-            <header class="hangar-section-head">
-              <h2 id="uniquesHeading" class="hangar-section-title">Deblocages</h2>
-              <span class="hangar-section-meta">armes, pilotes, options</span>
-            </header>
-            <ul class="hangar-list hangar-card-grid" data-uniques-list></ul>
+            <p class="hangar-title-footer">
+              <span><kbd>ESPACE</kbd> Lancer</span>
+              <span><kbd>L</kbd> Loadout</span>
+              <span><kbd>B</kbd> Boutique</span>
+            </p>
           </section>
 
-          <section class="hangar-section" aria-labelledby="categoriesHeading">
-            <header class="hangar-section-head">
-              <h2 id="categoriesHeading" class="hangar-section-title">Specialisations</h2>
-              <span class="hangar-section-meta">niveaux 1 a 4</span>
+          <section class="hangar-screen hangar-screen--subscreen" data-screen="loadout" data-active="false" aria-labelledby="loadoutHeading">
+            <header class="hangar-sub-head">
+              <div>
+                <span class="hangar-sub-kicker">02 &middot; Loadout</span>
+                <h2 id="loadoutHeading">Prepare ta run</h2>
+              </div>
+              <span class="hangar-sub-meta">Modifications appliquees au prochain lancement</span>
             </header>
-            <ul class="hangar-list hangar-card-grid hangar-card-grid--categories" data-categories-list></ul>
+
+            <div class="hangar-sub-body">
+              <div class="hangar-loadout-grid">
+                <div class="hangar-loadout-col">
+                  <h3>Pilote <span class="count" data-loadout-count="character">0/0</span></h3>
+                  <div class="hangar-loadout-list" data-loadout-list="character"></div>
+                </div>
+                <div class="hangar-loadout-col">
+                  <h3>Arme <span class="count" data-loadout-count="weapon">0/0</span></h3>
+                  <div class="hangar-loadout-list" data-loadout-list="weapon"></div>
+                </div>
+              </div>
+
+              <div class="hangar-loadout-col hangar-loadout-stage">
+                <h3>Stage de depart</h3>
+                <div class="hangar-stage-row" data-loadout-list="stage"></div>
+              </div>
+            </div>
+
+            <footer class="hangar-sub-foot">
+              <div class="hangar-sub-foot-summary">
+                <span><span class="key">PILOTE</span><span class="val" data-summary-character>Pilot</span></span>
+                <span><span class="key">ARME</span><span class="val" data-summary-weapon>Pulse Rifle</span></span>
+                <span><span class="key">STAGE</span><span class="val" data-summary-stage>Stage 1</span></span>
+              </div>
+              <button class="hangar-cta-launch" type="button" data-action="play-sub">
+                Lancer la run <span class="chev" aria-hidden="true">&rsaquo;</span>
+              </button>
+            </footer>
           </section>
 
-          <details class="hangar-records">
-            <summary class="hangar-records-summary" data-records-summary>Records: stage 1 &middot; 0:00 &middot; 0 boss tues</summary>
-            <dl class="hangar-records-grid">
-              <div><dt>Stage</dt><dd id="recordStage">1</dd></div>
-              <div><dt>Temps</dt><dd id="recordTime">0:00</dd></div>
-              <div><dt>Score</dt><dd id="recordScore">0</dd></div>
-              <div><dt>Boss</dt><dd id="recordBosses">0</dd></div>
-              <div><dt>Niveau</dt><dd id="recordLevel">1</dd></div>
-            </dl>
-            <button class="hangar-reset-link" id="resetChallengesButton" type="button">reinitialiser la progression</button>
-          </details>
+          <section class="hangar-screen hangar-screen--subscreen" data-screen="shop" data-active="false" aria-labelledby="shopHeading">
+            <header class="hangar-sub-head">
+              <div>
+                <span class="hangar-sub-kicker">03 &middot; Boutique</span>
+                <h2 id="shopHeading">Investis tes cristaux</h2>
+              </div>
+              <span class="hangar-sub-meta">Ameliorations permanentes &middot; une seule monnaie</span>
+            </header>
+
+            <nav class="hangar-shop-tabs" role="tablist" data-shop-tabs></nav>
+
+            <div class="hangar-sub-body">
+              <p class="hangar-shop-kicker" data-shop-kicker></p>
+              <div class="hangar-shop-grid" data-shop-grid></div>
+            </div>
+          </section>
+
+          <div class="hangar-toast" role="status" data-hangar-toast hidden></div>
         </div>
       </section>
 

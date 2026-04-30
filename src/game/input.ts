@@ -69,7 +69,9 @@ export function bindInput(): void {
       const hangarActive = document
         .querySelector<HTMLElement>("#hangarOverlay")
         ?.classList.contains("active");
-      if (hangarActive) {
+      const onTitleScreen =
+        document.querySelector<HTMLElement>("[data-screen-stage]")?.dataset.screen === "title";
+      if (hangarActive && onTitleScreen) {
         resetGame();
       }
       return;

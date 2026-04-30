@@ -73,7 +73,15 @@ Flux: `main.ts` → `initializeRustSimulationEngine()` → `createSimulation()` 
 
 ### Home / Hangar
 
-La home est un **unique overlay** `#hangarOverlay` (markup dans `index.html`), plus `#settingsOverlay`. Pas d'écran titre, pas d'arbre orbital séparé. Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit` / `renderCockpit` pour rétro-compat avec `src/main.ts` et `src/render/hud.ts`). À la mort, le bouton "Hangar →" du gameover overlay appelle `showHangar()`; un nouveau run se lance via le bouton LANCER du hangar.
+La home est un **flux jeu vidéo à trois écrans** dans l'overlay `#hangarOverlay` (markup dans `index.html`), plus `#settingsOverlay`. Les trois écrans cohabitent dans `[data-screen-stage]` et basculent via `data-active="true|false"` (transition opacité + translateY) :
+
+1. **Title** (`[data-screen="title"]`) — branding VOIDLINE plein écran, menu vertical (JOUER · Loadout · Boutique), reward chip, records repliables, raccourcis.
+2. **Loadout** (`[data-screen="loadout"]`) — cartes Pilote / Arme + Stage de départ, footer collant avec récap + bouton "Lancer la run".
+3. **Shop** (`[data-screen="shop"]`) — onglets Armes / Pilotes / Spécialisations / Options qui filtrent la grille de méta-upgrades.
+
+Chrome flottant fixe (haut-droite cristaux, bas-droite cog réglages, haut-gauche bouton retour visible uniquement sur les subscreens). Les écrans inactifs portent `inert` pour sortir du tab order. Raccourcis : `L` → Loadout, `B` → Boutique, `Espace`/`Entrée` → JOUER, `Échap` → retour au titre.
+
+Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit`, `renderCockpit`, `showHangarTitle` ; ce dernier est appelé par `showHangar()` dans `hud.ts` pour réinitialiser sur le titre à chaque retour). À la mort, le bouton "Hangar →" du gameover overlay appelle `showHangar()`. Un nouveau run se lance via `#startButton` (titre) ou `[data-action="play-sub"]` (footer loadout), tous deux câblés à `resetGame()`.
 
 `src/render/hud.ts` n'exporte plus que `showHangar()`, `showSettings()`, `closeSettings()`. Les anciens helpers multi-écrans (`MENU_OVERLAY_IDS`, `showMenuOverlay`, `bindMenuNavigation`) ont été supprimés.
 

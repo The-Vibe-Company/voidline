@@ -49,18 +49,17 @@ try {
 
 function showBootError(error: unknown): void {
   console.error("Unable to initialize Rust gameplay engine", error);
-  const launchPanel = document.querySelector<HTMLElement>(".hangar-launch");
-  if (!launchPanel) return;
+  const hangarOverlay = document.querySelector<HTMLElement>("#hangarOverlay");
+  const titleScreen = document.querySelector<HTMLElement>(".hangar-screen--title");
+  if (!hangarOverlay || !titleScreen) return;
 
-  launchPanel.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+  hangarOverlay.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
     button.disabled = true;
   });
   if (startButton) {
     startButton.textContent = "MOTEUR INDISPONIBLE";
     startButton.removeAttribute("aria-busy");
   }
-  const hint = launchPanel.querySelector<HTMLElement>(".hangar-launch-hint");
-  if (hint) hint.textContent = "rechargement requis";
 
   const message = document.createElement("div");
   message.className = "hangar-engine-error";
@@ -77,6 +76,11 @@ function showBootError(error: unknown): void {
   retry.addEventListener("click", () => window.location.reload());
 
   message.append(copy, retry);
-  launchPanel.append(message);
+  const menu = titleScreen.querySelector<HTMLElement>(".hangar-menu");
+  if (menu) {
+    menu.insertAdjacentElement("afterend", message);
+  } else {
+    titleScreen.append(message);
+  }
   retry.focus();
 }

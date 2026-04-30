@@ -23,7 +23,7 @@ import {
   awardRunAccountProgress,
   currentLevelUpChoiceCount,
 } from "../systems/account";
-import { renderCockpit } from "./hangar";
+import { renderCockpit, showHangarTitle } from "./hangar";
 
 const hud = {
   wave: document.querySelector<HTMLElement>("#waveValue")!,
@@ -239,10 +239,8 @@ export function showHangar(): void {
   hud.chestOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   renderCockpit();
+  showHangarTitle();
   setOverlayFocusScope("hangarOverlay");
-  requestAnimationFrame(() =>
-    document.querySelector<HTMLButtonElement>("#startButton")?.focus(),
-  );
 }
 
 export function showSettings(): void {
