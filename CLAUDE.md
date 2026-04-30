@@ -37,6 +37,50 @@ La home est un **unique overlay** `#hangarOverlay` (markup dans `index.html`), p
 
 `src/render/hud.ts` n'exporte plus que `showHangar()`, `showSettings()`, `closeSettings()`. Les anciens helpers multi-écrans (`MENU_OVERLAY_IDS`, `showMenuOverlay`, `bindMenuNavigation`) ont été supprimés.
 
+### Équilibrage — knobs centralisés
+
+**Source de vérité**: `src/game/balance.ts`. Tous les paramètres tunables du jeu vivent dans l'objet exporté `balance`, organisé en sous-objets thématiques :
+
+- `balance.player` — stats de base (`stats`, `weaponSpread`, `drone`, `resetInvulnerability`)
+- `balance.wave` / `balance.lateWave` — cadence de spawn, courbes de target, scaling tardif
+- `balance.enemy` — scaling per-wave, chances de hunter/brute, `wobble`
+- `balance.enemies` — array des types (scout/hunter/brute) avec stats de base
+- `balance.bosses` — `boss`, `miniBoss`, `wobble`, `spawnOffsets`, `contactBackoff`, `stageDurationSeconds`
+- `balance.upgrade` — `caps`, `tierWeights`, `effects`, `steppedGain`
+- `balance.tiers` — array des `UpgradeTier` (standard/rare/prototype/singularity)
+- `balance.xp` — courbes de level, valeur des orbes
+- `balance.synergies` — `kineticRam`, `magnetStorm` (formules complètes : seuils, cooldowns, dégâts, knockback)
+- `balance.powerups` — `heartHealRatio`, `dropChance`, `pullRadius`, `pullStrength`, `velocityDamping`
+- `balance.progression` — `relicUnlockWaves`
+
+**Règle**: pas de magic numbers de gameplay dans `src/entities/*`, `src/systems/*` ou `src/simulation/*`. Si tu écris un littéral `0.85`, `2.4`, `0.18` dans un fichier qui n'est pas `balance.ts`, demande-toi si c'est un knob d'équilibrage (presque toujours oui) — ajoute-le à `balance.ts` sous le bon namespace, importe-le. Les valeurs purement mécaniques (`Math.PI`, taille de pixel, durée d'animation visuelle pure) restent locales ; tout ce qui change le ressenti gameplay se centralise.
+
+**Courbes nommées**: `src/game/balance-curves.ts` expose des fonctions paramétriques en wave/rank/role : `enemyHpAt(wave, kind)`, `enemyDamageAt`, `enemySpeedAt`, `bossHpAt(wave, role)`, `bossDamageAt`, `bossSpeedAt`, `rarityWeightsAt(wave, rank)`, `rarityProbabilitiesAt`, `upgradeUnlocksAt(wave)`. Sert à tester les courbes en isolation et à les plotter pour visualiser le ramp-up. Tests : `balance-curves.test.ts` (monotonie, bornes, somme de probas = 1, gates exacts).
+
+**Test invariant**: `balance.test.ts` parcourt récursivement tout l'objet `balance` à chaque run et vérifie qu'aucune valeur n'est NaN, Infinity, ni négative — un knob ajouté avec une faute de frappe est attrapé immédiatement.
+
+**Catalogues data-driven** (ajouter une entrée = 1 fichier touché) :
+- `src/game/upgrade-catalog.ts` — `Upgrade` porte un `softCap?: { stat, max }` ; le filtre dans `availableUpgradesForPlayer` est générique (pas de `id ===` hardcodés).
+- `src/game/relic-catalog.ts` — purement déclaratif.
+- `src/game/boss-catalog.ts` — `BossDef` (`id`, `role`, `stats: { hp/damage/speed/radius/scoreMultiplier, color, accent, sides, wobble, wobbleRate, contactCooldown }`). `spawnElite` lit la def via `findBossDef(role)`. `bossStatsAt(def, stage)` (dans `balance-curves.ts`) applique `balance.bosses.stageScaling` (par défaut à 0 = pas de stage scaling, sinon multiplicateur additif par stage).
+- `src/systems/synergies.ts` — chaque `SynergyDefinition` porte un `apply(traits)` et un `reset?(target)` ; `refreshPlayerTraits` est un dispatch (pas de switch).
+- Spawn ennemis : `src/game/balance.ts:enemySpawnRules` est un `Record<EnemyKind, EnemySpawnRule | "residual">`. Ajouter un type d'ennemi = entrée dans `enemyTypes` + entrée dans `enemySpawnRules`.
+- Unlock predicates : `src/game/shop-catalog.ts:unlockPredicates` est un `Record<UnlockRequirement, predicate>`. `isUnlockRequirementMet` est partagé entre shop et meta-upgrades.
+
+### Validation harness (RL-ready)
+
+`src/game/balance-simulation.ts` expose `runBalanceTrial(options)` qui exécute une simulation pure et déterministe (RNG seedée). Personae : `idle`, `panic`, `kiter`, `optimizer`, `randomized` (jitter sur kiter, picks d'upgrades aléatoires).
+
+Options utiles :
+- `seed`, `persona`, `maxWave`, `maxSeconds` — base.
+- `buildSeed?: number` — force les K premières upgrades à être tirées au hasard (cf. `randomBuildPicks`, défaut 3).
+- `excludedTags?: BuildTag[]` — exclut des tags du draft (utile pour tester des builds non-cannon).
+- `fullyUnlocked?: boolean` — débloque toutes les méta-upgrades pour la trial (toutes catégories L4 + tous uniques L1).
+
+`BalanceTrialResult` est enrichi : `killsByKind`, `upgradesByTag`, `upgradesByTier`, `bossesDefeatedWaves`, `bossesDefeatedStages`, `synergiesActivated`. Sert aux tests d'invariants gating CI (cf. `balance-simulation.test.ts > randomized persona explores the build space`) : taux d'activation des synergies, couverture des tags.
+
+Commande `npm run balance:report` (3 personae × 10 seeds × 5 build seeds = 150 trials) émet `scripts/balance-report.json` avec `waveDistribution`, `buildTagShare`, `upgradeTierShare`, `killShareByEnemy`, `synergyActivationRate`, `bossesDefeatedAvg` par persona. À chaque PR qui touche balance, lire ce JSON pour décision factuelle.
+
 ### Méta-progression — catalogue unique
 
 Source de vérité: `src/game/meta-upgrade-catalog.ts`. Deux types d'upgrade:
@@ -74,6 +118,7 @@ Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress
 - `npm run test:balance` — uniquement les suites `balance.test.ts` + `balance-simulation.test.ts`
 - `npm run bench` — Vitest benchmarks
 - `npm run smoke` — `npm run build && node scripts/browser-smoke.mjs` (smoke Playwright headless)
+- `npm run balance:report` — lance 150 trials simulées et écrit `scripts/balance-report.json` (distribution des waves, builds, synergies, kills par type)
 
 Lancer un test isolé (par fichier ou par nom):
 

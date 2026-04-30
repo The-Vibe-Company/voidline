@@ -5,20 +5,16 @@ import { maybeDropPowerup } from "./powerups";
 import { spawnChest } from "./chests";
 import { enemies, player, state, world } from "../state";
 import { circleHit, clamp, distanceSq } from "../utils";
-import { scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
+import { balance, scaledEnemyStats, scoreAward, selectEnemyType } from "../game/balance";
 import { bossBalance, bossUnlockWaveForStage, startingWaveForStage } from "../game/roguelike";
+import { findBossDef } from "../game/boss-catalog";
+import { bossStatsAt } from "../game/balance-curves";
 import { unlockRelicsForBossWave } from "../systems/relics";
 import { incrementChallengeProgress, recordChallengeProgress } from "../systems/challenges";
-import type { EnemyType } from "../types";
+import type { BossDef, EnemyType } from "../types";
 import { markHudDirty } from "../simulation/events";
 import { acquireEnemy, releaseEnemy } from "../simulation/pools";
 import { random } from "../simulation/random";
-
-const KINETIC_RAM_MIN_SPEED = 150;
-const KINETIC_RAM_MIN_SHIELD_RATIO = 0.28;
-const KINETIC_RAM_COOLDOWN = 0.16;
-const MAGNET_STORM_THRESHOLD = 24;
-const MAGNET_STORM_COOLDOWN = 2.35;
 
 export function chooseEnemyType(): EnemyType {
   return selectEnemyType(state.wave, random());
@@ -60,14 +56,14 @@ export function spawnEnemy(): void {
   enemy.damage = scaled.damage;
   enemy.age = 0;
   enemy.seed = random() * 100;
-  enemy.wobble = type.id === "brute" ? 0.08 : 0.18;
-  enemy.wobbleRate = 2 + random() * 2;
+  enemy.wobble = balance.enemy.wobble[type.id];
+  enemy.wobbleRate = balance.enemy.wobble.rateBase + random() * balance.enemy.wobble.rateRandom;
   enemy.hit = 0;
   enemy.role = "normal";
 }
 
-function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
-  const tuning = role === "boss" ? bossBalance.boss : bossBalance.miniBoss;
+function spawnElite(type: EnemyType, def: BossDef): void {
+  const tuning = bossStatsAt(def, state.stage);
   const scaled = scaledEnemyStats(type, state.wave);
   const radius = Math.round(type.radius * tuning.radiusMultiplier);
   const { x, y } = spawnPointForRadius(radius);
@@ -80,47 +76,52 @@ function spawnElite(type: EnemyType, role: "mini-boss" | "boss"): void {
   enemy.speed = scaled.speed * tuning.speedMultiplier;
   enemy.radius = radius;
   enemy.damage = scaled.damage * tuning.damageMultiplier;
-  enemy.color = role === "boss" ? "#ff5a69" : "#ffbf47";
-  enemy.accent = role === "boss" ? "#ffffff" : "#fff0b8";
-  enemy.sides = role === "boss" ? 8 : 6;
+  enemy.color = tuning.color;
+  enemy.accent = tuning.accent;
+  enemy.sides = tuning.sides;
   enemy.age = 0;
   enemy.seed = random() * 100;
-  enemy.wobble = role === "boss" ? 0.05 : 0.09;
-  enemy.wobbleRate = role === "boss" ? 1.1 : 1.7;
+  enemy.wobble = tuning.wobble;
+  enemy.wobbleRate = tuning.wobbleRate;
   enemy.hit = 0;
-  enemy.role = role;
+  enemy.role = def.role;
   enemy.contactTimer = 0;
   enemy.contactCooldown = tuning.contactCooldown;
 
-  pulseText(
-    x,
-    y - radius,
-    role === "boss" ? "BOSS" : "MINI-BOSS",
-    role === "boss" ? "#ff5a69" : "#ffbf47",
-  );
+  pulseText(x, y - radius, def.label, tuning.color);
 }
 
 export function spawnMiniBoss(): void {
+  const offsets = bossBalance.spawnOffsets.miniBoss;
   const type =
-    state.wave >= 7 ? selectEnemyType(state.wave + 3, random()) : selectEnemyType(8, 0.95);
-  spawnElite(type, "mini-boss");
+    state.wave >= offsets.eligibleFromWave
+      ? selectEnemyType(state.wave + offsets.offset, random())
+      : selectEnemyType(offsets.fallbackWave, offsets.fallbackRoll);
+  spawnElite(type, findBossDef("mini-boss"));
 }
 
 export function spawnWaveBoss(): void {
-  const type = selectEnemyType(state.wave + 8, 0.98);
-  spawnElite(type, "boss");
+  const offsets = bossBalance.spawnOffsets.waveBoss;
+  const type = selectEnemyType(state.wave + offsets.offset, offsets.roll);
+  spawnElite(type, findBossDef("boss"));
 }
 
 export function spawnStageBoss(): void {
-  const type = selectEnemyType(state.wave + state.stage * 4 + 8, 0.98);
-  spawnElite(type, "boss");
+  const offsets = bossBalance.spawnOffsets.stageBoss;
+  const type = selectEnemyType(
+    state.wave + state.stage * offsets.stageMultiplier + offsets.offset,
+    offsets.roll,
+  );
+  spawnElite(type, findBossDef("boss"));
 }
 
 export function killEnemy(index: number): void {
   const enemy = enemies[index]!;
   const role = enemy.role ?? "normal";
+  const kind = enemy.kind;
   releaseEnemy(index);
   state.waveKills += 1;
+  state.killsByKind[kind] += 1;
   incrementChallengeProgress("totalKills");
   const awardedScore = scoreAward(enemy.score, state.wave);
   state.score += awardedScore;
@@ -192,8 +193,8 @@ export function updateEnemies(dt: number): void {
           enemy.contactTimer = enemy.contactCooldown ?? 1;
           burst(player.x, player.y, enemy.color, 18, 190);
         }
-        enemy.x -= Math.cos(angle) * enemy.speed * dt * 0.45;
-        enemy.y -= Math.sin(angle) * enemy.speed * dt * 0.45;
+        enemy.x -= Math.cos(angle) * enemy.speed * dt * bossBalance.contactBackoff;
+        enemy.y -= Math.sin(angle) * enemy.speed * dt * bossBalance.contactBackoff;
         continue;
       }
       damagePlayer(enemy.damage);
@@ -206,24 +207,31 @@ export function updateEnemies(dt: number): void {
 function tryKineticRam(index: number, angleToPlayer: number): boolean {
   const enemy = enemies[index]!;
   const speed = Math.hypot(player.vx, player.vy);
+  const ram = balance.synergies.kineticRam;
   const hasShield =
-    player.shieldMax > 0 && player.shield >= player.shieldMax * KINETIC_RAM_MIN_SHIELD_RATIO;
+    player.shieldMax > 0 && player.shield >= player.shieldMax * ram.minShieldRatio;
   if (
     !player.traits.kineticRam ||
     !hasShield ||
-    speed < KINETIC_RAM_MIN_SPEED ||
+    speed < ram.minSpeed ||
     player.ramTimer > 0
   ) {
     return false;
   }
 
-  const damage = player.damage * 1.8 + player.shield * 0.55 + speed * 0.08;
+  const damage =
+    player.damage * ram.damage.vsDamage +
+    player.shield * ram.damage.vsShield +
+    speed * ram.damage.vsSpeed;
   enemy.hp -= damage;
-  enemy.hit = 0.16;
-  enemy.x -= Math.cos(angleToPlayer) * 86;
-  enemy.y -= Math.sin(angleToPlayer) * 86;
-  player.shield = Math.max(0, player.shield - (8 + enemy.radius * 0.42));
-  player.ramTimer = KINETIC_RAM_COOLDOWN;
+  enemy.hit = ram.hitDuration;
+  enemy.x -= Math.cos(angleToPlayer) * ram.knockback;
+  enemy.y -= Math.sin(angleToPlayer) * ram.knockback;
+  player.shield = Math.max(
+    0,
+    player.shield - (ram.shieldCost.flat + enemy.radius * ram.shieldCost.perRadius),
+  );
+  player.ramTimer = ram.cooldown;
   burst(enemy.x, enemy.y, "#72ffb1", 24, 230);
   pulseText(enemy.x, enemy.y - enemy.radius - 12, "RAM", "#72ffb1");
   world.shake = Math.min(18, world.shake + 8);
@@ -237,18 +245,20 @@ function tryKineticRam(index: number, angleToPlayer: number): boolean {
 }
 
 function triggerMagnetStorm(): void {
+  const storm = balance.synergies.magnetStorm;
   if (
     !player.traits.magnetStorm ||
     player.magnetStormTimer > 0 ||
-    player.magnetStormCharge < MAGNET_STORM_THRESHOLD
+    player.magnetStormCharge < storm.threshold
   ) {
     return;
   }
 
   const charge = player.magnetStormCharge;
-  const radius = 180 + Math.min(115, player.pickupRadius * 42);
+  const radius =
+    storm.radius.base + Math.min(storm.radius.maxBonus, player.pickupRadius * storm.radius.pickupFactor);
   const radiusSq = radius * radius;
-  const damage = player.damage * 2.15 + charge * 1.65;
+  const damage = player.damage * storm.damage.vsDamage + charge * storm.damage.vsCharge;
   const hasTarget = enemies.some(
     (enemy) => distanceSq(player.x, player.y, enemy.x, enemy.y) <= radiusSq,
   );
@@ -257,7 +267,7 @@ function triggerMagnetStorm(): void {
   }
 
   player.magnetStormCharge = 0;
-  player.magnetStormTimer = MAGNET_STORM_COOLDOWN;
+  player.magnetStormTimer = storm.cooldown;
 
   burst(player.x, player.y, "#39d9ff", 54, 390);
   pulseText(player.x, player.y - 52, "MAGNET STORM", "#d9f6ff");
@@ -269,9 +279,9 @@ function triggerMagnetStorm(): void {
 
     const angle = Math.atan2(enemy.y - player.y, enemy.x - player.x);
     enemy.hp -= damage;
-    enemy.hit = 0.18;
-    enemy.x += Math.cos(angle) * 42;
-    enemy.y += Math.sin(angle) * 42;
+    enemy.hit = storm.hitDuration;
+    enemy.x += Math.cos(angle) * storm.knockback;
+    enemy.y += Math.sin(angle) * storm.knockback;
     if (enemy.hp <= 0) {
       killEnemy(i);
     }

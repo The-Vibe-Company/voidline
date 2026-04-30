@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:balance": "vitest run src/game/balance.test.ts src/game/balance-simulation.test.ts",
+    "balance:report": "RUN_BALANCE_REPORT=1 vitest run scripts/balance-report.test.ts",
     "test:watch": "vitest",
     "bench": "vitest bench --run",
     "smoke": "npm run build && node scripts/browser-smoke.mjs"

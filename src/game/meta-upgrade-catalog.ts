@@ -1,9 +1,9 @@
+import { isUnlockRequirementMet } from "./shop-catalog";
 import type {
   AccountProgress,
   BuildTag,
   MetaUpgrade,
   MetaUpgradeId,
-  UnlockRequirement,
 } from "../types";
 
 const CATEGORY_COSTS = [40, 75, 130, 220] as const;
@@ -177,7 +177,7 @@ export function isMetaUpgradeRevealed(
   progress: AccountProgress,
   upgrade: MetaUpgrade,
 ): boolean {
-  return isRequirementMet(progress, upgrade.requirement);
+  return isUnlockRequirementMet(progress, upgrade.requirement);
 }
 
 export function canPurchaseLevel(
@@ -215,17 +215,3 @@ export function unlockedBuildTagsFromMeta(progress: AccountProgress): Set<BuildT
   return tags;
 }
 
-function isRequirementMet(progress: AccountProgress, requirement: UnlockRequirement): boolean {
-  switch (requirement) {
-    case "available":
-      return true;
-    case "reach-10m":
-      return progress.records.bestTimeSeconds >= 600;
-    case "clear-stage-1":
-      return progress.highestStageCleared >= 1;
-    case "reach-stage-2":
-      return progress.records.bestStage >= 2 || progress.highestStartStageUnlocked >= 2;
-    case "boss-kill":
-      return progress.records.bossKills > 0;
-  }
-}

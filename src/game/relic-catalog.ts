@@ -11,11 +11,16 @@ export const DEFAULT_RELIC_IDS = [
   "emergency-nanites",
 ] as const;
 
-export const RELIC_UNLOCKS = [
-  { wave: 10, relicIds: ["splitter-matrix"] },
-  { wave: 20, relicIds: ["drone-contract"] },
-  { wave: 30, relicIds: ["critical-orbit"] },
-] as const;
+const RELIC_UNLOCK_IDS: ReadonlyArray<readonly string[]> = [
+  ["splitter-matrix"],
+  ["drone-contract"],
+  ["critical-orbit"],
+];
+
+export const RELIC_UNLOCKS = balance.progression.relicUnlockWaves.map((wave, index) => ({
+  wave,
+  relicIds: RELIC_UNLOCK_IDS[index] ?? [],
+}));
 
 function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
