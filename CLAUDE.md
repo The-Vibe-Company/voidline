@@ -85,7 +85,7 @@ Commande `npm run balance:report` (3 personae × 10 seeds × 5 build seeds = 150
 
 Source de vérité: `src/game/meta-upgrade-catalog.ts`. Deux types d'upgrade:
 
-- **Uniques** (`kind: "unique"`, `maxLevel: 1`): unlocks one-shot — armes (`scatter`, `lance`, `drone`), personnages (`runner`, `tank`), et bonus définitifs (`extra-choice` = +1 choix au level-up; `reroll` = 1 reroll par chest).
+- **Uniques** (`kind: "unique"`, `maxLevel: 1`): unlocks one-shot — armes (`scatter`, `lance`, `drone`), personnages (`runner`, `tank`), et bonus définitifs (`extra-choice` = +1 choix au level-up).
 - **Categories** (`kind: "category"`, `maxLevel: 4`): chemins paliers — `attack` (cannon), `defense` (shield), `salvage`, `tempo` (crit). Coûts par niveau: `[40, 75, 130, 220]`. Une catégorie qui porte un `technologyId` injecte automatiquement cette tech dans le pool des tech débloquées dès le niveau 1.
 
 Helpers exposés: `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPurchaseLevel`, `unlockedTechnologyIdsFromMeta`, `unlockedBuildTagsFromMeta`. Achat via `purchaseMetaUpgradeLevel(id)` dans `src/systems/account.ts`.
@@ -93,7 +93,6 @@ Helpers exposés: `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPu
 Hooks runtime branchés sur le catalogue (dans `src/systems/account.ts`):
 - `currentRarityRank()` = `min(3, max(level over 4 categories))` → alimente `upgradeTierWeights(wave, rarityRank)` dans `src/game/balance.ts`.
 - `currentLevelUpChoiceCount()` = `3 + (extra-choice ? 1 : 0) + (tempo>=4 ? 1 : 0)` → consommé par `pickUpgrades(...)` dans `src/render/hud.ts`. Volontairement **non câblé** dans `src/game/balance-simulation.ts` (les trials de balance gardent un 3 fixe pour le déterminisme).
-- `currentRerollCount()` = `reroll-unique + (tempo>=2 ? 1 : 0)`. Computé mais **UI non implémentée** côté chest/upgrade overlay (deferred).
 - `currentCrystalRewardMultiplier()` = `1 + (salvage>=2 ? 0.10 : 0)` → appliqué dans `applyCrystalReward` (`src/game/account-progression.ts`).
 
 #### Migration legacy

@@ -7,6 +7,16 @@ import type {
   SynergyDefinition,
 } from "../types";
 
+export type SynergyHintState = "complete" | "advance" | "active";
+
+export interface SynergyHint {
+  id: SynergyDefinition["id"];
+  name: string;
+  color: string;
+  state: SynergyHintState;
+  missingTags: BuildTag[];
+}
+
 export const BUILD_TAG_META: Record<BuildTag, { label: string; color: string }> = {
   cannon: { label: "Canon", color: "#39d9ff" },
   crit: { label: "Crit", color: "#ff5af0" },
@@ -110,6 +120,87 @@ export function activeSynergiesForLoadout(
   relics: Iterable<OwnedRelic>,
 ): SynergyDefinition[] {
   return activeSynergiesFromTagCounts(buildTagCountsFromLoadout(upgrades, relics));
+}
+
+export function synergyHintsForTags(
+  tags: readonly BuildTag[],
+  counts: ReadonlyMap<BuildTag, number>,
+): SynergyHint[] {
+  const nextCounts = new Map(counts);
+  for (const tag of tags) {
+    nextCounts.set(tag, (nextCounts.get(tag) ?? 0) + 1);
+  }
+
+  const hints: SynergyHint[] = [];
+  for (const synergy of SYNERGY_DEFINITIONS) {
+    const requiredTags = Object.keys(synergy.requiredTags) as BuildTag[];
+    if (!requiredTags.some((tag) => tags.includes(tag))) continue;
+
+    const activeBefore = hasSynergyRequirements(synergy, counts);
+    const activeAfter = hasSynergyRequirements(synergy, nextCounts);
+    const missingTags = requiredTags.filter(
+      (tag) => (counts.get(tag) ?? 0) < (synergy.requiredTags[tag] ?? 0),
+    );
+    const fillsMissingTag = missingTags.some((tag) => tags.includes(tag));
+    if (activeAfter && !activeBefore) {
+      hints.push({
+        id: synergy.id,
+        name: synergy.name,
+        color: synergy.color,
+        state: "complete",
+        missingTags: [],
+      });
+      continue;
+    }
+    if (fillsMissingTag) {
+      hints.push({
+        id: synergy.id,
+        name: synergy.name,
+        color: synergy.color,
+        state: "advance",
+        missingTags: requiredTags.filter(
+          (tag) => (nextCounts.get(tag) ?? 0) < (synergy.requiredTags[tag] ?? 0),
+        ),
+      });
+      continue;
+    }
+    if (activeBefore) {
+      hints.push({
+        id: synergy.id,
+        name: synergy.name,
+        color: synergy.color,
+        state: "active",
+        missingTags: [],
+      });
+    }
+  }
+
+  return hints.sort(
+    (a, b) => synergyHintRank(a.state) - synergyHintRank(b.state),
+  );
+}
+
+function hasSynergyRequirements(
+  synergy: SynergyDefinition,
+  counts: ReadonlyMap<BuildTag, number>,
+): boolean {
+  for (const tag of Object.keys(synergy.requiredTags) as BuildTag[]) {
+    if ((counts.get(tag) ?? 0) < (synergy.requiredTags[tag] ?? 0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function synergyHintRank(state: SynergyHintState): number {
+  switch (state) {
+    case "complete":
+      return 0;
+    case "advance":
+      return 1;
+    case "active":
+      return 2;
+  }
 }
 
 export function ownedBuildTags(

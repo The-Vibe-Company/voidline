@@ -6,6 +6,7 @@ import {
   metaUpgradeCatalog,
   metaUpgradeLevel,
   nextLevelCost,
+  recommendMetaUpgrade,
   unlockedBuildTagsFromMeta,
   unlockedTechnologyIdsFromMeta,
 } from "./meta-upgrade-catalog";
@@ -18,7 +19,6 @@ const ALL_IDS: MetaUpgradeId[] = [
   "unique:char-runner",
   "unique:char-tank",
   "unique:extra-choice",
-  "unique:reroll",
   "category:attack",
   "category:defense",
   "category:salvage",
@@ -31,6 +31,11 @@ describe("meta upgrade catalog", () => {
       expect(() => findMetaUpgrade(id)).not.toThrow();
     }
     expect(metaUpgradeCatalog).toHaveLength(ALL_IDS.length);
+  });
+
+  it("does not expose a reroll meta upgrade", () => {
+    expect(metaUpgradeCatalog.some((upgrade) => (upgrade.id as string) === "unique:reroll"))
+      .toBe(false);
   });
 
   it("uses strictly increasing cost per category level", () => {
@@ -116,6 +121,45 @@ describe("canPurchaseLevel", () => {
     const result = canPurchaseLevel(progress, "category:attack");
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.cost).toBe(40);
+  });
+});
+
+describe("recommendMetaUpgrade", () => {
+  it("recommends the cheapest purchasable revealed upgrade", () => {
+    const progress = createDefaultAccountProgress();
+    progress.crystals = 50;
+
+    const recommendation = recommendMetaUpgrade(progress);
+
+    expect(recommendation.state).toBe("purchase");
+    if (recommendation.state === "purchase") {
+      expect(recommendation.upgrade.id).toBe("category:attack");
+      expect(recommendation.cost).toBe(40);
+      expect(recommendation.level).toBe(1);
+    }
+  });
+
+  it("recommends saving toward the cheapest revealed upgrade when crystals are low", () => {
+    const progress = createDefaultAccountProgress();
+    progress.crystals = 10;
+
+    const recommendation = recommendMetaUpgrade(progress);
+
+    expect(recommendation.state).toBe("save");
+    if (recommendation.state === "save") {
+      expect(recommendation.upgrade.id).toBe("category:attack");
+      expect(recommendation.missing).toBe(30);
+    }
+  });
+
+  it("returns complete when every meta upgrade is maxed", () => {
+    const progress = createDefaultAccountProgress();
+    progress.crystals = 99999;
+    for (const upgrade of metaUpgradeCatalog) {
+      progress.upgradeLevels[upgrade.id] = upgrade.maxLevel;
+    }
+
+    expect(recommendMetaUpgrade(progress)).toEqual({ state: "complete" });
   });
 });
 
