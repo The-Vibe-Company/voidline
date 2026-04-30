@@ -5,4 +5,4 @@ coverage/
 *.log
 .vercel
 scripts/balance-report.json
-scheduled_task
+.claude/
