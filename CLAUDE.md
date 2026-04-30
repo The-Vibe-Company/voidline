@@ -1,5 +1,25 @@
 # Voidline — Agent Guide
 
+## ⚠️ RÈGLE PRIORITAIRE — Maintenance du sim Rust
+
+**Le port Rust dans `sim/` est une obligation, pas un projet annexe.** Toute modification de la logique gameplay TS doit être reflétée côté Rust dans le même PR :
+
+- **Si tu modifies un knob de balance** (`src/game/balance.ts`, catalogs): tu DOIS lancer `npm run data:export` pour régénérer `data/balance.json`. Le check `npm run data:check` doit passer.
+- **Si tu ajoutes/modifies un effet d'upgrade/relique/character/weapon** : utilise la DSL `EffectOp[]` dans `src/game/effect-dsl.ts`. Si tu ajoutes un nouveau type d'op, tu dois le porter aussi dans `sim/crates/voidline-data/src/dsl.rs` ET `sim/crates/voidline-sim/src/effects.rs`.
+- **Si tu modifies la logique de simulation** (entities, systems, simulation/simulation.ts) : tu DOIS porter le changement dans le module Rust correspondant (`sim/crates/voidline-sim/src/{enemies,bullets,player_update,simulation,...}.rs`) et faire passer `cargo test --workspace`.
+- **Si tu ajoutes un nouveau type d'ennemi, synergie, requirement** : update simultanément TS + Rust + tests.
+
+**Pour les reviewers (humains et IA)** : avant d'approuver une PR qui touche `src/game/` ou `src/{entities,systems,simulation}/`, vérifier explicitement :
+1. `data/balance.json` est à jour (run `npm run data:check`)
+2. La sim Rust compile et teste vert (`cd sim && cargo test --workspace`)
+3. La parité bit-near est préservée (les valeurs hardcodées dans `sim/crates/voidline-sim/src/balance_curves.rs` matchent les nouveaux knobs)
+
+**Bloquer la PR si la divergence TS↔Rust est observée.** Le coût d'un drift silencieux est élevé : balance reports faux, conclusions de game design erronées, fondation RL future cassée.
+
+Voir `sim/README.md` pour l'architecture complète et les workflows de maintenance.
+
+---
+
 ## Concept du jeu
 
 Voidline est un rogue-lite spatial browser-first: le joueur lance une run courte, survit dans une arene suivie par camera, ramasse de l'XP, choisit des armes/technologies de run, puis meurt ou bat un boss pour alimenter une progression a cristaux.
