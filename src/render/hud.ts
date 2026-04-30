@@ -182,6 +182,7 @@ type OverlayId =
   | "gameOverOverlay";
 
 export function showHangar(): void {
+  state.mode = "menu";
   hud.hangarOverlay.classList.add("active");
   hud.hangarOverlay.removeAttribute("aria-hidden");
   hud.settingsOverlay.classList.remove("active");

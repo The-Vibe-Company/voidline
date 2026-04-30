@@ -14,6 +14,7 @@ import {
   accountProgress,
   equipWeapon,
   purchaseMetaUpgradeLevel,
+  saveAccountProgress,
   selectCharacter,
   selectStartStage,
 } from "../systems/account";
@@ -86,6 +87,7 @@ function bindArrowButtons(
 function bindRewardDismiss(): void {
   dom.rewardDismiss()?.addEventListener("click", () => {
     accountProgress.lastRunReward = null;
+    saveAccountProgress();
     renderRewardBar();
   });
 }
