@@ -17,9 +17,15 @@ const RELIC_UNLOCK_IDS: ReadonlyArray<readonly string[]> = [
   ["critical-orbit"],
 ];
 
+if (RELIC_UNLOCK_IDS.length !== balance.progression.relicUnlockWaves.length) {
+  throw new Error(
+    `Relic unlock config mismatch: ${balance.progression.relicUnlockWaves.length} waves in balance.progression.relicUnlockWaves vs ${RELIC_UNLOCK_IDS.length} id groups in RELIC_UNLOCK_IDS. Update both together.`,
+  );
+}
+
 export const RELIC_UNLOCKS = balance.progression.relicUnlockWaves.map((wave, index) => ({
   wave,
-  relicIds: RELIC_UNLOCK_IDS[index] ?? [],
+  relicIds: RELIC_UNLOCK_IDS[index]!,
 }));
 
 function percent(value: number): string {
