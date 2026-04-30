@@ -1,0 +1,200 @@
+sim/crates/voidline-sim/src/progression.rs
+  5a15668ff4c0be4a 1
+src/game/upgrade-catalog.ts
+  5ea93639918a9cf5 55-62,75-80
+src/systems/account.ts
+  0300ab4d1ac0907d 301,306
+  5a15668ff4c0be4a 6,22-23,296,299-300,307-317
+  5ea93639918a9cf5 431-433
+sim/crates/voidline-sim/src/bullets.rs
+  5a15668ff4c0be4a 1,36-38,41-45,74-78,86-95,153-154,158-160,261-265
+sim/crates/voidline-meta/src/env.rs
+  5a15668ff4c0be4a 63-64,144-149
+src/perf/stress-mode.ts
+  5a15668ff4c0be4a 11,36-40,107-111,147,172-177,184-190
+src/systems/upgrades.ts
+  5a15668ff4c0be4a 1,3,6,10
+src/game/relic-catalog.ts
+  5a15668ff4c0be4a 151-154,157
+src/game/effect-dsl.ts
+  5ea93639918a9cf5 16-22,51-58,100,169-175
+sim/README.md
+  5a15668ff4c0be4a 61-62,64,73-75,109-110
+sim/crates/voidline-data/src/lib.rs
+  5a15668ff4c0be4a 14-18,188-192
+  5ea93639918a9cf5 158-187,193-253
+src/generated/voidline-wasm/voidline_wasm.d.ts
+  5a15668ff4c0be4a 1-72
+src/game/balance-curves.test.ts
+  5ea93639918a9cf5 52-57
+sim/crates/voidline-cli/src/main.rs
+  5a15668ff4c0be4a 34,39,50-52,54-56,97-124,134,191-194,235-239,258-259,261,263,266-267,272-273,280,287-288,301-305,319-320,329-334
+sim/crates/voidline-meta/src/policies.rs
+  5a15668ff4c0be4a 40-43,58-60,154-155
+sim/crates/voidline-data/src/balance.rs
+  5ea93639918a9cf5 177-178,202-211
+sim/crates/voidline-sim/src/powerups.rs
+  5a15668ff4c0be4a 1,18-29
+src/generated/voidline-wasm/voidline_wasm.js
+  5a15668ff4c0be4a 1-665
+src/systems/upgrades.test.ts
+  5a15668ff4c0be4a 2-3,7-8,16,24
+sim/crates/voidline-wasm/src/lib.rs
+  5a15668ff4c0be4a 1-375
+src/entities/particles.ts
+  5a15668ff4c0be4a 1-37,43-45,50,52,54,62-64,69,71,92,111,120
+src/generated/voidline-wasm/package.json
+  5a15668ff4c0be4a 1-20
+src/systems/relics.ts
+  5a15668ff4c0be4a 1,8,84,88
+src/systems/relics.test.ts
+  5a15668ff4c0be4a 3,6-7,11,42,78,88-97
+sim/crates/voidline-sim/src/math.rs
+  5a15668ff4c0be4a 55-64,66-70
+src/simulation/rust-node.ts
+  5a15668ff4c0be4a 1-4,6-14,16-19,22-35,37-45,48-51,53,55-61
+sim/crates/voidline-sim/src/experience.rs
+  5a15668ff4c0be4a 1
+src/systems/account.test.ts
+  5ea93639918a9cf5 402,421
+  5a15668ff4c0be4a 5,311-330
+src/simulation/simulation.ts
+  5a15668ff4c0be4a 15,17-22,24-30,32-43,51,74,78-82,88-90,100-105,107,109-115,118,120-129,132-140,143-160,163-164
+sim/crates/voidline-wasm/Cargo.toml
+  5a15668ff4c0be4a 1-19
+src/perf/vitest-setup.ts
+  5a15668ff4c0be4a 2-4,95-112
+sim/Cargo.toml
+  5a15668ff4c0be4a 8
+sim/crates/voidline-meta/src/campaign.rs
+  5a15668ff4c0be4a 50-51,104-109
+scripts/browser-smoke.mjs
+  5a15668ff4c0be4a 104-112
+src/perf/rust-engine.bench.ts
+  5a15668ff4c0be4a 1-3,5-7,10-11,14-18
+src/simulation/rust-engine.ts
+  5a15668ff4c0be4a 1-5,7-9,12,14-16,19-20,22,25-27,30-33,35-62,64-78,80-85,88-91,93,96-143,145-154,157-159,162-163,166-178,181-184,187-190,193-197,200-203,206-217,219-222,225-235,237-240,242-247,249-252,254-256,258-280,282-284,286,288-291,293-294,296-297,300,302-306,310-321,324-347,350-352,354-372,375-382,385-389,393-395,398-400,403-410
+src/main.ts
+  5a15668ff4c0be4a 16,19-82
+sim/crates/voidline-sim/src/player_update.rs
+  5a15668ff4c0be4a 1,78-80,84-91,104-106,127-128,141-145
+src/utils.ts
+  5a15668ff4c0be4a 33
+sim/crates/voidline-sim/src/chests.rs
+  5a15668ff4c0be4a 1,38-42,53-57
+src/game/roguelike.test.ts
+  5ea93639918a9cf5 19,21-24
+src/game/balance.test.ts
+  5ea93639918a9cf5 119-120,122-123,127-129,131,135-139,226-228,234,237-238,243-246,249-253,256
+sim/crates/voidline-sim/src/synergies.rs
+  5ea93639918a9cf5 92-159,163-164,168-205
+  5a15668ff4c0be4a 160-162,165-167
+sim/crates/voidline-sim/src/engine.rs
+  5a15668ff4c0be4a 1-1406
+data/balance.json
+  5ea93639918a9cf5 77,92,148-150,153-154,160,164,166-173,181-182,186-187,192-194,196-199,201-203,205,221,229,237,279,287,306-308,326-327,400,402-403,419,421-422,427,461,478-480,498,1023,1338
+src/simulation/simulation.test.ts
+  5a15668ff4c0be4a 56,155,196,201-202,206-208,302
+CLAUDE.md
+  5ea93639918a9cf5 54,59,110,112,114-116,118,131,153,156
+  5a15668ff4c0be4a 52-53,63,65,72,239,241-243
+package.json
+  5a15668ff4c0be4a 7-8,10,13,21,26,31-32
+  5ea93639918a9cf5 15
+  6d4e2e294e0c6316 30,36-39
+scripts/build-wasm.mjs
+  5a15668ff4c0be4a 1-33
+sim/crates/voidline-sim/src/enemies.rs
+  5a15668ff4c0be4a 2,106-115,194-197
+src/generated/voidline-wasm/voidline_wasm_bg.wasm.d.ts
+  5a15668ff4c0be4a 1-25
+sim/crates/voidline-sim/src/simulation.rs
+  5a15668ff4c0be4a 27,113-117,174-177,180-185,280-282,311,313-318,334,523-532
+README.md
+  5a15668ff4c0be4a 46,48-52,55,65
+sim/crates/voidline-sim/src/balance_curves.rs
+  5a15668ff4c0be4a 35-37,107-110,113-115,127-131,139-140,146-148,158-160,261-270
+  5ea93639918a9cf5 134,145,149,153,161,169,232-233,242-243,252,260,277,315-707
+sim/crates/voidline-sim/src/effects.rs
+  5ea93639918a9cf5 26-27,123-130,236,242-243,253-256,260,267-275,316-318,321-323,332-398,403-523,530-579
+  5a15668ff4c0be4a 77-81,88-93,103-108,117-122,131-137,194-202,206-210,213-222,399-402,524-529
+sim/crates/voidline-sim/src/lib.rs
+  5a15668ff4c0be4a 9,29-32
+sim/crates/voidline-data/src/dsl.rs
+  5ea93639918a9cf5 38-39,90-97
+  5a15668ff4c0be4a 109,117,125
+sim/crates/voidline-sim/src/pools.rs
+  5a15668ff4c0be4a 1-2,4-6,197
+src/game/balance.ts
+  5ea93639918a9cf5 103,155,163,212,258,266,274,286-287,290-291,297,301,303-310,314-315,318-320,322-325,327-329,331,342,351,606,614,619,625-626,633
+sim/crates/voidline-meta/src/account.rs
+  5a15668ff4c0be4a 134-139,150-154,226-229,233,235-237,265-266,305-307,342-344,351-362,370-372,374-376,378-380,424-426
+  5ea93639918a9cf5 320-341,345-350,363-369,373,377,381-423,427-430
+sim/crates/voidline-sim/src/spatial_grid.rs
+  5a15668ff4c0be4a 1,20-23,140
+sim/crates/voidline-sim/src/entities.rs
+  5a15668ff4c0be4a 65-69,99-103
+sim/crates/voidline-sim/src/spawn.rs
+  5a15668ff4c0be4a 1,35-37,81,138-139
+styles.css
+  5a15668ff4c0be4a 1891-1898,1903-1906,1959-1986
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "8fa07edc6ce65862af2e576b3337302f1c68c5d4",
+  "prompts": {
+    "0300ab4d1ac0907d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ddf7d-2050-7e72-bd68-002fb0e74a51",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 2,
+      "total_deletions": 5,
+      "accepted_lines": 2,
+      "overriden_lines": 0
+    },
+    "5a15668ff4c0be4a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ddf5b-7638-7250-91bd-8a417992a4d2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 4240,
+      "total_deletions": 4491,
+      "accepted_lines": 3882,
+      "overriden_lines": 0
+    },
+    "5ea93639918a9cf5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c4347b2c-cc63-4680-b89a-38daa29cefae",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 3246,
+      "total_deletions": 210,
+      "accepted_lines": 1424,
+      "overriden_lines": 0
+    },
+    "6d4e2e294e0c6316": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ddf92-5a0d-7880-a65f-c24093c49c17",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 5,
+      "total_deletions": 1,
+      "accepted_lines": 5,
+      "overriden_lines": 0
+    }
+  }
+}
