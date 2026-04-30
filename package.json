@@ -13,6 +13,8 @@
     "balance:report": "cross-env RUN_BALANCE_REPORT=1 vitest run scripts/balance-report.test.ts",
     "data:export": "cross-env RUN_DATA_EXPORT=1 vitest run scripts/export-balance.test.ts",
     "data:check": "cross-env CHECK_DATA_EXPORT=1 vitest run scripts/export-balance.test.ts",
+    "balance:meta-report": "scripts/meta-progression-report.sh --default",
+    "balance:meta-report:quick": "scripts/meta-progression-report.sh --quick",
     "test:watch": "vitest",
     "bench": "vitest bench --run",
     "smoke": "npm run build && node scripts/browser-smoke.mjs"
