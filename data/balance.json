@@ -1,0 +1,1367 @@
+{
+  "schemaVersion": 1,
+  "balance": {
+    "player": {
+      "stats": {
+        "radius": 18,
+        "hp": 100,
+        "maxHp": 100,
+        "speed": 265,
+        "damage": 24,
+        "fireRate": 3,
+        "bulletSpeed": 610,
+        "projectileCount": 1,
+        "pierce": 0,
+        "drones": 0,
+        "shield": 0,
+        "shieldMax": 0,
+        "shieldRegen": 0,
+        "critChance": 0,
+        "lifesteal": 0,
+        "pickupRadius": 1,
+        "bulletRadius": 1
+      },
+      "resetInvulnerability": 0.2,
+      "weaponSpread": {
+        "max": 0.82,
+        "perExtraProjectile": 0.13
+      },
+      "drone": {
+        "bulletSpeedMul": 0.9,
+        "damageMul": 0.58,
+        "damageMulSwarm": 0.66,
+        "bulletLife": 0.9,
+        "bulletRadius": 4,
+        "orbitRadius": 48,
+        "orbitAngularVelocity": 1.9,
+        "fireInterval": {
+          "base": 0.72,
+          "swarm": 0.52,
+          "reducePerDrone": 0.05,
+          "reducePerDroneSwarm": 0.055,
+          "min": 0.18,
+          "minSwarm": 0.12
+        }
+      }
+    },
+    "wave": {
+      "targetBase": 21,
+      "targetLinear": 5,
+      "targetExponent": 1.28,
+      "spawnGapStart": 0.405,
+      "spawnGapPerWave": 0.02,
+      "spawnGapMin": 0.14,
+      "spawnTimerStart": 0.1,
+      "packChancePerWave": 0.12,
+      "packChanceMax": 0.62,
+      "waveDelay": 0.7
+    },
+    "xp": {
+      "levelBase": 25,
+      "levelLinear": 10,
+      "levelExponent": 1.45,
+      "levelExponentScale": 6,
+      "dropScoreDivisor": 7,
+      "dropWaveScale": 0.04,
+      "shardCount": {
+        "scout": 2,
+        "hunter": 3,
+        "brute": 5
+      },
+      "orbRadiusBase": 6,
+      "orbRadiusValueScale": 0.18,
+      "orbRadiusBonusMax": 5,
+      "pickupBaseRadius": 36
+    },
+    "lateWave": {
+      "startWave": 10,
+      "targetLinear": 5,
+      "targetExponent": 1.12,
+      "targetExponentScale": 1.4,
+      "spawnGapPerWave": 0.008,
+      "spawnGapMin": 0.105,
+      "packChancePerWave": 0.02,
+      "packChanceMax": 0.84,
+      "hpScalePerWave": 0.055,
+      "speedScalePerWave": 0.018,
+      "speedScaleMax": 0.24,
+      "damageScalePerWave": 0.04,
+      "damageScaleMax": 0.55
+    },
+    "enemy": {
+      "hpScalePerWave": 0.06,
+      "speedScalePerWave": 0.022,
+      "speedScaleMax": 0.4,
+      "hunterChancePerWave": 0.07,
+      "hunterChanceMax": 0.4,
+      "bruteChanceOffsetWave": 2,
+      "bruteChancePerWave": 0.05,
+      "bruteChanceMax": 0.25,
+      "wobble": {
+        "scout": 0.18,
+        "hunter": 0.18,
+        "brute": 0.08,
+        "rateBase": 2,
+        "rateRandom": 2
+      }
+    },
+    "enemies": [
+      {
+        "id": "scout",
+        "score": 35,
+        "radius": 14,
+        "hp": 42,
+        "speed": 132,
+        "damage": 25,
+        "color": "#ff5a69",
+        "accent": "#ffd0d5",
+        "sides": 3
+      },
+      {
+        "id": "hunter",
+        "score": 55,
+        "radius": 18,
+        "hp": 64,
+        "speed": 112,
+        "damage": 29,
+        "color": "#ffbf47",
+        "accent": "#fff0b8",
+        "sides": 4
+      },
+      {
+        "id": "brute",
+        "score": 90,
+        "radius": 25,
+        "hp": 130,
+        "speed": 72,
+        "damage": 40,
+        "color": "#b973ff",
+        "accent": "#ead4ff",
+        "sides": 6
+      }
+    ],
+    "upgrade": {
+      "caps": {
+        "drones": 5,
+        "projectiles": 8,
+        "pierce": 5,
+        "critChance": 0.95
+      },
+      "steppedGain": {
+        "rareThreshold": 1.4,
+        "singularityThreshold": 2.75,
+        "standard": 1,
+        "rare": 2,
+        "singularity": 3
+      },
+      "tierWeights": {
+        "standardMin": 24,
+        "standardBase": 100,
+        "standardPerWave": 5.5,
+        "rareBase": 28,
+        "rarePerWave": 2.8,
+        "prototypeBase": 7,
+        "prototypePerWave": 1.45,
+        "singularityPerWave": 1.4
+      },
+      "gates": {
+        "rare": {
+          "minWave": 1,
+          "rampWaves": 0
+        },
+        "prototype": {
+          "minWave": 2,
+          "rampWaves": 0,
+          "lockedWeight": 4
+        },
+        "singularity": {
+          "minWave": 3,
+          "rampWaves": 0,
+          "lockedWeight": 0
+        }
+      },
+      "effects": {
+        "fireRate": 0.22,
+        "damage": 0.26,
+        "bulletSpeed": 0.055,
+        "speed": 0.13,
+        "shield": 24,
+        "shieldRegen": 2.4,
+        "maxHp": 20,
+        "heal": 42,
+        "pierceDamage": 0.07,
+        "critChance": 0.08,
+        "lifesteal": 2,
+        "pickupRadius": 0.35,
+        "bulletRadius": 0.18,
+        "droneExtraThreshold": 2
+      }
+    },
+    "tiers": [
+      {
+        "id": "standard",
+        "short": "T1",
+        "name": "Standard",
+        "power": 1,
+        "color": "#39d9ff",
+        "glow": "rgba(57, 217, 255, 0.22)"
+      },
+      {
+        "id": "rare",
+        "short": "T2",
+        "name": "Rare",
+        "power": 1.45,
+        "color": "#72ffb1",
+        "glow": "rgba(114, 255, 177, 0.25)"
+      },
+      {
+        "id": "prototype",
+        "short": "T3",
+        "name": "Prototype",
+        "power": 2.05,
+        "color": "#ffbf47",
+        "glow": "rgba(255, 191, 71, 0.28)"
+      },
+      {
+        "id": "singularity",
+        "short": "T4",
+        "name": "Singularity",
+        "power": 2.8,
+        "color": "#ff5a69",
+        "glow": "rgba(255, 90, 105, 0.3)"
+      }
+    ],
+    "bosses": {
+      "stageDurationSeconds": 600,
+      "waveOffsetPerStage": 9,
+      "contactBackoff": 0.45,
+      "stageScaling": {
+        "hpPerStage": 0,
+        "damagePerStage": 0,
+        "speedPerStage": 0
+      },
+      "wobble": {
+        "boss": {
+          "value": 0.05,
+          "rate": 1.1
+        },
+        "miniBoss": {
+          "value": 0.09,
+          "rate": 1.7
+        }
+      },
+      "spawnOffsets": {
+        "miniBoss": {
+          "eligibleFromWave": 7,
+          "offset": 3,
+          "fallbackWave": 8,
+          "fallbackRoll": 0.95
+        },
+        "waveBoss": {
+          "offset": 8,
+          "roll": 0.98
+        },
+        "stageBoss": {
+          "offset": 8,
+          "stageMultiplier": 4,
+          "roll": 0.98
+        }
+      },
+      "boss": {
+        "hpMultiplier": 22,
+        "speedMultiplier": 0.54,
+        "damageMultiplier": 1.8,
+        "radiusMultiplier": 2.15,
+        "scoreMultiplier": 7,
+        "contactCooldown": 0.95
+      },
+      "miniBoss": {
+        "startWave": 3,
+        "spawnChance": 0.32,
+        "guaranteeAfterEligibleWaves": 4,
+        "hpMultiplier": 6.4,
+        "speedMultiplier": 0.74,
+        "damageMultiplier": 1.35,
+        "radiusMultiplier": 1.55,
+        "scoreMultiplier": 3.2,
+        "contactCooldown": 1.05
+      }
+    },
+    "synergies": {
+      "kineticRam": {
+        "minSpeed": 150,
+        "minShieldRatio": 0.28,
+        "cooldown": 0.16,
+        "hitDuration": 0.16,
+        "knockback": 86,
+        "damage": {
+          "vsDamage": 1.8,
+          "vsShield": 0.55,
+          "vsSpeed": 0.08
+        },
+        "shieldCost": {
+          "flat": 8,
+          "perRadius": 0.42
+        }
+      },
+      "magnetStorm": {
+        "threshold": 24,
+        "cooldown": 2.35,
+        "hitDuration": 0.18,
+        "knockback": 42,
+        "radius": {
+          "base": 180,
+          "pickupFactor": 42,
+          "maxBonus": 115
+        },
+        "damage": {
+          "vsDamage": 2.15,
+          "vsCharge": 1.65
+        }
+      }
+    },
+    "powerups": {
+      "heartHealRatio": 0.5,
+      "pullRadius": 70,
+      "pullStrength": 380,
+      "velocityDamping": 1.6,
+      "dropChance": {
+        "scout": 0.012,
+        "hunter": 0.03,
+        "brute": 0.09
+      }
+    },
+    "progression": {
+      "relicUnlockWaves": [
+        10,
+        20,
+        30
+      ]
+    }
+  },
+  "enemySpawnRules": {
+    "scout": "residual",
+    "hunter": {
+      "baseChance": 0,
+      "perWave": 0.07,
+      "maxChance": 0.4,
+      "waveOnset": 0
+    },
+    "brute": {
+      "baseChance": 0,
+      "perWave": 0.05,
+      "maxChance": 0.25,
+      "waveOnset": 2
+    }
+  },
+  "upgrades": [
+    {
+      "id": "twin-cannon",
+      "kind": "technology",
+      "icon": "II",
+      "name": "Technologie salves",
+      "description": "Elargit les tirs de l'arme active.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "projectileCount",
+          "amount": 1,
+          "cap": "projectiles",
+          "gainCurve": "stepped"
+        }
+      ],
+      "softCap": {
+        "stat": "projectileCount",
+        "max": 8
+      }
+    },
+    {
+      "id": "plasma-core",
+      "kind": "technology",
+      "icon": "Hz",
+      "name": "Technologie cadence",
+      "description": "Accorde le reacteur au rythme des canons.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "fireRate",
+          "amount": 0.22
+        }
+      ]
+    },
+    {
+      "id": "rail-slug",
+      "kind": "technology",
+      "icon": "DMG",
+      "name": "Technologie degats",
+      "description": "Charge les impacts avec une masse cinetique.",
+      "tags": [
+        "cannon",
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.26
+        },
+        {
+          "type": "addPct",
+          "stat": "bulletSpeed",
+          "amount": 0.055
+        }
+      ]
+    },
+    {
+      "id": "ion-engine",
+      "kind": "technology",
+      "icon": "SPD",
+      "name": "Technologie moteurs",
+      "description": "Rend les corrections de trajectoire plus nerveuses.",
+      "tags": [
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "speed",
+          "amount": 0.13
+        }
+      ]
+    },
+    {
+      "id": "magnet-array",
+      "kind": "technology",
+      "icon": "MAG",
+      "name": "Technologie aimant",
+      "description": "Etend la portee d'attraction des fragments d'XP.",
+      "tags": [
+        "magnet"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "pickupRadius",
+          "amount": 0.35
+        }
+      ]
+    },
+    {
+      "id": "kinetic-shield",
+      "kind": "technology",
+      "icon": "SHD",
+      "name": "Technologie defense",
+      "description": "Ajoute une couche regenerante autour de la coque.",
+      "tags": [
+        "shield",
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "shieldGrant",
+          "shield": 24,
+          "regen": 2.4,
+          "maxHpBonus": 20,
+          "healRatio": 0.65
+        }
+      ]
+    },
+    {
+      "id": "crit-array",
+      "kind": "technology",
+      "icon": "X2",
+      "name": "Technologie critique",
+      "description": "Calibre les tirs pour des coups doubles aleatoires.",
+      "tags": [
+        "crit"
+      ],
+      "effects": [
+        {
+          "type": "addCappedPct",
+          "stat": "critChance",
+          "amount": 0.08,
+          "cap": "critChance"
+        }
+      ]
+    },
+    {
+      "id": "heavy-caliber",
+      "kind": "technology",
+      "icon": "CAL",
+      "name": "Technologie calibre",
+      "description": "Elargit les projectiles pour mieux toucher.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "bulletRadius",
+          "amount": 0.18
+        }
+      ]
+    },
+    {
+      "id": "pulse-overdrive",
+      "kind": "weapon",
+      "weaponId": "pulse",
+      "icon": "PUL",
+      "name": "Pulse overdrive",
+      "description": "Level-up du Pulse Rifle: cadence et degats stables.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "fireRate",
+          "amount": 0.15
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.12
+        }
+      ]
+    },
+    {
+      "id": "scatter-loader",
+      "kind": "weapon",
+      "weaponId": "scatter",
+      "icon": "SCT",
+      "name": "Scatter loader",
+      "description": "Level-up du Scatter: densifie la salve et compense les impacts.",
+      "tags": [
+        "cannon",
+        "crit"
+      ],
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "projectileCount",
+          "amount": 1,
+          "cap": "projectiles",
+          "gainCurve": "stepped"
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.08
+        }
+      ],
+      "softCap": {
+        "stat": "projectileCount",
+        "max": 8
+      }
+    },
+    {
+      "id": "lance-capacitor",
+      "kind": "weapon",
+      "weaponId": "lance",
+      "icon": "RLG",
+      "name": "Lance capacitor",
+      "description": "Level-up du Rail Lance: penetration et charge de tir.",
+      "tags": [
+        "pierce",
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "pierce",
+          "amount": 1,
+          "cap": "pierce",
+          "gainCurve": "stepped"
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.18
+        }
+      ],
+      "softCap": {
+        "stat": "pierce",
+        "max": 5
+      }
+    },
+    {
+      "id": "drone-uplink",
+      "kind": "weapon",
+      "weaponId": "drone",
+      "icon": "DRN",
+      "name": "Drone uplink",
+      "description": "Level-up du Drone Core: ajoute des tourelles autonomes.",
+      "tags": [
+        "drone",
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "drones",
+          "amount": 1,
+          "cap": "drones",
+          "gainCurve": "droneStepped"
+        }
+      ],
+      "softCap": {
+        "stat": "drones",
+        "max": 5
+      }
+    }
+  ],
+  "relics": [
+    {
+      "id": "rail-focus",
+      "icon": "DMG",
+      "name": "Lentille rail",
+      "description": "Concentre les impacts de la salve principale.",
+      "tags": [
+        "cannon"
+      ],
+      "color": "#ff5a69",
+      "effect": "+22% degats",
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.22,
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "reactor-surge",
+      "icon": "Hz",
+      "name": "Reacteur surcharge",
+      "description": "Fait monter les canons en frequence instable.",
+      "tags": [
+        "cannon"
+      ],
+      "color": "#39d9ff",
+      "effect": "+18% cadence",
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "fireRate",
+          "amount": 0.18,
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "magnetized-map",
+      "icon": "MAG",
+      "name": "Carte aimantee",
+      "description": "Trace les fragments d'XP proches du vaisseau.",
+      "tags": [
+        "magnet"
+      ],
+      "color": "#72ffb1",
+      "effect": "+40% portee de ramassage",
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "pickupRadius",
+          "amount": 0.4,
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "salvage-plating",
+      "icon": "ARM",
+      "name": "Blindage de recuperation",
+      "description": "Soude les plaques trouvees sur les epaves.",
+      "tags": [
+        "shield",
+        "salvage"
+      ],
+      "color": "#ffbf47",
+      "effect": "+35 integrite max, +35 soin",
+      "effects": [
+        {
+          "type": "addMaxHp",
+          "amount": 35
+        },
+        {
+          "type": "healFlat",
+          "amount": 35
+        }
+      ]
+    },
+    {
+      "id": "emergency-nanites",
+      "icon": "NAN",
+      "name": "Nanites de secours",
+      "description": "Transforme les eliminations en reparations lentes.",
+      "tags": [
+        "salvage"
+      ],
+      "color": "#d9f6ff",
+      "effect": "+1.0 vampire, +40% soin",
+      "effects": [
+        {
+          "type": "addLifesteal",
+          "amount": 1
+        },
+        {
+          "type": "healPct",
+          "amount": 0.4
+        }
+      ]
+    },
+    {
+      "id": "splitter-matrix",
+      "icon": "II",
+      "name": "Matrice separatrice",
+      "description": "Divise la salve sans destabiliser le noyau.",
+      "tags": [
+        "cannon",
+        "pierce"
+      ],
+      "color": "#39d9ff",
+      "effect": "+1 projectile par salve",
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "projectileCount",
+          "amount": 1,
+          "cap": "projectiles"
+        }
+      ]
+    },
+    {
+      "id": "drone-contract",
+      "icon": "O",
+      "name": "Contrat drone",
+      "description": "Rallie une tourelle autonome au convoi.",
+      "tags": [
+        "drone"
+      ],
+      "color": "#ffbf47",
+      "effect": "+1 drone orbital",
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "drones",
+          "amount": 1,
+          "cap": "drones"
+        }
+      ]
+    },
+    {
+      "id": "critical-orbit",
+      "icon": "X2",
+      "name": "Orbite critique",
+      "description": "Synchronise les tirs sur les failles d'armure.",
+      "tags": [
+        "crit",
+        "pierce"
+      ],
+      "color": "#ff5af0",
+      "effect": "+12% critique, +1 penetration",
+      "effects": [
+        {
+          "type": "addCappedPct",
+          "stat": "critChance",
+          "amount": 0.12,
+          "cap": "critChance",
+          "scale": 1
+        },
+        {
+          "type": "addCapped",
+          "stat": "pierce",
+          "amount": 1,
+          "cap": "pierce"
+        }
+      ]
+    }
+  ],
+  "fallbackRelic": {
+    "id": "field-repair",
+    "icon": "HP",
+    "name": "Reparation de terrain",
+    "description": "Quand la soute est vide, l'equipage rafistole la coque.",
+    "tags": [
+      "salvage"
+    ],
+    "color": "#72ffb1",
+    "effect": "+50% soin",
+    "repeatable": true,
+    "effects": [
+      {
+        "type": "healPct",
+        "amount": 0.5
+      }
+    ]
+  },
+  "relicUnlocks": [
+    {
+      "wave": 10,
+      "relicIds": [
+        "splitter-matrix"
+      ]
+    },
+    {
+      "wave": 20,
+      "relicIds": [
+        "drone-contract"
+      ]
+    },
+    {
+      "wave": 30,
+      "relicIds": [
+        "critical-orbit"
+      ]
+    }
+  ],
+  "defaultRelicIds": [
+    "rail-focus",
+    "reactor-surge",
+    "magnetized-map",
+    "salvage-plating",
+    "emergency-nanites"
+  ],
+  "metaUpgrades": [
+    {
+      "id": "unique:weapon-scatter",
+      "kind": "unique",
+      "name": "Scatter Cannon",
+      "description": "Salves larges, dégâts plus bas, très bon avec les critiques.",
+      "maxLevel": 1,
+      "costs": [
+        45
+      ],
+      "requirement": "available",
+      "weaponId": "scatter"
+    },
+    {
+      "id": "unique:weapon-lance",
+      "kind": "unique",
+      "name": "Rail Lance",
+      "description": "Tir lent et lourd, pénétration de base.",
+      "maxLevel": 1,
+      "costs": [
+        75
+      ],
+      "requirement": "reach-stage-2",
+      "weaponId": "lance"
+    },
+    {
+      "id": "unique:weapon-drone",
+      "kind": "unique",
+      "name": "Drone Core",
+      "description": "Un drone autonome dès le départ, faible burst initial.",
+      "maxLevel": 1,
+      "costs": [
+        95
+      ],
+      "requirement": "boss-kill",
+      "weaponId": "drone"
+    },
+    {
+      "id": "unique:char-runner",
+      "kind": "unique",
+      "name": "Runner",
+      "description": "Vaisseau rapide, fragile, pensé pour esquiver jusqu'au boss.",
+      "maxLevel": 1,
+      "costs": [
+        60
+      ],
+      "requirement": "reach-10m",
+      "characterId": "runner"
+    },
+    {
+      "id": "unique:char-tank",
+      "kind": "unique",
+      "name": "Tank",
+      "description": "Coque lourde et bouclier de départ, moins mobile.",
+      "maxLevel": 1,
+      "costs": [
+        90
+      ],
+      "requirement": "clear-stage-1",
+      "characterId": "tank"
+    },
+    {
+      "id": "unique:extra-choice",
+      "kind": "unique",
+      "name": "Banque tactique",
+      "description": "+1 choix à chaque level-up.",
+      "maxLevel": 1,
+      "costs": [
+        120
+      ],
+      "requirement": "available"
+    },
+    {
+      "id": "unique:reroll",
+      "kind": "unique",
+      "name": "Reroll",
+      "description": "1 reroll par chest pour relancer les choix.",
+      "maxLevel": 1,
+      "costs": [
+        100
+      ],
+      "requirement": "clear-stage-1"
+    },
+    {
+      "id": "category:attack",
+      "kind": "category",
+      "name": "Attaque",
+      "description": "Augmente la qualité des upgrades offensifs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        75,
+        130,
+        220
+      ],
+      "requirement": "available",
+      "tag": "cannon",
+      "technologyId": "heavy-caliber",
+      "levels": [
+        {
+          "summary": "Débloque la tech Calibre et les rares offensifs."
+        },
+        {
+          "summary": "+25% chance de rare globale."
+        },
+        {
+          "summary": "Débloque les prototypes."
+        },
+        {
+          "summary": "Augmente la chance de singularité."
+        }
+      ]
+    },
+    {
+      "id": "category:defense",
+      "kind": "category",
+      "name": "Défense",
+      "description": "Renforce la coque et les builds défensifs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        75,
+        130,
+        220
+      ],
+      "requirement": "available",
+      "tag": "shield",
+      "technologyId": "kinetic-shield",
+      "levels": [
+        {
+          "summary": "Débloque la tech Bouclier et les rares défensifs."
+        },
+        {
+          "summary": "+1 charge de bouclier au départ."
+        },
+        {
+          "summary": "Débloque les prototypes."
+        },
+        {
+          "summary": "+0.5 régénération HP au départ."
+        }
+      ]
+    },
+    {
+      "id": "category:salvage",
+      "kind": "category",
+      "name": "Récolte",
+      "description": "Optimise la collecte d'XP et les récompenses de run.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        75,
+        130,
+        220
+      ],
+      "requirement": "available",
+      "tag": "salvage",
+      "levels": [
+        {
+          "summary": "Débloque les rares de récolte."
+        },
+        {
+          "summary": "+10% multiplicateur de cristaux par run."
+        },
+        {
+          "summary": "+5% rayon de collecte."
+        },
+        {
+          "summary": "Débloque les prototypes."
+        }
+      ]
+    },
+    {
+      "id": "category:tempo",
+      "kind": "category",
+      "name": "Tempo",
+      "description": "Cadence, précision et flexibilité de build.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        75,
+        130,
+        220
+      ],
+      "requirement": "available",
+      "tag": "crit",
+      "technologyId": "crit-array",
+      "levels": [
+        {
+          "summary": "Débloque la tech Critique et les rares de précision."
+        },
+        {
+          "summary": "+1 reroll disponible."
+        },
+        {
+          "summary": "Débloque les prototypes."
+        },
+        {
+          "summary": "+1 choix au level-up."
+        }
+      ]
+    }
+  ],
+  "shopItems": [
+    {
+      "id": "character:runner",
+      "kind": "character",
+      "name": "Runner",
+      "description": "Vaisseau rapide, fragile, pense pour esquiver jusqu'au boss.",
+      "cost": 60,
+      "tags": [
+        "salvage",
+        "magnet"
+      ],
+      "requirement": "reach-10m",
+      "characterId": "runner"
+    },
+    {
+      "id": "character:tank",
+      "kind": "character",
+      "name": "Tank",
+      "description": "Coque lourde et bouclier de depart, moins mobile.",
+      "cost": 90,
+      "tags": [
+        "shield",
+        "salvage"
+      ],
+      "requirement": "clear-stage-1",
+      "characterId": "tank"
+    },
+    {
+      "id": "weapon:scatter",
+      "kind": "weapon",
+      "name": "Scatter Cannon",
+      "description": "Salves larges, degats plus bas, tres bon avec les critiques.",
+      "cost": 45,
+      "tags": [
+        "cannon",
+        "crit"
+      ],
+      "requirement": "available",
+      "weaponId": "scatter"
+    },
+    {
+      "id": "weapon:lance",
+      "kind": "weapon",
+      "name": "Rail Lance",
+      "description": "Tir lent et lourd, penetration de base.",
+      "cost": 75,
+      "tags": [
+        "pierce",
+        "cannon"
+      ],
+      "requirement": "reach-stage-2",
+      "weaponId": "lance"
+    },
+    {
+      "id": "weapon:drone",
+      "kind": "weapon",
+      "name": "Drone Core",
+      "description": "Un drone autonome des le depart, faible burst initial.",
+      "cost": 95,
+      "tags": [
+        "drone",
+        "salvage"
+      ],
+      "requirement": "boss-kill",
+      "weaponId": "drone"
+    },
+    {
+      "id": "technology:kinetic-shield",
+      "kind": "technology",
+      "name": "Technologie bouclier",
+      "description": "Ajoute les choix defensifs et les synergies de coque.",
+      "cost": 70,
+      "tags": [
+        "shield",
+        "salvage"
+      ],
+      "requirement": "reach-10m",
+      "technologyId": "kinetic-shield"
+    },
+    {
+      "id": "technology:crit-array",
+      "kind": "technology",
+      "name": "Technologie critique",
+      "description": "Debloque les coups critiques pour les builds precision.",
+      "cost": 55,
+      "tags": [
+        "crit"
+      ],
+      "requirement": "available",
+      "technologyId": "crit-array"
+    },
+    {
+      "id": "technology:heavy-caliber",
+      "kind": "technology",
+      "name": "Technologie calibre",
+      "description": "Augmente la taille des projectiles et stabilise les salves.",
+      "cost": 80,
+      "tags": [
+        "cannon"
+      ],
+      "requirement": "reach-stage-2",
+      "technologyId": "heavy-caliber"
+    }
+  ],
+  "characters": [
+    {
+      "id": "pilot",
+      "name": "Pilot",
+      "icon": "PIL",
+      "description": "Profil neutre, stable pour apprendre les builds.",
+      "bonusLabel": "Base standard",
+      "effects": []
+    },
+    {
+      "id": "runner",
+      "name": "Runner",
+      "icon": "RUN",
+      "description": "Plus rapide et meilleur ramassage, mais coque fragile.",
+      "bonusLabel": "+22% vitesse, +14% aimant, -18 PV",
+      "effects": [
+        {
+          "type": "addMaxHp",
+          "amount": -18
+        },
+        {
+          "type": "addPct",
+          "stat": "speed",
+          "amount": 0.22,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "pickupRadius",
+          "amount": 0.14,
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "tank",
+      "name": "Tank",
+      "icon": "TNK",
+      "description": "Coque lourde et bouclier de depart, cadence un peu basse.",
+      "bonusLabel": "+42 PV, +26 bouclier, -14% vitesse",
+      "effects": [
+        {
+          "type": "addMaxHp",
+          "amount": 42
+        },
+        {
+          "type": "healFlat",
+          "amount": 42
+        },
+        {
+          "type": "shieldGrant",
+          "shield": 26,
+          "regen": 1.6,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "speed",
+          "amount": -0.14,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "fireRate",
+          "amount": -0.06,
+          "scale": 1
+        }
+      ]
+    }
+  ],
+  "weapons": [
+    {
+      "id": "pulse",
+      "name": "Pulse Rifle",
+      "icon": "PUL",
+      "description": "Arme standard, fiable, sans faiblesse majeure.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": []
+    },
+    {
+      "id": "scatter",
+      "name": "Scatter Cannon",
+      "icon": "SCT",
+      "description": "Plus de projectiles, impacts plus legers.",
+      "tags": [
+        "cannon",
+        "crit"
+      ],
+      "effects": [
+        {
+          "type": "addCapped",
+          "stat": "projectileCount",
+          "amount": 1,
+          "cap": "projectiles"
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": -0.16,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "bulletRadius",
+          "amount": -0.08,
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "lance",
+      "name": "Rail Lance",
+      "icon": "RLG",
+      "description": "Cadence basse, degats lourds et penetration de base.",
+      "tags": [
+        "pierce",
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "setMin",
+          "stat": "pierce",
+          "value": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "fireRate",
+          "amount": -0.34,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.48,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "bulletSpeed",
+          "amount": 0.2,
+          "scale": 1
+        }
+      ]
+    },
+    {
+      "id": "drone",
+      "name": "Drone Core",
+      "icon": "DRN",
+      "description": "Un drone autonome des le depart, faible burst principal.",
+      "tags": [
+        "drone",
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "setMin",
+          "stat": "drones",
+          "value": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "fireRate",
+          "amount": -0.12,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": -0.1,
+          "scale": 1
+        }
+      ]
+    }
+  ],
+  "bosses": [
+    {
+      "id": "default-mini-boss",
+      "role": "mini-boss",
+      "label": "MINI-BOSS",
+      "stats": {
+        "hpMultiplier": 6.4,
+        "speedMultiplier": 0.74,
+        "damageMultiplier": 1.35,
+        "radiusMultiplier": 1.55,
+        "scoreMultiplier": 3.2,
+        "contactCooldown": 1.05,
+        "color": "#ffbf47",
+        "accent": "#fff0b8",
+        "sides": 6,
+        "wobble": 0.09,
+        "wobbleRate": 1.7
+      }
+    },
+    {
+      "id": "default-boss",
+      "role": "boss",
+      "label": "BOSS",
+      "stats": {
+        "hpMultiplier": 22,
+        "speedMultiplier": 0.54,
+        "damageMultiplier": 1.8,
+        "radiusMultiplier": 2.15,
+        "scoreMultiplier": 7,
+        "contactCooldown": 0.95,
+        "color": "#ff5a69",
+        "accent": "#ffffff",
+        "sides": 8,
+        "wobble": 0.05,
+        "wobbleRate": 1.1
+      }
+    }
+  ],
+  "starterTechnologyIds": [
+    "twin-cannon",
+    "plasma-core",
+    "rail-slug",
+    "ion-engine",
+    "magnet-array",
+    "crit-array"
+  ],
+  "starterBuildTags": [
+    "cannon",
+    "salvage",
+    "magnet",
+    "crit"
+  ]
+}

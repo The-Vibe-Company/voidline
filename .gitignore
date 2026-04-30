@@ -5,4 +5,5 @@ coverage/
 *.log
 .vercel
 scripts/balance-report.json
+scripts/meta-progression-report.json
 .claude/

@@ -1,5 +1,25 @@
 # Voidline — Agent Guide
 
+## ⚠️ RÈGLE PRIORITAIRE — Maintenance du sim Rust
+
+**Le port Rust dans `sim/` est une obligation, pas un projet annexe.** Toute modification de la logique gameplay TS doit être reflétée côté Rust dans le même PR :
+
+- **Si tu modifies un knob de balance** (`src/game/balance.ts`, catalogs): tu DOIS lancer `npm run data:export` pour régénérer `data/balance.json`. Le check `npm run data:check` doit passer.
+- **Si tu ajoutes/modifies un effet d'upgrade/relique/character/weapon** : utilise la DSL `EffectOp[]` dans `src/game/effect-dsl.ts`. Si tu ajoutes un nouveau type d'op, tu dois le porter aussi dans `sim/crates/voidline-data/src/dsl.rs` ET `sim/crates/voidline-sim/src/effects.rs`.
+- **Si tu modifies la logique de simulation** (entities, systems, simulation/simulation.ts) : tu DOIS porter le changement dans le module Rust correspondant (`sim/crates/voidline-sim/src/{enemies,bullets,player_update,simulation,...}.rs`) et faire passer `cargo test --workspace`.
+- **Si tu ajoutes un nouveau type d'ennemi, synergie, requirement** : update simultanément TS + Rust + tests.
+
+**Pour les reviewers (humains et IA)** : avant d'approuver une PR qui touche `src/game/` ou `src/{entities,systems,simulation}/`, vérifier explicitement :
+1. `data/balance.json` est à jour (run `npm run data:check`)
+2. La sim Rust compile et teste vert (`cd sim && cargo test --workspace`)
+3. La parité bit-near est préservée (les valeurs hardcodées dans `sim/crates/voidline-sim/src/balance_curves.rs` matchent les nouveaux knobs)
+
+**Bloquer la PR si la divergence TS↔Rust est observée.** Le coût d'un drift silencieux est élevé : balance reports faux, conclusions de game design erronées, fondation RL future cassée.
+
+Voir `sim/README.md` pour l'architecture complète et les workflows de maintenance.
+
+---
+
 ## Concept du jeu
 
 Voidline est un rogue-lite spatial browser-first: le joueur lance une run courte, survit dans une arene suivie par camera, ramasse de l'XP, choisit des armes/technologies de run, puis meurt ou bat un boss pour alimenter une progression a cristaux.
@@ -17,6 +37,23 @@ Le fun doit venir du buildcraft, pas d'une inflation brute de stats permanentes.
 Les challenges ne donnent pas de bonus permanents directs. Ils servent d'objectifs lisibles et de gates d'unlocks; les cristaux restent la seule monnaie meta. Les reliques restent des rewards temporaires de run, mais leur disponibilite passe par les tags de build et les unlocks de boss.
 
 La home est un hangar jouable, pas une landing page: le premier ecran doit permettre de lancer une run, voir les cristaux, choisir personnage/arme/niveau de depart, acheter des technologies et lire les objectifs. L'ecran de mort doit aider le joueur a comprendre ce qu'il a gagne et quoi acheter ensuite.
+
+## Sim Rust (parité TS↔Rust pour balance massif)
+
+Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo workspace) qui exécute jusqu'à **100k campaigns en quelques secondes** via `rayon`. Tous les knobs et effets sont déclaratifs : `data/balance.json` est la source unique de vérité, généré depuis `balance.ts` + catalogs via `npm run data:export`.
+
+**Maintenance** :
+- Modifier un knob (`balance.ts`) → `npm run data:export` → Rust pick-up auto.
+- Ajouter une upgrade (avec `effects: EffectOp[]`) → `npm run data:export` → 0 Rust.
+- Ajouter un type d'ennemi → `data:export` + 1 entry dans `EnemyKind` (Rust).
+- Voir `sim/README.md` pour l'architecture complète.
+
+**Commands** :
+- `npm run balance:meta-report:quick` — 1.5k trials en <1s
+- `npm run balance:meta-report` — 8k trials en <30s
+- `npm run data:export` — régénère `data/balance.json`
+- `npm run data:check` — vérifie que `data/balance.json` est à jour
+- `cd sim && cargo test --workspace` — tests parité Rust (28 tests)
 
 ## Architecture (rappel)
 

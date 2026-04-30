@@ -111,9 +111,9 @@ describe("balance curves", () => {
 
   it("front-loads the first wave tempo", () => {
     expect(waveTarget(1)).toBe(27);
-    expect(waveTarget(10)).toBe(94);
-    expect(spawnGap(1)).toBeCloseTo(0.39);
-    expect(spawnGap(10)).toBeCloseTo(0.247);
+    expect(waveTarget(10)).toBe(96);
+    expect(spawnGap(1)).toBeCloseTo(0.385);
+    expect(spawnGap(10)).toBeCloseTo(0.197);
     expect(spawnPackChance(1)).toBeCloseTo(0.12);
     expect(spawnPackChance(10)).toBeCloseTo(0.64);
     expect(balance.wave.spawnTimerStart).toBeCloseTo(0.1);
@@ -130,23 +130,23 @@ describe("balance curves", () => {
     expect(lateWavePressure(10)).toBe(1);
     expect(lateWavePressure(20)).toBe(11);
 
-    expect(waveTarget(9)).toBe(81);
-    expect(waveTarget(10)).toBe(94);
-    expect(waveTarget(20)).toBe(236);
+    expect(waveTarget(9)).toBe(83);
+    expect(waveTarget(10)).toBe(96);
+    expect(waveTarget(20)).toBe(243);
     expect(waveTarget(10) - waveTarget(9)).toBe(13);
 
-    expect(spawnGap(9)).toBeCloseTo(0.27);
-    expect(spawnGap(10)).toBeCloseTo(0.247);
+    expect(spawnGap(9)).toBeCloseTo(0.225);
+    expect(spawnGap(10)).toBeCloseTo(0.197);
     expect(spawnGap(20)).toBe(balance.lateWave.spawnGapMin);
     expect(spawnPackChance(9)).toBeCloseTo(balance.wave.packChanceMax);
     expect(spawnPackChance(10)).toBeCloseTo(0.64);
     expect(spawnPackChance(20)).toBeCloseTo(balance.lateWave.packChanceMax);
 
     expect(wave9.damage).toBe(scout.damage);
-    expect(wave10.hp).toBeCloseTo(65.31);
+    expect(wave10.hp).toBeCloseTo(69.51);
     expect(wave10.speed).toBeCloseTo(163.416);
     expect(wave10.damage).toBeCloseTo(26);
-    expect(wave20.hp).toBeCloseTo(109.41);
+    expect(wave20.hp).toBeCloseTo(117.81);
     expect(wave20.damage).toBeCloseTo(36);
     expect(wave40.speed).toBeCloseTo(
       scout.speed * (1 + balance.enemy.speedScaleMax + balance.lateWave.speedScaleMax),
@@ -163,8 +163,9 @@ describe("balance curves", () => {
     expect(scout).toMatchObject({ hp: 42, speed: 132, damage: 25 });
     expect(hunter).toMatchObject({ hp: 64, speed: 112, damage: 29 });
     expect(brute).toMatchObject({ hp: 130, speed: 72, damage: 40 });
-    expect(balance.enemy.hunterChancePerWave).toBeCloseTo(0.05);
+    expect(balance.enemy.hunterChancePerWave).toBeCloseTo(0.07);
     expect(balance.enemy.bruteChancePerWave).toBeCloseTo(0.05);
+    expect(balance.enemy.bruteChanceOffsetWave).toBe(2);
   });
 
   it("awards more visible score as waves advance", () => {
@@ -185,8 +186,14 @@ describe("balance curves", () => {
       expect(weights.reduce((sum, item) => sum + item.weight, 0)).toBeGreaterThan(0);
     }
 
-    expect(upgradeTierWeights(4).find((item) => item.tier.id === "singularity")?.weight).toBe(0);
-    expect(upgradeTierWeights(5).find((item) => item.tier.id === "singularity")?.weight).toBeGreaterThan(0);
+    const singularityGate = balance.upgrade.gates.singularity.minWave;
+    expect(
+      upgradeTierWeights(singularityGate - 1).find((item) => item.tier.id === "singularity")
+        ?.weight,
+    ).toBe(0);
+    expect(
+      upgradeTierWeights(singularityGate).find((item) => item.tier.id === "singularity")?.weight,
+    ).toBeGreaterThan(0);
     expect(selectUpgradeTier(1, 0).id).toBe("standard");
   });
 
@@ -197,7 +204,11 @@ describe("balance curves", () => {
     const boostedRare = boostedWaveFive.find((item) => item.tier.id === "rare")!.weight;
 
     expect(boostedRare).toBeGreaterThan(baseRare);
-    expect(upgradeTierWeights(4, 3).find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+    const singularityGate = balance.upgrade.gates.singularity.minWave;
+    expect(
+      upgradeTierWeights(singularityGate - 1, 3).find((item) => item.tier.id === "singularity")
+        ?.weight,
+    ).toBe(0);
   });
 
   it("keeps enemy and XP formulas valid", () => {

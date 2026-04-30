@@ -449,6 +449,7 @@ export interface Weapon {
   description: string;
   tags: readonly BuildTag[];
   apply: (target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
 }
 
 export interface Character {
@@ -458,6 +459,7 @@ export interface Character {
   description: string;
   bonusLabel: string;
   apply: (target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
 }
 
 export type UpgradeSoftCappedStat = "drones" | "projectileCount" | "pierce";
@@ -477,6 +479,7 @@ export interface Upgrade {
   tags: readonly BuildTag[];
   effect: (tier: UpgradeTier) => string;
   apply: (tier: UpgradeTier, target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
   softCap?: UpgradeSoftCap;
 }
 
@@ -534,6 +537,7 @@ export interface Relic {
   effect: string;
   repeatable?: boolean;
   apply: (target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
 }
 
 export interface RelicChoice {
