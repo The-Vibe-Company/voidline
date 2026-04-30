@@ -703,16 +703,22 @@ h2 {
   font-size: 0.74rem;
 }
 
-#startOverlay .modal,
+#loadoutOverlay .modal,
+#dashboardOverlay .modal,
 #gameOverOverlay .modal,
 #treeOverlay .modal {
   max-height: calc(100dvh - 48px);
   overflow-y: auto;
 }
 
-#startOverlay .cockpit-modal {
+#loadoutOverlay .cockpit-modal {
   width: min(1180px, 100%);
   padding: clamp(18px, 2.6vw, 28px);
+}
+
+#dashboardOverlay .dashboard-modal {
+  width: min(960px, 100%);
+  padding: clamp(20px, 3vw, 32px);
 }
 
 #gameOverOverlay .gameover-modal {
@@ -1220,6 +1226,259 @@ h2 {
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* ───────── Title screen ───────── */
+
+#titleOverlay {
+  background:
+    radial-gradient(ellipse at 50% 30%, rgba(57, 217, 255, 0.12), transparent 52%),
+    radial-gradient(ellipse at 70% 88%, rgba(114, 255, 177, 0.08), transparent 46%),
+    linear-gradient(180deg, rgba(2, 4, 8, 0.55), rgba(2, 4, 8, 0.92)),
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.04) 0 1px, transparent 1px 5px);
+}
+
+.title-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  padding: clamp(28px, 5vw, 56px);
+  text-align: center;
+  max-width: min(620px, 100%);
+}
+
+.title-eyebrow {
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+.title-brand {
+  margin: 0;
+  font-size: clamp(3.2rem, 9vw, 5.6rem);
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: #ffffff;
+  text-shadow:
+    0 0 24px rgba(57, 217, 255, 0.4),
+    0 0 48px rgba(57, 217, 255, 0.2);
+}
+
+.title-tagline {
+  margin: 0 0 14px;
+  color: #d9edf4;
+  font-size: 0.95rem;
+  letter-spacing: 0.04em;
+  max-width: 32rem;
+}
+
+.title-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: min(320px, 100%);
+}
+
+.title-play {
+  font-size: 1.05rem;
+  letter-spacing: 0.22em;
+  padding: 18px 28px;
+  text-transform: uppercase;
+}
+
+.title-settings {
+  font-size: 0.86rem;
+  letter-spacing: 0.18em;
+  padding: 14px 22px;
+  min-height: 44px;
+  text-transform: uppercase;
+}
+
+/* ───────── Dashboard screen ───────── */
+
+.dashboard-modal {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+}
+
+.dashboard-hud-strip .cockpit-spacer {
+  flex: 1 1 auto;
+}
+
+.dashboard-crystals strong {
+  font-size: 1.1rem;
+}
+
+.dashboard-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+  gap: 16px;
+  min-height: 0;
+}
+
+.dashboard-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(156, 230, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 7, 12, 0.42);
+}
+
+.dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.dashboard-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(156, 230, 255, 0.18);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.dashboard-stats dt {
+  margin: 0;
+  color: var(--muted);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dashboard-stats dd {
+  margin: 0;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  word-break: break-word;
+}
+
+.dashboard-tree .cockpit-stack-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.dashboard-foot {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px dashed rgba(156, 230, 255, 0.22);
+}
+
+.dashboard-reset-link {
+  appearance: none;
+  background: transparent;
+  border: none;
+  padding: 4px 8px;
+  border-radius: 2px;
+  justify-self: center;
+  color: color-mix(in srgb, var(--red) 88%, transparent);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.66rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.dashboard-reset-link:hover {
+  color: var(--red);
+  text-decoration: underline;
+}
+
+.dashboard-reset-link:focus-visible {
+  color: var(--red);
+  outline: 2px solid var(--red);
+  outline-offset: 2px;
+}
+
+/* ───────── Loadout screen ───────── */
+
+.loadout-modal .cockpit-body.loadout-body {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.loadout-stage-row {
+  flex-wrap: wrap;
+}
+
+.loadout-stage-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.cockpit-brand--right {
+  margin-left: auto;
+}
+
+.loadout-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.loadout-foot .cockpit-launch-hint {
+  flex: 1 1 auto;
+  text-align: center;
+  margin: 0;
+}
+
+.loadout-foot .cockpit-launch {
+  margin-left: auto;
+}
+
+/* ───────── Settings screen ───────── */
+
+.settings-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.settings-modal .pilot-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid rgba(156, 230, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(3, 7, 12, 0.42);
+}
+
+.settings-back {
+  align-self: flex-start;
+}
+
+@media (max-width: 760px) {
+  .dashboard-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .dashboard-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dashboard-foot {
+    grid-template-columns: 1fr;
+  }
+  .loadout-modal .cockpit-body.loadout-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 /* ───────── Cockpit recap (gameover) ───────── */

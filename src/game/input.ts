@@ -65,7 +65,12 @@ export function bindInput(): void {
     }
 
     if (state.mode === "menu" && action) {
-      resetGame();
+      const loadoutActive = document
+        .querySelector<HTMLElement>("#loadoutOverlay")
+        ?.classList.contains("active");
+      if (loadoutActive) {
+        resetGame();
+      }
       return;
     }
 
