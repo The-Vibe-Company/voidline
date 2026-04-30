@@ -376,6 +376,7 @@ describe("simulation performance helpers", () => {
         tags: ["cannon"],
         effect: () => "Fake",
         apply: () => undefined,
+        effects: [],
       },
       tier: {
         id: "standard",
@@ -397,6 +398,7 @@ describe("simulation performance helpers", () => {
         color: "#ffffff",
         effect: "Fake",
         apply: () => undefined,
+        effects: [],
       },
       count: 1,
     });

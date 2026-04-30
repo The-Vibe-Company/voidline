@@ -478,6 +478,7 @@ export interface Upgrade {
   tags: readonly BuildTag[];
   effect: (tier: UpgradeTier) => string;
   apply: (tier: UpgradeTier, target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
   softCap?: UpgradeSoftCap;
 }
 
@@ -535,6 +536,7 @@ export interface Relic {
   effect: string;
   repeatable?: boolean;
   apply: (target: Player) => void;
+  effects: readonly import("./game/effect-dsl").EffectOp[];
 }
 
 export interface RelicChoice {

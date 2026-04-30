@@ -1,5 +1,6 @@
 import type { Player, Relic, RelicChoice } from "../types";
-import { balance, recomputeMultiplicativeStats } from "./balance";
+import { balance } from "./balance";
+import { runEffects, type EffectOp } from "./effect-dsl";
 import { STARTER_BUILD_TAGS, hasUnlockedTags } from "./shop-catalog";
 import type { BuildTag } from "../types";
 
@@ -32,13 +33,17 @@ function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
-function addBonus(target: Player, key: keyof Player["bonus"], amount: number): void {
-  target.bonus[key] += amount;
-  recomputeMultiplicativeStats(target);
+type RelicSpec = Omit<Relic, "apply"> & { effects: readonly EffectOp[] };
+
+function defineRelic(spec: RelicSpec): Relic {
+  return {
+    ...spec,
+    apply: (target) => runEffects(spec.effects, 1, target),
+  };
 }
 
 export const relicPool: Relic[] = [
-  {
+  defineRelic({
     id: "rail-focus",
     icon: "DMG",
     name: "Lentille rail",
@@ -46,11 +51,9 @@ export const relicPool: Relic[] = [
     tags: ["cannon"],
     color: "#ff5a69",
     effect: `+${percent(0.22)} degats`,
-    apply(target) {
-      addBonus(target, "damagePct", 0.22);
-    },
-  },
-  {
+    effects: [{ type: "addPct", stat: "damage", amount: 0.22, scale: 1 }],
+  }),
+  defineRelic({
     id: "reactor-surge",
     icon: "Hz",
     name: "Reacteur surcharge",
@@ -58,11 +61,9 @@ export const relicPool: Relic[] = [
     tags: ["cannon"],
     color: "#39d9ff",
     effect: `+${percent(0.18)} cadence`,
-    apply(target) {
-      addBonus(target, "fireRatePct", 0.18);
-    },
-  },
-  {
+    effects: [{ type: "addPct", stat: "fireRate", amount: 0.18, scale: 1 }],
+  }),
+  defineRelic({
     id: "magnetized-map",
     icon: "MAG",
     name: "Carte aimantee",
@@ -70,11 +71,9 @@ export const relicPool: Relic[] = [
     tags: ["magnet"],
     color: "#72ffb1",
     effect: `+${percent(0.4)} portee de ramassage`,
-    apply(target) {
-      addBonus(target, "pickupRadiusPct", 0.4);
-    },
-  },
-  {
+    effects: [{ type: "addPct", stat: "pickupRadius", amount: 0.4, scale: 1 }],
+  }),
+  defineRelic({
     id: "salvage-plating",
     icon: "ARM",
     name: "Blindage de recuperation",
@@ -82,12 +81,12 @@ export const relicPool: Relic[] = [
     tags: ["shield", "salvage"],
     color: "#ffbf47",
     effect: "+35 integrite max, +35 soin",
-    apply(target) {
-      target.maxHp += 35;
-      target.hp = Math.min(target.maxHp, target.hp + 35);
-    },
-  },
-  {
+    effects: [
+      { type: "addMaxHp", amount: 35 },
+      { type: "healFlat", amount: 35 },
+    ],
+  }),
+  defineRelic({
     id: "emergency-nanites",
     icon: "NAN",
     name: "Nanites de secours",
@@ -95,12 +94,12 @@ export const relicPool: Relic[] = [
     tags: ["salvage"],
     color: "#d9f6ff",
     effect: "+1.0 vampire, +40% soin",
-    apply(target) {
-      target.lifesteal += 1;
-      target.hp = Math.min(target.maxHp, target.hp + target.maxHp * 0.4);
-    },
-  },
-  {
+    effects: [
+      { type: "addLifesteal", amount: 1 },
+      { type: "healPct", amount: 0.4 },
+    ],
+  }),
+  defineRelic({
     id: "splitter-matrix",
     icon: "II",
     name: "Matrice separatrice",
@@ -108,14 +107,9 @@ export const relicPool: Relic[] = [
     tags: ["cannon", "pierce"],
     color: "#39d9ff",
     effect: "+1 projectile par salve",
-    apply(target) {
-      target.projectileCount = Math.min(
-        balance.upgrade.caps.projectiles,
-        target.projectileCount + 1,
-      );
-    },
-  },
-  {
+    effects: [{ type: "addCapped", stat: "projectileCount", amount: 1, cap: "projectiles" }],
+  }),
+  defineRelic({
     id: "drone-contract",
     icon: "O",
     name: "Contrat drone",
@@ -123,11 +117,9 @@ export const relicPool: Relic[] = [
     tags: ["drone"],
     color: "#ffbf47",
     effect: "+1 drone orbital",
-    apply(target) {
-      target.drones = Math.min(balance.upgrade.caps.drones, target.drones + 1);
-    },
-  },
-  {
+    effects: [{ type: "addCapped", stat: "drones", amount: 1, cap: "drones" }],
+  }),
+  defineRelic({
     id: "critical-orbit",
     icon: "X2",
     name: "Orbite critique",
@@ -135,14 +127,14 @@ export const relicPool: Relic[] = [
     tags: ["crit", "pierce"],
     color: "#ff5af0",
     effect: "+12% critique, +1 penetration",
-    apply(target) {
-      target.critChance = Math.min(balance.upgrade.caps.critChance, target.critChance + 0.12);
-      target.pierce = Math.min(balance.upgrade.caps.pierce, target.pierce + 1);
-    },
-  },
+    effects: [
+      { type: "addCappedPct", stat: "critChance", amount: 0.12, cap: "critChance", scale: 1 },
+      { type: "addCapped", stat: "pierce", amount: 1, cap: "pierce" },
+    ],
+  }),
 ];
 
-export const fallbackRelic: Relic = {
+export const fallbackRelic: Relic = defineRelic({
   id: "field-repair",
   icon: "HP",
   name: "Reparation de terrain",
@@ -151,10 +143,8 @@ export const fallbackRelic: Relic = {
   color: "#72ffb1",
   effect: "+50% soin",
   repeatable: true,
-  apply(target) {
-    target.hp = Math.min(target.maxHp, target.hp + target.maxHp * 0.5);
-  },
-};
+  effects: [{ type: "healPct", amount: 0.5 }],
+});
 
 export function findRelic(id: string): Relic {
   const relic = relicPool.find((item) => item.id === id);

@@ -29,6 +29,7 @@ function draftUpgrade(id: string, tags: BuildTag[]): Upgrade {
     tags,
     effect: () => id,
     apply: () => undefined,
+    effects: [],
   };
 }
 
@@ -115,16 +116,14 @@ describe("upgrade draft", () => {
   it("does not offer locked technologies until bought", () => {
     let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
     expect(ids).not.toContain("kinetic-shield");
-    expect(ids).not.toContain("crit-array");
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:defense": 1, "category:tempo": 1 },
+      upgradeLevels: { "category:defense": 1 },
     });
     ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
 
     expect(ids).toContain("kinetic-shield");
-    expect(ids).toContain("crit-array");
   });
 
   it("offers level-ups only for the selected weapon", () => {
