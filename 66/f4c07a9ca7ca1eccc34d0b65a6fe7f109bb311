@@ -1,0 +1,33 @@
+src/simulation/simulation.test.ts
+  b436ec68768bcd6e 379,401
+src/game/upgrade-catalog.ts
+  b436ec68768bcd6e 9,17-25,27,35-43,47-48,55,59-60,66-70,76-77,84,88-89,96-98,102-103,110-118,122-123,130-137,141-142,149-151,155-156,164-167,171-172,181-190,196-197,206-209,213-214,223-225,229
+src/systems/upgrades.test.ts
+  b436ec68768bcd6e 32,122
+src/types.ts
+  b436ec68768bcd6e 481,539
+src/game/effect-dsl.ts
+  b436ec68768bcd6e 1-201
+src/game/relic-catalog.ts
+  b436ec68768bcd6e 2-3,36-42,46,54-56,64-66,74-76,84-89,97-102,110-112,120-122,130-134,137,146-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "66f4c07a9ca7ca1eccc34d0b65a6fe7f109bb311",
+  "prompts": {
+    "b436ec68768bcd6e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "189d391b-8435-4b4a-a1b1-3e0d0760e383",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 386,
+      "total_deletions": 175,
+      "accepted_lines": 386,
+      "overriden_lines": 0
+    }
+  }
+}
