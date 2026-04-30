@@ -1,0 +1,43 @@
+sim/crates/voidline-data/src/balance.rs
+  b436ec68768bcd6e 1-404
+sim/.gitignore
+  b436ec68768bcd6e 1-3
+sim/crates/voidline-data/src/catalogs.rs
+  b436ec68768bcd6e 1-194
+data/balance.json
+  b436ec68768bcd6e 1-1367
+sim/crates/voidline-data/Cargo.toml
+  b436ec68768bcd6e 1-11
+sim/rust-toolchain.toml
+  b436ec68768bcd6e 1-3
+sim/Cargo.toml
+  b436ec68768bcd6e 1-19
+sim/crates/voidline-data/src/dsl.rs
+  b436ec68768bcd6e 1-114
+package.json
+  b436ec68768bcd6e 14-15
+sim/crates/voidline-data/src/lib.rs
+  b436ec68768bcd6e 1-156
+scripts/export-balance.test.ts
+  b436ec68768bcd6e 1-190
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "e5b48ab01ea6304a1dd29d23d58e2c97643fa309",
+  "prompts": {
+    "b436ec68768bcd6e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "189d391b-8435-4b4a-a1b1-3e0d0760e383",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 2495,
+      "overriden_lines": 0
+    }
+  }
+}
