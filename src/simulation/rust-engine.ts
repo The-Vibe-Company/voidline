@@ -96,7 +96,7 @@ interface RustStressConfig {
 interface RustSnapshot {
   state: {
     mode: GameMode;
-    wave: number;
+    pressure: number;
     stage: number;
     startStage: number;
     stageElapsedSeconds: number;
@@ -105,16 +105,15 @@ interface RustSnapshot {
     stageBossActive: boolean;
     highestStageReached: number;
     score: number;
-    waveKills: number;
+    phaseKills: number;
     killsByKind: Partial<Record<"scout" | "hunter" | "brute", number>>;
-    waveTarget: number;
-    spawnRemaining: number;
+    enemyPressureTarget: number;
     spawnTimer: number;
     spawnGap: number;
-    waveDelay: number;
     bestCombo: number;
     miniBossEligibleMisses: number;
     miniBossPending: boolean;
+    miniBossLastPressure: number;
     controlMode: "keyboard" | "trackpad";
     level: number;
     xp: number;
@@ -124,7 +123,6 @@ interface RustSnapshot {
     heartsCarried: number;
     magnetsCarried: number;
     bombsCarried: number;
-    runBossWaves: number[];
     runBossStages: number[];
     runRewardClaimed: boolean;
   };
@@ -195,12 +193,6 @@ export function resizeRustSimulation(width: number, height: number): void {
   const dpr = Math.min(window.devicePixelRatio || 1, simulationPerfConfig.dprMax);
   rustEngine.resize(width, height, dpr);
   syncRustSnapshot({ preserveModalMode: true });
-}
-
-export function startRustSimulationWave(wave: number): void {
-  const rustEngine = assertEngine();
-  rustEngine.startWave(wave);
-  syncRustSnapshot({ preserveModalMode: false });
 }
 
 export function stepRustSimulation(dt: number): void {

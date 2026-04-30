@@ -120,12 +120,6 @@ export class WasmEngine {
         return takeFromExternrefTable0(ret[0]);
     }
     /**
-     * @param {number} wave
-     */
-    startWave(wave) {
-        wasm.wasmengine_startWave(this.__wbg_ptr, wave);
-    }
-    /**
      * @param {number} dt
      */
     step(dt) {

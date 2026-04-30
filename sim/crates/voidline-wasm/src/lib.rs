@@ -69,11 +69,6 @@ impl WasmEngine {
         Ok(())
     }
 
-    #[wasm_bindgen(js_name = startWave)]
-    pub fn start_wave(&mut self, wave: u32) {
-        self.inner.start_wave(wave);
-    }
-
     #[wasm_bindgen(js_name = step)]
     pub fn step(&mut self, dt: f64) {
         self.inner.step(dt);
@@ -233,7 +228,6 @@ pub fn apply_run_reward_js(progress: JsValue, summary: JsValue) -> Result<JsValu
     let previous_start_stage = account.highest_start_stage_unlocked;
     let previous_records = account.records.clone();
     let outcome = RunOutcome {
-        final_wave: summary.stage.max(1) * 9,
         elapsed_seconds: summary.elapsed_seconds,
         run_level: summary.run_level,
         score: summary.score,
@@ -353,7 +347,6 @@ mod tests {
             },
         };
         let outcome = RunOutcome {
-            final_wave: summary.stage * 9,
             elapsed_seconds: summary.elapsed_seconds,
             run_level: summary.run_level,
             score: summary.score,

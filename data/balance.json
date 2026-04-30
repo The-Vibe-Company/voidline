@@ -44,17 +44,16 @@
         }
       }
     },
-    "wave": {
+    "pressure": {
       "targetBase": 21,
       "targetLinear": 5,
       "targetExponent": 1.28,
       "spawnGapStart": 0.405,
-      "spawnGapPerWave": 0.02,
+      "spawnGapPerPressure": 0.02,
       "spawnGapMin": 0.14,
       "spawnTimerStart": 0.1,
-      "packChancePerWave": 0.12,
-      "packChanceMax": 0.62,
-      "waveDelay": 0.7
+      "packChancePerPressure": 0.12,
+      "packChanceMax": 0.62
     },
     "xp": {
       "levelBase": 25,
@@ -62,7 +61,7 @@
       "levelExponent": 1.45,
       "levelExponentScale": 6,
       "dropScoreDivisor": 7,
-      "dropWaveScale": 0.04,
+      "dropPressureScale": 0.04,
       "shardCount": {
         "scout": 2,
         "hunter": 3,
@@ -73,29 +72,29 @@
       "orbRadiusBonusMax": 5,
       "pickupBaseRadius": 36
     },
-    "lateWave": {
-      "startWave": 7,
+    "latePressure": {
+      "startPressure": 7,
       "targetLinear": 5,
       "targetExponent": 1.12,
       "targetExponentScale": 1.4,
-      "spawnGapPerWave": 0.008,
+      "spawnGapPerPressure": 0.008,
       "spawnGapMin": 0.105,
-      "packChancePerWave": 0.02,
+      "packChancePerPressure": 0.02,
       "packChanceMax": 0.84,
-      "hpScalePerWave": 0.055,
-      "speedScalePerWave": 0.018,
+      "hpScalePerPressure": 0.055,
+      "speedScalePerPressure": 0.018,
       "speedScaleMax": 0.24,
-      "damageScalePerWave": 0.04,
+      "damageScalePerPressure": 0.04,
       "damageScaleMax": 0.55
     },
     "enemy": {
-      "hpScalePerWave": 0.065,
-      "speedScalePerWave": 0.022,
+      "hpScalePerPressure": 0.065,
+      "speedScalePerPressure": 0.022,
       "speedScaleMax": 0.4,
-      "hunterChancePerWave": 0.07,
+      "hunterChancePerPressure": 0.07,
       "hunterChanceMax": 0.4,
-      "bruteChanceOffsetWave": 2,
-      "bruteChancePerWave": 0.05,
+      "bruteChanceOffsetPressure": 2,
+      "bruteChancePerPressure": 0.05,
       "bruteChanceMax": 0.25,
       "wobble": {
         "scout": 0.18,
@@ -159,12 +158,12 @@
       "tierWeights": {
         "standardMin": 38,
         "standardBase": 100,
-        "standardPerWave": 5.5,
+        "standardPerPressure": 5.5,
         "rareBase": 28,
-        "rarePerWave": 1.5,
+        "rarePerPressure": 1.5,
         "prototypeBase": 7,
-        "prototypePerWave": 0.9,
-        "singularityPerWave": 0.8,
+        "prototypePerPressure": 0.9,
+        "singularityPerPressure": 0.8,
         "perRank": {
           "standardPenalty": 4,
           "rare": 3,
@@ -174,17 +173,17 @@
       },
       "gates": {
         "rare": {
-          "minWave": 1,
-          "rampWaves": 0
+          "minPressure": 1,
+          "rampPressures": 0
         },
         "prototype": {
-          "minWave": 5,
-          "rampWaves": 2,
+          "minPressure": 5,
+          "rampPressures": 2,
           "lockedWeight": 4
         },
         "singularity": {
-          "minWave": 8,
-          "rampWaves": 2,
+          "minPressure": 8,
+          "rampPressures": 2,
           "lockedWeight": 0
         }
       },
@@ -241,7 +240,7 @@
     ],
     "bosses": {
       "stageDurationSeconds": 600,
-      "waveOffsetPerStage": 9,
+      "pressureOffsetPerStage": 9,
       "contactBackoff": 0.45,
       "stageScaling": {
         "hpPerStage": 0,
@@ -260,14 +259,10 @@
       },
       "spawnOffsets": {
         "miniBoss": {
-          "eligibleFromWave": 7,
+          "eligibleFromPressure": 7,
           "offset": 3,
-          "fallbackWave": 8,
+          "fallbackPressure": 8,
           "fallbackRoll": 0.95
-        },
-        "waveBoss": {
-          "offset": 8,
-          "roll": 0.98
         },
         "stageBoss": {
           "offset": 8,
@@ -284,9 +279,9 @@
         "contactCooldown": 0.95
       },
       "miniBoss": {
-        "startWave": 4,
+        "startPressure": 4,
         "spawnChance": 0.32,
-        "guaranteeAfterEligibleWaves": 4,
+        "guaranteeAfterEligiblePressures": 4,
         "hpMultiplier": 6.4,
         "speedMultiplier": 0.74,
         "damageMultiplier": 1.35,
@@ -294,6 +289,16 @@
         "scoreMultiplier": 3.2,
         "contactCooldown": 1.05
       }
+    },
+    "hordes": {
+      "startsSeconds": [
+        180,
+        360
+      ],
+      "durationSeconds": 30,
+      "spawnGapMultiplier": 0.35,
+      "pressureTargetMultiplier": 2.25,
+      "packBonus": 2
     },
     "synergies": {
       "kineticRam": {
@@ -340,10 +345,10 @@
       }
     },
     "progression": {
-      "relicUnlockWaves": [
-        10,
-        20,
-        30
+      "relicUnlockStages": [
+        1,
+        2,
+        3
       ]
     }
   },
@@ -351,15 +356,15 @@
     "scout": "residual",
     "hunter": {
       "baseChance": 0,
-      "perWave": 0.07,
+      "perPressure": 0.07,
       "maxChance": 0.4,
-      "waveOnset": 0
+      "pressureOnset": 0
     },
     "brute": {
       "baseChance": 0,
-      "perWave": 0.05,
+      "perPressure": 0.05,
       "maxChance": 0.25,
-      "waveOnset": 2
+      "pressureOnset": 2
     }
   },
   "upgrades": [
@@ -814,19 +819,19 @@
   },
   "relicUnlocks": [
     {
-      "wave": 10,
+      "stage": 1,
       "relicIds": [
         "splitter-matrix"
       ]
     },
     {
-      "wave": 20,
+      "stage": 2,
       "relicIds": [
         "drone-contract"
       ]
     },
     {
-      "wave": 30,
+      "stage": 3,
       "relicIds": [
         "critical-orbit"
       ]

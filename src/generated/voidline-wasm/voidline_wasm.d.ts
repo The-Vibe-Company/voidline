@@ -14,7 +14,6 @@ export class WasmEngine {
     seedStress(config: any): void;
     setInput(input: any): void;
     snapshot(): any;
-    startWave(wave: number): void;
     step(dt: number): void;
     updateAccount(account: any): void;
 }
@@ -37,7 +36,6 @@ export interface InitOutput {
     readonly wasmengine_seedStress: (a: number, b: any) => [number, number];
     readonly wasmengine_setInput: (a: number, b: any) => [number, number];
     readonly wasmengine_snapshot: (a: number) => [number, number, number];
-    readonly wasmengine_startWave: (a: number, b: number) => void;
     readonly wasmengine_step: (a: number, b: number) => void;
     readonly wasmengine_updateAccount: (a: number, b: any) => [number, number];
     readonly __wbindgen_malloc: (a: number, b: number) => number;

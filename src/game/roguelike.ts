@@ -2,35 +2,36 @@ import { bossBalance } from "./balance";
 
 export { bossBalance };
 
-export function startingWaveForStage(stage: number): number {
-  return 1 + Math.max(0, Math.floor(stage) - 1) * bossBalance.waveOffsetPerStage;
+export function basePressureForStage(stage: number): number {
+  return 1 + Math.max(0, Math.floor(stage) - 1) * bossBalance.pressureOffsetPerStage;
 }
 
-export function bossUnlockWaveForStage(stage: number): number {
-  return Math.max(1, Math.floor(stage)) * 10;
+export function pressureForStageElapsed(stage: number, elapsedSeconds: number): number {
+  const elapsedPressure = Math.floor(Math.max(0, elapsedSeconds) / 60);
+  return basePressureForStage(stage) + elapsedPressure;
 }
 
-export function isMiniBossEligibleWave(wave: number): boolean {
-  return wave >= bossBalance.miniBoss.startWave;
+export function isMiniBossEligiblePressure(pressure: number): boolean {
+  return pressure >= bossBalance.miniBoss.startPressure;
 }
 
-export function shouldSpawnMiniBoss(
-  wave: number,
+export function shouldSpawnMiniBossAtPressure(
+  pressure: number,
   eligibleMisses: number,
   roll: number,
 ): boolean {
-  if (!isMiniBossEligibleWave(wave)) return false;
-  if (eligibleMisses + 1 >= bossBalance.miniBoss.guaranteeAfterEligibleWaves) {
+  if (!isMiniBossEligiblePressure(pressure)) return false;
+  if (eligibleMisses + 1 >= bossBalance.miniBoss.guaranteeAfterEligiblePressures) {
     return true;
   }
   return roll < bossBalance.miniBoss.spawnChance;
 }
 
 export function nextMiniBossMisses(
-  wave: number,
+  pressure: number,
   eligibleMisses: number,
   spawned: boolean,
 ): number {
-  if (!isMiniBossEligibleWave(wave)) return eligibleMisses;
+  if (!isMiniBossEligiblePressure(pressure)) return eligibleMisses;
   return spawned ? 0 : eligibleMisses + 1;
 }

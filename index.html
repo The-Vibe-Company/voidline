@@ -17,13 +17,13 @@
     <main class="game-shell">
       <canvas id="gameCanvas" aria-label="Voidline"></canvas>
 
-      <section class="hud" aria-live="polite">
+      <section class="hud" aria-label="HUD de combat">
         <div class="hud-panel">
           <span class="hud-label">Niveau</span>
-          <strong id="waveValue">1</strong>
+          <strong id="pressureValue">1</strong>
         </div>
         <div class="hud-panel wide">
-          <span class="hud-label">Chasse</span>
+          <span class="hud-label">Danger</span>
           <strong><span id="killsValue">0</span>/<span id="targetValue">0</span></strong>
         </div>
         <div class="hud-panel wide xp-panel">
@@ -367,7 +367,7 @@
               <h2 id="gameOverTitle">Debrief de run</h2>
               <p class="tagline">
                 Score final <strong id="finalScore">0</strong> &middot;
-                niveau <strong id="finalWave">1</strong>
+                niveau <strong id="finalStage">1</strong>
               </p>
             </div>
             <button class="primary-action" id="restartButton" type="button">Hangar &rarr;</button>

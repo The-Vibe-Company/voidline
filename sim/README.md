@@ -65,7 +65,7 @@ balance tools. TypeScript owns rendering, input, menus, and UI wrappers.
 |---|---|
 | `rng` | `src/perf/rng.ts` (mulberry32 PRNG) |
 | `math` | `src/utils.ts` (clamp, distance, circle_hit) |
-| `balance_curves` | `balance.ts` formulas (waveTarget, scaledEnemyStats…) |
+| `balance_curves` | `balance.ts` formulas (pressure targets, scaledEnemyStats...) |
 | `effects` | `effect-dsl.ts` interpreter |
 | `player` | `Player` struct + `recomputeMultiplicativeStats` |
 | `entities` | Enemy, Bullet, ExperienceOrb, PowerupOrb, ChestEntity |
@@ -77,11 +77,11 @@ balance tools. TypeScript owns rendering, input, menus, and UI wrappers.
 | `experience` / `powerups` / `chests` | drop + pickup + apply |
 | `synergies` | build-tag synergy detection |
 | `progression` | XP collection + level-up |
-| `roguelike` | startingWaveForStage + miniBoss eligibility |
+| `roguelike` | basePressureForStage + miniBoss eligibility |
 | `simulation` | `Sim` orchestrator owning all state; `step()` |
 
 Tests target known TS reference values from `balance.test.ts`:
-- `wave_target(10) == 96`
+- `pressure_target(10) == 96`
 - `scaled_enemy_stats(scout, 10).hp == 69.51`
 - `kinetic-shield standard → maxHp=120, hp=53`
 - mulberry32 first 8 values match Node V8 exactly
@@ -106,8 +106,8 @@ Meta-progression layer:
 Binary that ties it all together:
 
 ```sh
-sim/target/release/voidline-cli --quick   # 4 × 15 × 25, max_wave=12
-sim/target/release/voidline-cli --default # 4 × 50 × 40, max_wave=30, ~30s budget
+sim/target/release/voidline-cli --quick   # 4 × 15 × 25, max_pressure=12
+sim/target/release/voidline-cli --default # 4 × 50 × 40, max_pressure=30, ~30s budget
 ```
 
 Or via npm wrappers:
@@ -118,7 +118,7 @@ npm run balance:meta-report
 ```
 
 Output: `scripts/meta-progression-report.json` with per-policy aggregates
-(median/P25/P75 unlock times, median wave at run index, milestones, death
+(median/P25/P75 unlock times, median pressure at run index, milestones, death
 rates).
 
 ## How to maintain (the "intelligently" part)
@@ -159,7 +159,7 @@ No Rust edit needed. **Zero divergence risk.**
 
 The Rust sim should produce numerically identical results to the TS sim
 for the same seed, persona, and config. We verify this with focused unit
-tests (mulberry32 first values, balance curves at known waves, DSL
+tests (mulberry32 first values, balance curves at known pressures, DSL
 effects on Player). A full-trial parity test (300+ frames identical) is
 on the roadmap (`scripts/ts-reference-dump.ts` to capture references,
 `sim/tests/parity/snapshot.rs` to compare).

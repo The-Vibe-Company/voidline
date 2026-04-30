@@ -13,7 +13,7 @@ import {
   updateHangarPanels,
   updateHud,
 } from "../render/hud";
-import { resetGame } from "../systems/waves";
+import { resetGame } from "../systems/run";
 import { resetChallengeProgress } from "../systems/challenges";
 import { resetAccountProgress } from "../systems/account";
 import { resetRelicUnlocks } from "../systems/relics";

@@ -18,14 +18,14 @@ const RELIC_UNLOCK_IDS: ReadonlyArray<readonly string[]> = [
   ["critical-orbit"],
 ];
 
-if (RELIC_UNLOCK_IDS.length !== balance.progression.relicUnlockWaves.length) {
+if (RELIC_UNLOCK_IDS.length !== balance.progression.relicUnlockStages.length) {
   throw new Error(
-    `Relic unlock config mismatch: ${balance.progression.relicUnlockWaves.length} waves in balance.progression.relicUnlockWaves vs ${RELIC_UNLOCK_IDS.length} id groups in RELIC_UNLOCK_IDS. Update both together.`,
+    `Relic unlock config mismatch: ${balance.progression.relicUnlockStages.length} stages in balance.progression.relicUnlockStages vs ${RELIC_UNLOCK_IDS.length} id groups in RELIC_UNLOCK_IDS. Update both together.`,
   );
 }
 
-export const RELIC_UNLOCKS = balance.progression.relicUnlockWaves.map((wave, index) => ({
-  wave,
+export const RELIC_UNLOCKS = balance.progression.relicUnlockStages.map((stage, index) => ({
+  stage,
   relicIds: RELIC_UNLOCK_IDS[index]!,
 }));
 
@@ -161,8 +161,8 @@ export function defaultUnlockedRelicIds(): Set<string> {
   return new Set<string>(DEFAULT_RELIC_IDS);
 }
 
-export function relicUnlocksForBossWave(wave: number): string[] {
-  return RELIC_UNLOCKS.filter((unlock) => wave >= unlock.wave).flatMap(
+export function relicUnlocksForBossStage(stage: number): string[] {
+  return RELIC_UNLOCKS.filter((unlock) => stage >= unlock.stage).flatMap(
     (unlock) => unlock.relicIds,
   );
 }

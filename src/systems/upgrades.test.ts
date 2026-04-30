@@ -14,7 +14,7 @@ function resetDraftState(): void {
   ownedRelics.clear();
   resetAccountProgress(null);
   resetSimulation(7);
-  state.wave = 1;
+  state.pressure = 1;
 }
 
 describe("upgrade draft", () => {

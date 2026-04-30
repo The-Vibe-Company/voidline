@@ -6,4 +6,6 @@ coverage/
 .vercel
 scripts/balance-report.json
 scripts/meta-progression-report.json
+scripts/balance-profile-report.json
+data/balance-profile-history.jsonl
 .claude/

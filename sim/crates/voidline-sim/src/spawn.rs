@@ -16,16 +16,16 @@ pub struct WeightedEnemyType<'a> {
     pub weight: f64,
 }
 
-fn apply_spawn_rule(rule: &voidline_data::catalogs::EnemySpawnRule, wave: u32) -> f64 {
-    let w = wave as f64;
-    let raw = rule.base_chance + (w - rule.wave_onset).max(0.0) * rule.per_wave;
+fn apply_spawn_rule(rule: &voidline_data::catalogs::EnemySpawnRule, pressure: u32) -> f64 {
+    let w = pressure as f64;
+    let raw = rule.base_chance + (w - rule.pressure_onset).max(0.0) * rule.per_pressure;
     rule.max_chance.min(raw.max(0.0))
 }
 
 pub fn enemy_type_weights<'a>(
     balance: &'a Balance,
     spawn_rules: &voidline_data::catalogs::EnemySpawnRules,
-    wave: u32,
+    pressure: u32,
 ) -> Vec<WeightedEnemyType<'a>> {
     let mut result = Vec::new();
     let mut residual: Option<&EnemyType> = None;
@@ -40,7 +40,7 @@ pub fn enemy_type_weights<'a>(
                 residual = Some(ty);
             }
             EnemySpawnPolicy::Rule(rule) => {
-                let weight = apply_spawn_rule(rule, wave);
+                let weight = apply_spawn_rule(rule, pressure);
                 result.push(WeightedEnemyType { ty, weight });
                 non_residual_sum += weight;
             }
@@ -60,10 +60,10 @@ pub fn enemy_type_weights<'a>(
 pub fn select_enemy_type<'a>(
     balance: &'a Balance,
     spawn_rules: &voidline_data::catalogs::EnemySpawnRules,
-    wave: u32,
+    pressure: u32,
     roll: f64,
 ) -> &'a EnemyType {
-    let weights = enemy_type_weights(balance, spawn_rules, wave);
+    let weights = enemy_type_weights(balance, spawn_rules, pressure);
     let total: f64 = weights.iter().map(|w| w.weight.max(0.0)).sum();
     let mut target = roll.clamp(0.0, 0.999_999_999) * total;
     for item in &weights {
@@ -109,12 +109,12 @@ pub fn spawn_enemy(
     counters: &mut EntityCounters,
     enemies: &mut Vec<Enemy>,
     world: &World,
-    wave: u32,
+    pressure: u32,
     rolls: SpawnRolls,
 ) {
-    let ty = select_enemy_type(balance, spawn_rules, wave, rolls.kind_roll);
+    let ty = select_enemy_type(balance, spawn_rules, pressure, rolls.kind_roll);
     let (x, y) = spawn_point_for_radius(world, ty.radius, rolls.position_rolls);
-    let scaled = scaled_enemy_stats(balance, ty, wave);
+    let scaled = scaled_enemy_stats(balance, ty, pressure);
     let idx = acquire_enemy(
         pools,
         counters,
@@ -147,7 +147,7 @@ pub fn spawn_elite(
     counters: &mut EntityCounters,
     enemies: &mut Vec<Enemy>,
     world: &World,
-    wave: u32,
+    pressure: u32,
     ty: &EnemyType,
     boss: &BossDef,
     rolls: SpawnRolls,
@@ -155,7 +155,7 @@ pub fn spawn_elite(
     let tuning = boss_stats_at(&boss.stats, 1); // stage scaling not yet wired
     let radius = (ty.radius * tuning.radius_multiplier).round();
     let (x, y) = spawn_point_for_radius(world, radius, rolls.position_rolls);
-    let scaled = scaled_enemy_stats(balance, ty, wave);
+    let scaled = scaled_enemy_stats(balance, ty, pressure);
     let idx = acquire_enemy(
         pools,
         counters,

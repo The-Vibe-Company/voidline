@@ -13,7 +13,6 @@ export const wasmengine_resize: (a: number, b: number, c: number, d: number) => 
 export const wasmengine_seedStress: (a: number, b: any) => [number, number];
 export const wasmengine_setInput: (a: number, b: any) => [number, number];
 export const wasmengine_snapshot: (a: number) => [number, number, number];
-export const wasmengine_startWave: (a: number, b: number) => void;
 export const wasmengine_step: (a: number, b: number) => void;
 export const wasmengine_updateAccount: (a: number, b: any) => [number, number];
 export const __wbindgen_malloc: (a: number, b: number) => number;

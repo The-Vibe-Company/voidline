@@ -182,7 +182,6 @@ pub fn _unused_shop_items(_items: &[ShopItem]) {} // keep import live
 
 #[derive(Debug, Clone)]
 pub struct RunOutcome {
-    pub final_wave: u32,
     pub elapsed_seconds: f64,
     pub run_level: u32,
     pub score: u64,
@@ -232,10 +231,7 @@ fn highest_reached_stage(outcome: &RunOutcome) -> u32 {
 
 pub fn compute_run_breakdown(account: &AccountSnapshot, outcome: &RunOutcome) -> CrystalBreakdown {
     let elapsed = outcome.elapsed_seconds.floor().max(0.0) as u64;
-    let stage = (outcome.final_wave / 9)
-        .max(1)
-        .max(highest_reached_stage(outcome));
-    let stage = stage.max(outcome.start_stage);
+    let stage = highest_reached_stage(outcome).max(outcome.start_stage);
     let run_level = outcome.run_level.max(1);
     let unique_boss = unique_positive(&outcome.boss_stages);
     let score = outcome.score;
@@ -379,6 +375,22 @@ mod tests {
             .upgrade_levels
             .insert("category:salvage".to_string(), 4);
         assert!((crystal_reward_multiplier(&account) - 1.10).abs() < 1e-12);
+    }
+
+    #[test]
+    fn run_stage_reward_uses_boss_progress_not_pressure() {
+        let outcome = RunOutcome {
+            elapsed_seconds: 0.0,
+            run_level: 1,
+            score: 0,
+            boss_stages: Vec::new(),
+            start_stage: 1,
+            died: false,
+        };
+
+        let breakdown = compute_run_breakdown(&fresh(), &outcome);
+
+        assert_eq!(breakdown.stage, 12);
     }
 
     #[test]

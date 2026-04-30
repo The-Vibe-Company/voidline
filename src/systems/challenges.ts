@@ -7,7 +7,7 @@ import {
 } from "../game/challenge-catalog";
 import type { ChallengeMetric, ChallengeProgress } from "../types";
 
-const STORAGE_KEY = "voidline:challengeProgress";
+const STORAGE_KEY = "voidline:challengeProgress:v2";
 
 interface ChallengeStorage {
   getItem(key: string): string | null;

@@ -1,7 +1,7 @@
 import { unlockedRelics } from "../state";
 import {
   defaultUnlockedRelicIds,
-  relicUnlocksForBossWave,
+  relicUnlocksForBossStage,
 } from "../game/relic-catalog";
 import { markLoadoutDirty } from "../simulation/events";
 import type { RelicChoice } from "../types";
@@ -64,12 +64,12 @@ export function resetRelicUnlocks(storage: RelicStorage | null = getStorage()): 
   }
 }
 
-export function unlockRelicsForBossWave(
-  wave: number,
+export function unlockRelicsForBossStage(
+  stage: number,
   storage: RelicStorage | null = getStorage(),
 ): string[] {
   const newlyUnlocked: string[] = [];
-  for (const id of relicUnlocksForBossWave(wave)) {
+  for (const id of relicUnlocksForBossStage(stage)) {
     if (unlockedRelics.has(id)) continue;
     unlockedRelics.add(id);
     newlyUnlocked.push(id);
