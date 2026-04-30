@@ -1,4 +1,5 @@
 import {
+  bindMenuNavigation,
   initOverlayFocusScope,
   initPickupZonesToggle,
   setControlMode,
@@ -23,10 +24,11 @@ initializeChallenges();
 initializeAccountProgress();
 initOverlayFocusScope();
 bindCockpit();
+bindMenuNavigation();
 bindTree();
 updateHud();
 bindInput();
 bindPerfOverlay();
-document.querySelector<HTMLButtonElement>("#startButton")?.focus();
+document.querySelector<HTMLButtonElement>("#playButton")?.focus();
 createVoidlineGame();
 maybeStartStressMode();

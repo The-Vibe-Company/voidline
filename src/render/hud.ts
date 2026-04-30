@@ -57,7 +57,10 @@ const hud = {
   itemHeartCell: document.querySelector<HTMLElement>(".item-cell[data-kind='heart']")!,
   itemMagnetCell: document.querySelector<HTMLElement>(".item-cell[data-kind='magnet']")!,
   itemBombCell: document.querySelector<HTMLElement>(".item-cell[data-kind='bomb']")!,
-  startOverlay: document.querySelector<HTMLElement>("#startOverlay")!,
+  titleOverlay: document.querySelector<HTMLElement>("#titleOverlay")!,
+  dashboardOverlay: document.querySelector<HTMLElement>("#dashboardOverlay")!,
+  loadoutOverlay: document.querySelector<HTMLElement>("#loadoutOverlay")!,
+  settingsOverlay: document.querySelector<HTMLElement>("#settingsOverlay")!,
   upgradeOverlay: document.querySelector<HTMLElement>("#upgradeOverlay")!,
   chestOverlay: document.querySelector<HTMLElement>("#chestOverlay")!,
   pauseOverlay: document.querySelector<HTMLElement>("#pauseOverlay")!,
@@ -179,12 +182,39 @@ export function getUpgradeGrid(): HTMLElement {
 }
 
 type OverlayId =
-  | "startOverlay"
+  | "titleOverlay"
+  | "dashboardOverlay"
+  | "loadoutOverlay"
+  | "settingsOverlay"
   | "upgradeOverlay"
   | "chestOverlay"
   | "pauseOverlay"
   | "gameOverOverlay"
   | "treeOverlay";
+
+const MENU_OVERLAY_IDS = [
+  "titleOverlay",
+  "dashboardOverlay",
+  "loadoutOverlay",
+  "settingsOverlay",
+] as const satisfies readonly OverlayId[];
+
+type MenuOverlayId = (typeof MENU_OVERLAY_IDS)[number];
+
+export function showMenuOverlay(id: MenuOverlayId): void {
+  for (const overlayId of MENU_OVERLAY_IDS) {
+    const el = document.querySelector<HTMLElement>(`#${overlayId}`);
+    if (!el) continue;
+    if (overlayId === id) {
+      el.classList.add("active");
+      el.removeAttribute("aria-hidden");
+    } else {
+      el.classList.remove("active");
+      el.setAttribute("aria-hidden", "true");
+    }
+  }
+  setOverlayFocusScope(id);
+}
 
 export function initOverlayFocusScope(): void {
   const active = document.querySelector<HTMLElement>(".overlay.active");
@@ -192,7 +222,10 @@ export function initOverlayFocusScope(): void {
 }
 
 export function hideOverlays(): void {
-  hud.startOverlay.classList.remove("active");
+  hud.titleOverlay.classList.remove("active");
+  hud.dashboardOverlay.classList.remove("active");
+  hud.loadoutOverlay.classList.remove("active");
+  hud.settingsOverlay.classList.remove("active");
   hud.upgradeOverlay.classList.remove("active");
   hud.chestOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
@@ -702,6 +735,41 @@ export function resumeGame(): void {
   state.mode = "playing";
   hud.pauseOverlay.classList.remove("active");
   setOverlayFocusScope();
+}
+
+export function bindMenuNavigation(): void {
+  document
+    .querySelector<HTMLButtonElement>("#playButton")
+    ?.addEventListener("click", () => {
+      renderCockpit();
+      showMenuOverlay("dashboardOverlay");
+    });
+  document
+    .querySelector<HTMLButtonElement>("#settingsButton")
+    ?.addEventListener("click", () => {
+      showMenuOverlay("settingsOverlay");
+    });
+  document
+    .querySelector<HTMLButtonElement>("#settingsBackButton")
+    ?.addEventListener("click", () => {
+      showMenuOverlay("titleOverlay");
+    });
+  document
+    .querySelector<HTMLButtonElement>("#dashboardBackButton")
+    ?.addEventListener("click", () => {
+      showMenuOverlay("titleOverlay");
+    });
+  document
+    .querySelector<HTMLButtonElement>("#continueButton")
+    ?.addEventListener("click", () => {
+      renderCockpit();
+      showMenuOverlay("loadoutOverlay");
+    });
+  document
+    .querySelector<HTMLButtonElement>("#loadoutBackButton")
+    ?.addEventListener("click", () => {
+      showMenuOverlay("dashboardOverlay");
+    });
 }
 
 export function setControlMode(mode: ControlMode): void {

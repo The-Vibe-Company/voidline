@@ -32,6 +32,7 @@ const dom = {
   stageLists: () => document.querySelectorAll<HTMLElement>("[data-stage-list]"),
   treeProgress: () => document.querySelectorAll<HTMLElement>("[data-tree-progress]"),
   nextUnlock: () => document.querySelectorAll<HTMLElement>("[data-next-unlock]"),
+  treePreviews: () => document.querySelectorAll<HTMLElement>("[data-tree-preview]"),
   treeButtons: () => document.querySelectorAll<HTMLButtonElement>("[data-open-tree]"),
 };
 
@@ -68,6 +69,9 @@ export function renderCockpit(): void {
   }
   for (const target of dom.nextUnlock()) {
     target.textContent = nextUnlockLabel();
+  }
+  for (const target of dom.treePreviews()) {
+    renderTreePreview(target);
   }
 }
 
@@ -285,16 +289,58 @@ function treeProgressLabel(): string {
 }
 
 function nextUnlockLabel(): string {
-  const candidates = shopCatalog
+  const candidates = nextUnlockCandidates();
+  if (candidates.length === 0) return "—";
+  const next = candidates[0]!;
+  return `${next.name} — ${formatNumber(next.cost)}¢`;
+}
+
+function nextUnlockCandidates(): ShopItem[] {
+  return shopCatalog
     .filter(
       (item) =>
         !accountProgress.purchasedUnlockIds.includes(item.id) &&
         isShopItemRevealed(accountProgress, item),
     )
     .sort((a, b) => a.cost - b.cost);
-  if (candidates.length === 0) return "—";
-  const next = candidates[0]!;
-  return `${next.name} — ${formatNumber(next.cost)}¢`;
+}
+
+function renderTreePreview(target: HTMLElement): void {
+  const candidates = nextUnlockCandidates().slice(0, 3);
+  if (candidates.length === 0) {
+    target.replaceChildren(emptyTreePreview());
+    return;
+  }
+  target.replaceChildren(...candidates.map((item) => treePreviewCard(item)));
+}
+
+function emptyTreePreview(): HTMLElement {
+  const empty = document.createElement("p");
+  empty.className = "cockpit-card-copy";
+  empty.textContent = "Tous les noeuds disponibles sont achetes.";
+  return empty;
+}
+
+function treePreviewCard(item: ShopItem): HTMLButtonElement {
+  const button = document.createElement("button");
+  const purchase = canPurchaseShopItem(accountProgress, item);
+  button.type = "button";
+  button.className = "cockpit-card";
+  button.dataset.owned = "false";
+  button.dataset.equipped = "false";
+  button.dataset.locked = "false";
+  button.disabled = !purchase.ok;
+
+  const tag = document.createElement("span");
+  tag.className = "cockpit-card-tag cockpit-card-tag--locked";
+  tag.textContent = `${formatNumber(item.cost)}¢`;
+
+  button.append(cardBody(item.name, item.description), tag);
+  button.addEventListener("click", () => {
+    const result = purchaseShopItem(item.id);
+    if (result.ok) renderCockpit();
+  });
+  return button;
 }
 
 function formatNumber(value: number): string {

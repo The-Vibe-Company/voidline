@@ -63,13 +63,23 @@ try {
 
   await page.goto(baseUrl, { waitUntil: "domcontentloaded" });
   await page.waitForSelector("#gameCanvas");
-  const startOverlayBefore = await page.locator("#startOverlay.active").count();
+  const titleOverlayBefore = await page.locator("#titleOverlay.active").count();
+  await page.click("#playButton");
+  await page.waitForSelector("#dashboardOverlay.active");
+  await page.click("#continueButton");
+  await page.waitForSelector("#loadoutOverlay.active");
   await page.click("#startButton");
   await page.waitForTimeout(800);
-  const startOverlayAfter = await page.locator("#startOverlay.active").count();
+  const loadoutOverlayAfter = await page.locator("#loadoutOverlay.active").count();
+  const titleOverlayAfter = await page.locator("#titleOverlay.active").count();
   const canvasBox = await page.locator("#gameCanvas").boundingBox();
 
-  if (startOverlayBefore !== 1 || startOverlayAfter !== 0 || !canvasBox) {
+  if (
+    titleOverlayBefore !== 1 ||
+    titleOverlayAfter !== 0 ||
+    loadoutOverlayAfter !== 0 ||
+    !canvasBox
+  ) {
     throw new Error("Game did not transition from menu to play state");
   }
 
@@ -102,7 +112,7 @@ try {
     JSON.stringify(
       {
         ok: true,
-        menu: { startOverlayBefore, startOverlayAfter, canvasBox },
+        menu: { titleOverlayBefore, titleOverlayAfter, loadoutOverlayAfter, canvasBox },
         stress: report,
       },
       null,
