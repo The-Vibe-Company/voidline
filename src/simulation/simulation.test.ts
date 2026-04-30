@@ -11,18 +11,11 @@ import {
   state,
   world,
 } from "../state";
-import { updateExperience } from "../entities/experience";
 import { burst, pulseText } from "../entities/particles";
-import { nearestEnemy } from "../entities/player";
-import { killEnemy } from "../entities/enemies";
-import { balance } from "../game/balance";
-import { collectExperience } from "../game/progression";
 import { bossBalance } from "../game/roguelike";
 import type { EnemyEntity } from "../types";
 import { swapRemove } from "../utils";
-import { enemyGrid } from "./grids";
 import { resetSimulation, startSimulationWave, stepSimulation } from "./simulation";
-import { SpatialGrid } from "./spatial-grid";
 import {
   challengeProgress,
   initializeChallenges,
@@ -60,14 +53,7 @@ function makeEnemy(id: number, x: number, y: number): EnemyEntity {
 }
 
 function completeCurrentWave(): void {
-  state.spawnRemaining = 0;
-  state.miniBossPending = false;
-  state.waveDelay = 0;
-  enemies.length = 0;
-  const frames = Math.ceil((balance.wave.waveDelay + 0.1) / 0.033);
-  for (let i = 0; i < frames; i += 1) {
-    stepSimulation(0.033);
-  }
+  startSimulationWave(state.wave + 1);
 }
 
 function prepareWorld(): void {
@@ -108,39 +94,6 @@ describe("simulation performance helpers", () => {
     expect(new Set(items)).toEqual(new Set(["a", "c", "d"]));
   });
 
-  it("queries nearby entities through the spatial grid", () => {
-    const grid = new SpatialGrid<EnemyEntity>(64);
-    const near = makeEnemy(1, 100, 100);
-    const far = makeEnemy(2, 900, 900);
-    grid.rebuild([near, far]);
-
-    expect(grid.nearest(110, 110, 120)?.id).toBe(1);
-    expect(grid.nearest(110, 110, 40)?.id).toBe(1);
-    expect(grid.nearest(110, 110, 8)).toBeNull();
-  });
-
-  it("uses the enemy grid for auto-aim target lookup", () => {
-    prepareWorld();
-    const near = makeEnemy(1, player.x + 80, player.y);
-    const far = makeEnemy(2, player.x + 600, player.y);
-    enemies.push(far, near);
-    enemyGrid.rebuild(enemies);
-
-    expect(nearestEnemy(player.x, player.y)?.id).toBe(1);
-  });
-
-  it("expands auto-aim search when dense enemies are outside the first radius", () => {
-    prepareWorld();
-    const farTarget = makeEnemy(150, player.x + 1300, player.y);
-    for (let i = 0; i < 149; i += 1) {
-      enemies.push(makeEnemy(i + 1, 120, 120 + i));
-    }
-    enemies.push(farTarget);
-    enemyGrid.rebuild(enemies);
-
-    expect(nearestEnemy(player.x, player.y)?.id).toBe(150);
-  });
-
   it("caps transient particles and floaters at the configured budgets", () => {
     prepareWorld();
     simulationPerfConfig.budgets.maxParticles = 6;
@@ -166,40 +119,6 @@ describe("simulation performance helpers", () => {
 
     expect(floaters.map((floater) => floater.text)).toEqual(["LEVEL", "12"]);
     expect(floaters.filter((floater) => floater.damageText)).toHaveLength(1);
-  });
-
-  it("uses the experience grid for dense loose-orb pickup checks", () => {
-    prepareWorld();
-    state.xp = 0;
-    for (let i = 0; i < 80; i += 1) {
-      experienceOrbs.push({
-        id: i + 1,
-        x: 100 + i,
-        y: 100,
-        vx: 0,
-        vy: 0,
-        radius: 6,
-        value: 1,
-        age: 0,
-        magnetized: false,
-      });
-    }
-    experienceOrbs.push({
-      id: 999,
-      x: player.x,
-      y: player.y,
-      vx: 0,
-      vy: 0,
-      radius: 6,
-      value: 5,
-      age: 0,
-      magnetized: false,
-    });
-
-    updateExperience(1 / 60);
-
-    expect(experienceOrbs.some((orb) => orb.id === 999)).toBe(false);
-    expect(state.xp).toBe(5);
   });
 
   it("replays seeded simulation spawns deterministically", () => {
@@ -233,6 +152,7 @@ describe("simulation performance helpers", () => {
     state.spawnTimer = 0;
     state.spawnRemaining = 4;
     state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
+    state.mode = "upgrade";
     state.pendingUpgrades = 1;
 
     stepSimulation(0.02);
@@ -273,68 +193,19 @@ describe("simulation performance helpers", () => {
     expect(state.wave).toBe(1);
   });
 
-  it("spawns a stage boss after ten minutes of stage time", () => {
+  it("keeps Rust as the source of truth when TS state is mutated directly", () => {
     prepareWorld();
     resetSimulation(123);
     enemies.length = 0;
-    state.waveKills = 2;
-    state.waveTarget = 10;
-    state.spawnRemaining = 4;
     state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
+    state.stageBossActive = true;
+    enemies.push(makeEnemy(99, player.x + 100, player.y));
 
     stepSimulation(0.02);
 
-    expect(state.stageBossActive).toBe(true);
-    expect(state.spawnRemaining).toBe(0);
-    expect(state.waveTarget).toBe(3);
-    expect(enemies.some((enemy) => enemy.role === "boss")).toBe(true);
-  });
-
-  it("does not spawn a second stage boss while a boss is alive", () => {
-    prepareWorld();
-    resetSimulation(123);
-    enemies.length = 0;
-    const boss = makeEnemy(99, player.x + 100, player.y);
-    boss.role = "boss";
-    enemies.push(boss);
-    state.spawnRemaining = 0;
-    state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
-
-    stepSimulation(0.02);
-
-    expect(enemies.filter((enemy) => enemy.role === "boss")).toHaveLength(1);
-    expect(state.stageBossSpawned).toBe(false);
-  });
-
-  it("cancels pending mini-boss spawns when the stage boss phase starts", () => {
-    prepareWorld();
-    resetSimulation(123);
-    enemies.length = 0;
-    state.miniBossPending = true;
-    state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
-
-    stepSimulation(0.02);
-
-    expect(state.miniBossPending).toBe(false);
-    expect(enemies.filter((enemy) => enemy.role === "mini-boss")).toHaveLength(0);
-    expect(enemies.filter((enemy) => enemy.role === "boss")).toHaveLength(1);
-  });
-
-  it("starts the first wave of the next stage after a boss clear", () => {
-    prepareWorld();
-    resetSimulation(123);
-    const boss = makeEnemy(99, player.x + 100, player.y);
-    boss.role = "boss";
-    enemies.push(boss);
-
-    killEnemy(enemies.length - 1);
-    enemies.length = 0;
-    state.spawnRemaining = 0;
-    state.waveDelay = balance.wave.waveDelay + 0.01;
-    stepSimulation(0.02);
-
-    expect(state.stage).toBe(2);
-    expect(state.wave).toBe(10);
+    expect(state.stageElapsedSeconds).toBeCloseTo(0.02);
+    expect(state.stageBossActive).toBe(false);
+    expect(enemies.some((enemy) => enemy.id === 99)).toBe(false);
   });
 
   it("applies the equipped account weapon when a run resets", () => {
@@ -428,7 +299,7 @@ describe("simulation performance helpers", () => {
     expect(player.magnetStormTimer).toBe(0);
   });
 
-  it("records gameplay challenge metrics from waves, kills, bosses, and XP", () => {
+  it("records wave challenge metrics from Rust wave transitions", () => {
     prepareWorld();
     resetChallengeProgress(null);
     initializeChallenges(null);
@@ -442,22 +313,6 @@ describe("simulation performance helpers", () => {
     expect(challengeProgress.bestWave).toBe(0);
     completeCurrentWave();
     expect(challengeProgress.bestWave).toBe(5);
-
-    enemies.push(makeEnemy(1, player.x + 100, player.y));
-    killEnemy(enemies.length - 1);
-    expect(challengeProgress.totalKills).toBe(1);
-    expect(challengeProgress.bestScore).toBeGreaterThan(0);
-
-    const boss = makeEnemy(2, player.x + 120, player.y);
-    boss.role = "boss";
-    enemies.push(boss);
-    killEnemy(enemies.length - 1);
-    expect(challengeProgress.bossKills).toBe(1);
-    expect(state.runBossStages).toEqual([1]);
-    expect(state.stage).toBe(2);
-
-    collectExperience(1);
-    expect(challengeProgress.bestLevel).toBe(2);
   });
 
   it("records best-wave challenges relative to the selected start stage", () => {

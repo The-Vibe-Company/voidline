@@ -148,10 +148,13 @@ export const fallbackRelic: Relic = defineRelic({
 
 export function findRelic(id: string): Relic {
   const relic = relicPool.find((item) => item.id === id);
-  if (!relic) {
+  if (relic) {
+    return relic;
+  }
+  if (fallbackRelic.id !== id) {
     throw new Error(`Unknown relic: ${id}`);
   }
-  return relic;
+  return fallbackRelic;
 }
 
 export function defaultUnlockedRelicIds(): Set<string> {

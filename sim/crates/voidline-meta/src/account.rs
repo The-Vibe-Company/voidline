@@ -131,7 +131,12 @@ pub fn purchase(account: &mut AccountSnapshot, meta: &MetaUpgrade) -> Result<u64
 pub fn current_rarity_rank(account: &AccountSnapshot) -> u32 {
     // Mirrors `currentRarityRank` in src/systems/account.ts: max raw level
     // across the 4 category upgrades, capped at 3.
-    let categories = ["category:attack", "category:defense", "category:salvage", "category:tempo"];
+    let categories = [
+        "category:attack",
+        "category:defense",
+        "category:salvage",
+        "category:tempo",
+    ];
     let max = categories
         .iter()
         .map(|c| account.level_of(c))
@@ -142,7 +147,11 @@ pub fn current_rarity_rank(account: &AccountSnapshot) -> u32 {
 
 pub fn crystal_reward_multiplier(account: &AccountSnapshot) -> f64 {
     let salvage = account.level_of("category:salvage");
-    if salvage >= 2 { 1.10 } else { 1.0 }
+    if salvage >= 2 {
+        1.10
+    } else {
+        1.0
+    }
 }
 
 pub fn unlocked_technology_ids(bundle: &DataBundle, account: &AccountSnapshot) -> HashSet<String> {
@@ -214,16 +223,18 @@ fn unique_positive(values: &[u32]) -> Vec<u32> {
 
 fn highest_reached_stage(outcome: &RunOutcome) -> u32 {
     let start = outcome.start_stage.max(1);
-    let cleared = unique_positive(&outcome.boss_stages).into_iter().max().unwrap_or(0);
+    let cleared = unique_positive(&outcome.boss_stages)
+        .into_iter()
+        .max()
+        .unwrap_or(0);
     start.max(cleared + 1)
 }
 
-pub fn compute_run_breakdown(
-    account: &AccountSnapshot,
-    outcome: &RunOutcome,
-) -> CrystalBreakdown {
+pub fn compute_run_breakdown(account: &AccountSnapshot, outcome: &RunOutcome) -> CrystalBreakdown {
     let elapsed = outcome.elapsed_seconds.floor().max(0.0) as u64;
-    let stage = (outcome.final_wave / 9).max(1).max(highest_reached_stage(outcome));
+    let stage = (outcome.final_wave / 9)
+        .max(1)
+        .max(highest_reached_stage(outcome));
     let stage = stage.max(outcome.start_stage);
     let run_level = outcome.run_level.max(1);
     let unique_boss = unique_positive(&outcome.boss_stages);
@@ -251,7 +262,8 @@ pub fn compute_run_breakdown(
 
     let base = duration + stage_crystals + boss_crystals + score_crystals + record_crystals;
     let start_stage_bonus = if start_stage > 1 {
-        ((base as f64) * (start_stage - 1) as f64 * START_STAGE_CRYSTAL_BONUS_PER_STAGE).floor() as u64
+        ((base as f64) * (start_stage - 1) as f64 * START_STAGE_CRYSTAL_BONUS_PER_STAGE).floor()
+            as u64
     } else {
         0
     };
@@ -290,7 +302,9 @@ pub fn apply_run_reward(account: &mut AccountSnapshot, outcome: &RunOutcome) -> 
     account.selected_start_stage = if highest_start_stage_unlocked > previous_start_stage {
         highest_start_stage_unlocked
     } else {
-        account.selected_start_stage.min(highest_start_stage_unlocked)
+        account
+            .selected_start_stage
+            .min(highest_start_stage_unlocked)
     };
     account.records.best_stage = account.records.best_stage.max(highest_reached);
     account.records.best_time_seconds = account
@@ -302,4 +316,115 @@ pub fn apply_run_reward(account: &mut AccountSnapshot, outcome: &RunOutcome) -> 
     account.records.boss_kills += unique_boss.len() as u32;
 
     gained
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use voidline_data::load_default;
+
+    fn fresh() -> AccountSnapshot {
+        AccountSnapshot::default()
+    }
+
+    fn meta<'a>(bundle: &'a voidline_data::DataBundle, id: &str) -> &'a MetaUpgrade {
+        bundle.meta_upgrades.iter().find(|m| m.id == id).unwrap()
+    }
+
+    #[test]
+    fn rarity_rank_zero_for_fresh_account() {
+        assert_eq!(current_rarity_rank(&fresh()), 0);
+    }
+
+    #[test]
+    fn rarity_rank_caps_at_three() {
+        let mut account = fresh();
+        account
+            .upgrade_levels
+            .insert("category:attack".to_string(), 4);
+        assert_eq!(current_rarity_rank(&account), 3);
+    }
+
+    #[test]
+    fn rarity_rank_takes_max_across_categories() {
+        let mut account = fresh();
+        account
+            .upgrade_levels
+            .insert("category:attack".to_string(), 1);
+        account
+            .upgrade_levels
+            .insert("category:defense".to_string(), 2);
+        account
+            .upgrade_levels
+            .insert("category:salvage".to_string(), 3);
+        account
+            .upgrade_levels
+            .insert("category:tempo".to_string(), 1);
+        assert_eq!(current_rarity_rank(&account), 3);
+    }
+
+    #[test]
+    fn crystal_multiplier_unlocks_at_salvage_level_2() {
+        let mut account = fresh();
+        assert_eq!(crystal_reward_multiplier(&account), 1.0);
+        account
+            .upgrade_levels
+            .insert("category:salvage".to_string(), 1);
+        assert_eq!(crystal_reward_multiplier(&account), 1.0);
+        account
+            .upgrade_levels
+            .insert("category:salvage".to_string(), 2);
+        assert!((crystal_reward_multiplier(&account) - 1.10).abs() < 1e-12);
+        account
+            .upgrade_levels
+            .insert("category:salvage".to_string(), 4);
+        assert!((crystal_reward_multiplier(&account) - 1.10).abs() < 1e-12);
+    }
+
+    #[test]
+    fn purchase_consumes_crystals_and_advances_level() {
+        let bundle = load_default().unwrap();
+        let mut account = fresh();
+        let attack = meta(&bundle, "category:attack");
+        let cost = next_level_cost(&account, attack).expect("cost defined");
+        account.crystals = cost + 5;
+        let spent = purchase(&mut account, attack).expect("purchase ok");
+        assert_eq!(spent, cost);
+        assert_eq!(account.crystals, 5);
+        assert_eq!(account.spent_crystals, cost);
+        assert_eq!(account.level_of("category:attack"), 1);
+    }
+
+    #[test]
+    fn purchase_fails_without_funds() {
+        let bundle = load_default().unwrap();
+        let mut account = fresh();
+        let attack = meta(&bundle, "category:attack");
+        let res = purchase(&mut account, attack);
+        assert!(res.is_err(), "expected failure without crystals");
+        assert_eq!(account.level_of("category:attack"), 0);
+    }
+
+    #[test]
+    fn unlocked_techs_include_starters() {
+        let bundle = load_default().unwrap();
+        let account = fresh();
+        let techs = unlocked_technology_ids(&bundle, &account);
+        for starter in &bundle.starter_technology_ids {
+            assert!(techs.contains(starter), "starter {starter} missing");
+        }
+    }
+
+    #[test]
+    fn unlocked_techs_grow_with_meta_purchases() {
+        let bundle = load_default().unwrap();
+        let mut account = fresh();
+        let baseline_techs = unlocked_technology_ids(&bundle, &account).len();
+        // category:attack carries technologyId in catalogs.
+        account
+            .upgrade_levels
+            .insert("category:attack".to_string(), 1);
+        let after = unlocked_technology_ids(&bundle, &account).len();
+        assert!(after >= baseline_techs);
+    }
 }

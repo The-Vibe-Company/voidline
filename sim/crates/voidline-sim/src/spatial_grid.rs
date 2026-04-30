@@ -1,4 +1,4 @@
-//! Bit-near port of `src/simulation/spatial-grid.ts:SpatialGrid`.
+//! Spatial grid used by the Rust runtime engine.
 //!
 //! Indexed by enemy index in the parent `Vec<Enemy>` rather than by reference
 //! to keep the borrow-checker happy while preserving deterministic iteration
@@ -17,7 +17,10 @@ pub struct SpatialGrid {
 
 impl SpatialGrid {
     pub fn new(cell_size: f64) -> Self {
-        Self { cell_size, buckets: HashMap::new() }
+        Self {
+            cell_size,
+            buckets: HashMap::new(),
+        }
     }
 
     pub fn clear(&mut self) {
@@ -134,10 +137,7 @@ mod tests {
 
     #[test]
     fn visit_radius_visits_overlapping_cells_only() {
-        let enemies = vec![
-            enemy(1, 100.0, 100.0, 8.0),
-            enemy(2, 1000.0, 1000.0, 8.0),
-        ];
+        let enemies = vec![enemy(1, 100.0, 100.0, 8.0), enemy(2, 1000.0, 1000.0, 8.0)];
         let mut grid = SpatialGrid::new(96.0);
         grid.rebuild(&enemies);
         let mut visited = vec![];

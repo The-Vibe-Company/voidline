@@ -1,11 +1,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createPlayerState, upgradeTiers } from "../game/balance";
-import { findRelic } from "../game/relic-catalog";
+import { DEFAULT_RELIC_IDS, findRelic } from "../game/relic-catalog";
 import { findUpgrade } from "../game/upgrade-catalog";
 import { ownedRelics, ownedUpgrades, player, unlockedRelics } from "../state";
+import { resetSimulation } from "../simulation/simulation";
+import { applyUpgrade } from "./upgrades";
 import {
   applyRelicChoice,
   initializeRelicUnlocks,
+  pickRelicChoices,
   resetRelicUnlocks,
   unlockRelicsForBossWave,
 } from "./relics";
@@ -36,6 +39,7 @@ describe("relic unlock persistence", () => {
     ownedUpgrades.clear();
     unlockedRelics.clear();
     resetAccountProgress(null);
+    resetSimulation(7);
   });
 
   it("loads default and stored relic unlocks", () => {
@@ -71,15 +75,25 @@ describe("relic unlock persistence", () => {
   });
 
   it("refreshes player traits after applying a relic choice", () => {
-    ownedUpgrades.set("magnet-array:standard", {
+    applyUpgrade({
       upgrade: findUpgrade("magnet-array"),
       tier,
-      count: 1,
     });
 
     applyRelicChoice({ relic: findRelic("magnetized-map") });
 
     expect(ownedRelics.get("magnetized-map")?.count).toBe(1);
     expect(player.traits.magnetStorm).toBe(true);
+  });
+
+  it("bridges Rust fallback relic choices into TypeScript catalog records", () => {
+    for (const relicId of DEFAULT_RELIC_IDS) {
+      applyRelicChoice({ relic: findRelic(relicId) });
+    }
+
+    const choices = pickRelicChoices(1);
+
+    expect(choices).toHaveLength(1);
+    expect(choices[0]!.relic.id).toBe("field-repair");
   });
 });

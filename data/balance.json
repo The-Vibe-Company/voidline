@@ -74,7 +74,7 @@
       "pickupBaseRadius": 36
     },
     "lateWave": {
-      "startWave": 10,
+      "startWave": 7,
       "targetLinear": 5,
       "targetExponent": 1.12,
       "targetExponentScale": 1.4,
@@ -89,7 +89,7 @@
       "damageScaleMax": 0.55
     },
     "enemy": {
-      "hpScalePerWave": 0.06,
+      "hpScalePerWave": 0.065,
       "speedScalePerWave": 0.022,
       "speedScaleMax": 0.4,
       "hunterChancePerWave": 0.07,
@@ -145,24 +145,32 @@
         "drones": 5,
         "projectiles": 8,
         "pierce": 5,
-        "critChance": 0.95
+        "critChance": 0.95,
+        "fireRateMul": 1.5,
+        "damageMul": 1.8
       },
       "steppedGain": {
-        "rareThreshold": 1.4,
-        "singularityThreshold": 2.75,
+        "rareThreshold": 1.25,
+        "singularityThreshold": 2.15,
         "standard": 1,
         "rare": 2,
         "singularity": 3
       },
       "tierWeights": {
-        "standardMin": 24,
+        "standardMin": 38,
         "standardBase": 100,
         "standardPerWave": 5.5,
         "rareBase": 28,
-        "rarePerWave": 2.8,
+        "rarePerWave": 1.5,
         "prototypeBase": 7,
-        "prototypePerWave": 1.45,
-        "singularityPerWave": 1.4
+        "prototypePerWave": 0.9,
+        "singularityPerWave": 0.8,
+        "perRank": {
+          "standardPenalty": 4,
+          "rare": 3,
+          "prototype": 1.5,
+          "singularity": 0.6
+        }
       },
       "gates": {
         "rare": {
@@ -170,31 +178,31 @@
           "rampWaves": 0
         },
         "prototype": {
-          "minWave": 2,
-          "rampWaves": 0,
+          "minWave": 5,
+          "rampWaves": 2,
           "lockedWeight": 4
         },
         "singularity": {
-          "minWave": 3,
-          "rampWaves": 0,
+          "minWave": 8,
+          "rampWaves": 2,
           "lockedWeight": 0
         }
       },
       "effects": {
-        "fireRate": 0.22,
-        "damage": 0.26,
-        "bulletSpeed": 0.055,
+        "fireRate": 0.15,
+        "damage": 0.18,
+        "bulletSpeed": 0.04,
         "speed": 0.13,
-        "shield": 24,
-        "shieldRegen": 2.4,
-        "maxHp": 20,
-        "heal": 42,
+        "shield": 18,
+        "shieldRegen": 1.6,
+        "maxHp": 14,
+        "heal": 32,
         "pierceDamage": 0.07,
-        "critChance": 0.08,
-        "lifesteal": 2,
-        "pickupRadius": 0.35,
+        "critChance": 0.06,
+        "lifesteal": 1.4,
+        "pickupRadius": 0.28,
         "bulletRadius": 0.18,
-        "droneExtraThreshold": 2
+        "droneExtraThreshold": 1.65
       }
     },
     "tiers": [
@@ -210,7 +218,7 @@
         "id": "rare",
         "short": "T2",
         "name": "Rare",
-        "power": 1.45,
+        "power": 1.3,
         "color": "#72ffb1",
         "glow": "rgba(114, 255, 177, 0.25)"
       },
@@ -218,7 +226,7 @@
         "id": "prototype",
         "short": "T3",
         "name": "Prototype",
-        "power": 2.05,
+        "power": 1.7,
         "color": "#ffbf47",
         "glow": "rgba(255, 191, 71, 0.28)"
       },
@@ -226,7 +234,7 @@
         "id": "singularity",
         "short": "T4",
         "name": "Singularity",
-        "power": 2.8,
+        "power": 2.2,
         "color": "#ff5a69",
         "glow": "rgba(255, 90, 105, 0.3)"
       }
@@ -268,7 +276,7 @@
         }
       },
       "boss": {
-        "hpMultiplier": 22,
+        "hpMultiplier": 24,
         "speedMultiplier": 0.54,
         "damageMultiplier": 1.8,
         "radiusMultiplier": 2.15,
@@ -276,7 +284,7 @@
         "contactCooldown": 0.95
       },
       "miniBoss": {
-        "startWave": 3,
+        "startWave": 4,
         "spawnChance": 0.32,
         "guaranteeAfterEligibleWaves": 4,
         "hpMultiplier": 6.4,
@@ -295,9 +303,9 @@
         "hitDuration": 0.16,
         "knockback": 86,
         "damage": {
-          "vsDamage": 1.8,
-          "vsShield": 0.55,
-          "vsSpeed": 0.08
+          "vsDamage": 1.4,
+          "vsShield": 0.45,
+          "vsSpeed": 0.07
         },
         "shieldCost": {
           "flat": 8,
@@ -315,8 +323,8 @@
           "maxBonus": 115
         },
         "damage": {
-          "vsDamage": 2.15,
-          "vsCharge": 1.65
+          "vsDamage": 1.55,
+          "vsCharge": 1.3
         }
       }
     },
@@ -389,9 +397,10 @@
       ],
       "effects": [
         {
-          "type": "addPct",
+          "type": "addCappedPctBonus",
           "stat": "fireRate",
-          "amount": 0.22
+          "amount": 0.15,
+          "cap": "fireRateMul"
         }
       ]
     },
@@ -407,14 +416,15 @@
       ],
       "effects": [
         {
-          "type": "addPct",
+          "type": "addCappedPctBonus",
           "stat": "damage",
-          "amount": 0.26
+          "amount": 0.18,
+          "cap": "damageMul"
         },
         {
           "type": "addPct",
           "stat": "bulletSpeed",
-          "amount": 0.055
+          "amount": 0.04
         }
       ]
     },
@@ -448,7 +458,7 @@
         {
           "type": "addPct",
           "stat": "pickupRadius",
-          "amount": 0.35
+          "amount": 0.28
         }
       ]
     },
@@ -465,9 +475,9 @@
       "effects": [
         {
           "type": "shieldGrant",
-          "shield": 24,
-          "regen": 2.4,
-          "maxHpBonus": 20,
+          "shield": 18,
+          "regen": 1.6,
+          "maxHpBonus": 14,
           "healRatio": 0.65
         }
       ]
@@ -485,7 +495,7 @@
         {
           "type": "addCappedPct",
           "stat": "critChance",
-          "amount": 0.08,
+          "amount": 0.06,
           "cap": "critChance"
         }
       ]
@@ -902,17 +912,6 @@
       "requirement": "available"
     },
     {
-      "id": "unique:reroll",
-      "kind": "unique",
-      "name": "Reroll",
-      "description": "1 reroll par chest pour relancer les choix.",
-      "maxLevel": 1,
-      "costs": [
-        100
-      ],
-      "requirement": "clear-stage-1"
-    },
-    {
       "id": "category:attack",
       "kind": "category",
       "name": "Attaque",
@@ -1021,7 +1020,7 @@
           "summary": "Débloque la tech Critique et les rares de précision."
         },
         {
-          "summary": "+1 reroll disponible."
+          "summary": "+25% chance de rare globale."
         },
         {
           "summary": "Débloque les prototypes."
@@ -1336,7 +1335,7 @@
       "role": "boss",
       "label": "BOSS",
       "stats": {
-        "hpMultiplier": 22,
+        "hpMultiplier": 24,
         "speedMultiplier": 0.54,
         "damageMultiplier": 1.8,
         "radiusMultiplier": 2.15,

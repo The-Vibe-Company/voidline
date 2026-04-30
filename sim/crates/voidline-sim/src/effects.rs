@@ -23,6 +23,8 @@ fn cap_value(balance: &Balance, key: CapKey) -> f64 {
         CapKey::Projectiles => balance.upgrade.caps.projectiles,
         CapKey::Pierce => balance.upgrade.caps.pierce,
         CapKey::CritChance => balance.upgrade.caps.crit_chance,
+        CapKey::FireRateMul => balance.upgrade.caps.fire_rate_mul,
+        CapKey::DamageMul => balance.upgrade.caps.damage_mul,
     }
 }
 
@@ -72,14 +74,23 @@ fn percent_bonus<'a>(player: &'a mut Player, stat: PercentStat) -> &'a mut f64 {
 
 fn apply_step(op: &EffectOp, tier_power: f64, balance: &Balance, player: &mut Player) {
     match *op {
-        EffectOp::AddPct { stat, amount, scale } => {
+        EffectOp::AddPct {
+            stat,
+            amount,
+            scale,
+        } => {
             let scale_value = resolve_scale(
                 Some(scale.unwrap_or(EffectScale::Tag(EffectScaleTag::TierPower))),
                 tier_power,
             );
             *percent_bonus(player, stat) += amount * scale_value;
         }
-        EffectOp::AddCapped { stat, amount, cap, gain_curve } => {
+        EffectOp::AddCapped {
+            stat,
+            amount,
+            cap,
+            gain_curve,
+        } => {
             let cap_v = cap_value(balance, cap);
             let gain = match gain_curve {
                 Some(GainCurve::Stepped) => stepped_amount(balance, amount, tier_power),
@@ -89,7 +100,12 @@ fn apply_step(op: &EffectOp, tier_power: f64, balance: &Balance, player: &mut Pl
             let target = capped_int_stat(player, stat);
             *target = (*target + gain).min(cap_v);
         }
-        EffectOp::AddCappedPct { stat, amount, cap, scale } => {
+        EffectOp::AddCappedPct {
+            stat,
+            amount,
+            cap,
+            scale,
+        } => {
             let cap_v = cap_value(balance, cap);
             let scale_value = resolve_scale(
                 Some(scale.unwrap_or(EffectScale::Tag(EffectScaleTag::TierPower))),
@@ -98,7 +114,27 @@ fn apply_step(op: &EffectOp, tier_power: f64, balance: &Balance, player: &mut Pl
             let target = capped_pct_stat(player, stat);
             *target = (*target + amount * scale_value).min(cap_v);
         }
-        EffectOp::ShieldGrant { shield, regen, max_hp_bonus, heal_ratio, scale } => {
+        EffectOp::AddCappedPctBonus {
+            stat,
+            amount,
+            cap,
+            scale,
+        } => {
+            let cap_v = cap_value(balance, cap);
+            let scale_value = resolve_scale(
+                Some(scale.unwrap_or(EffectScale::Tag(EffectScaleTag::TierPower))),
+                tier_power,
+            );
+            let target = percent_bonus(player, stat);
+            *target = (*target + amount * scale_value).min(cap_v);
+        }
+        EffectOp::ShieldGrant {
+            shield,
+            regen,
+            max_hp_bonus,
+            heal_ratio,
+            scale,
+        } => {
             let scale_value = resolve_scale(
                 Some(scale.unwrap_or(EffectScale::Tag(EffectScaleTag::TierPower))),
                 tier_power,
@@ -155,16 +191,35 @@ mod tests {
         Player::new(&bundle.balance.player.stats)
     }
 
-    fn find_upgrade<'a>(bundle: &'a voidline_data::DataBundle, id: &str) -> &'a voidline_data::Upgrade {
-        bundle.upgrades.iter().find(|u| u.id == id).unwrap_or_else(|| panic!("upgrade {id} not found"))
+    fn find_upgrade<'a>(
+        bundle: &'a voidline_data::DataBundle,
+        id: &str,
+    ) -> &'a voidline_data::Upgrade {
+        bundle
+            .upgrades
+            .iter()
+            .find(|u| u.id == id)
+            .unwrap_or_else(|| panic!("upgrade {id} not found"))
     }
 
     fn find_relic<'a>(bundle: &'a voidline_data::DataBundle, id: &str) -> &'a voidline_data::Relic {
-        bundle.relics.iter().find(|r| r.id == id).unwrap_or_else(|| panic!("relic {id} not found"))
+        bundle
+            .relics
+            .iter()
+            .find(|r| r.id == id)
+            .unwrap_or_else(|| panic!("relic {id} not found"))
     }
 
-    fn find_tier<'a>(bundle: &'a voidline_data::DataBundle, id: &str) -> &'a voidline_data::UpgradeTier {
-        bundle.balance.tiers.iter().find(|t| t.id == id).unwrap_or_else(|| panic!("tier {id}"))
+    fn find_tier<'a>(
+        bundle: &'a voidline_data::DataBundle,
+        id: &str,
+    ) -> &'a voidline_data::UpgradeTier {
+        bundle
+            .balance
+            .tiers
+            .iter()
+            .find(|t| t.id == id)
+            .unwrap_or_else(|| panic!("tier {id}"))
     }
 
     #[test]
@@ -178,13 +233,14 @@ mod tests {
     }
 
     #[test]
-    fn plasma_core_standard_increases_fire_rate_by_22pct() {
+    fn plasma_core_standard_increases_fire_rate_by_15pct() {
         let bundle = load_default().unwrap();
         let mut player = fresh_player(&bundle);
         let upgrade = find_upgrade(&bundle, "plasma-core");
         let tier = find_tier(&bundle, "standard");
         run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
-        assert!((player.fire_rate - 3.0 * 1.22).abs() < 1e-12);
+        let effect = bundle.balance.upgrade.effects.fire_rate;
+        assert!((player.fire_rate - 3.0 * (1.0 + effect)).abs() < 1e-12);
     }
 
     #[test]
@@ -194,23 +250,29 @@ mod tests {
         let upgrade = find_upgrade(&bundle, "rail-slug");
         let tier = find_tier(&bundle, "standard");
         run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
-        assert!((player.damage - 24.0 * 1.26).abs() < 1e-12);
-        assert!((player.bullet_speed - 610.0 * 1.055).abs() < 1e-12);
+        let dmg = bundle.balance.upgrade.effects.damage;
+        let bs = bundle.balance.upgrade.effects.bullet_speed;
+        assert!((player.damage - 24.0 * (1.0 + dmg)).abs() < 1e-12);
+        assert!((player.bullet_speed - 610.0 * (1.0 + bs)).abs() < 1e-12);
     }
 
     #[test]
-    fn kinetic_shield_standard_grants_24_shield_and_heals() {
+    fn kinetic_shield_standard_grants_shield_and_heals() {
         let bundle = load_default().unwrap();
         let mut player = fresh_player(&bundle);
         player.hp = 40.0;
         let upgrade = find_upgrade(&bundle, "kinetic-shield");
         let tier = find_tier(&bundle, "standard");
         run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
-        assert_eq!(player.shield_max, 24.0);
-        assert_eq!(player.shield, 24.0);
-        assert!((player.shield_regen - 2.4).abs() < 1e-12);
-        assert_eq!(player.max_hp, 120.0);
-        assert_eq!(player.hp, 53.0);
+        let shield = bundle.balance.upgrade.effects.shield;
+        let regen = bundle.balance.upgrade.effects.shield_regen;
+        let max_hp_bonus = bundle.balance.upgrade.effects.max_hp;
+        assert_eq!(player.shield_max, shield);
+        assert_eq!(player.shield, shield);
+        assert!((player.shield_regen - regen).abs() < 1e-12);
+        assert_eq!(player.max_hp, 100.0 + max_hp_bonus);
+        let expected_heal = (max_hp_bonus * 0.65).round();
+        assert_eq!(player.hp, 40.0 + expected_heal);
     }
 
     #[test]
@@ -251,9 +313,14 @@ mod tests {
         let upgrade = find_upgrade(&bundle, "plasma-core");
         let tier = find_tier(&bundle, "standard");
         let effect = bundle.balance.upgrade.effects.fire_rate;
+        let baseline = bundle.balance.player.stats.fire_rate;
+        // Stack 5×; final value must respect the fire_rate_mul cap, but each step matches additive.
+        let cap = bundle.balance.upgrade.caps.fire_rate_mul;
         for n in 1..=5 {
             run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
-            let expected = bundle.balance.player.stats.fire_rate * (1.0 + (n as f64) * effect);
+            let raw_bonus = (n as f64) * effect;
+            let capped_bonus = raw_bonus.min(cap);
+            let expected = baseline * (1.0 + capped_bonus);
             assert!(
                 (player.fire_rate - expected).abs() < 1e-12,
                 "n={n}: got {}, expected {}",
@@ -261,5 +328,254 @@ mod tests {
                 expected,
             );
         }
+    }
+
+    #[test]
+    fn plasma_core_caps_at_fire_rate_mul() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "plasma-core");
+        let tier = find_tier(&bundle, "singularity");
+        let cap = bundle.balance.upgrade.caps.fire_rate_mul;
+        // Apply many singularities; bonus must clamp.
+        for _ in 0..40 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert!(
+            (player.bonus.fire_rate_pct - cap).abs() < 1e-9,
+            "fire_rate_pct must clamp to cap (got {}, cap {})",
+            player.bonus.fire_rate_pct,
+            cap,
+        );
+        let baseline = bundle.balance.player.stats.fire_rate;
+        assert!((player.fire_rate - baseline * (1.0 + cap)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn rail_slug_caps_damage_at_damage_mul() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "rail-slug");
+        let tier = find_tier(&bundle, "singularity");
+        let cap = bundle.balance.upgrade.caps.damage_mul;
+        for _ in 0..40 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert!(
+            (player.bonus.damage_pct - cap).abs() < 1e-9,
+            "damage_pct must clamp to cap (got {}, cap {})",
+            player.bonus.damage_pct,
+            cap,
+        );
+        // bullet_speed leg uses uncapped addPct, so it should keep accumulating.
+        assert!(player.bonus.bullet_speed_pct > cap);
+    }
+
+    #[test]
+    fn fire_rate_cap_holds_across_mixed_tiers() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "plasma-core");
+        let cap = bundle.balance.upgrade.caps.fire_rate_mul;
+        for tier_id in ["standard", "rare", "prototype", "singularity"] {
+            let tier = find_tier(&bundle, tier_id);
+            for _ in 0..15 {
+                run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+            }
+        }
+        assert!(player.bonus.fire_rate_pct <= cap + 1e-9);
+        assert!((player.bonus.fire_rate_pct - cap).abs() < 1e-9);
+    }
+
+    #[test]
+    fn projectile_count_caps_at_balance_cap() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "twin-cannon");
+        let tier = find_tier(&bundle, "singularity");
+        for _ in 0..15 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert_eq!(
+            player.projectile_count,
+            bundle.balance.upgrade.caps.projectiles
+        );
+    }
+
+    #[test]
+    fn pierce_caps_at_balance_cap() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "lance-capacitor");
+        let tier = find_tier(&bundle, "singularity");
+        for _ in 0..15 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert_eq!(player.pierce, bundle.balance.upgrade.caps.pierce);
+    }
+
+    #[test]
+    fn drones_cap_at_balance_cap() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "drone-uplink");
+        let tier = find_tier(&bundle, "singularity");
+        for _ in 0..15 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert_eq!(player.drones, bundle.balance.upgrade.caps.drones);
+    }
+
+    #[test]
+    fn singularity_projectile_gains_3_per_pick() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "twin-cannon");
+        let tier = find_tier(&bundle, "singularity");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        // Stepped gain at singularity = 3 per pick from balance.json.
+        let stepped_sing = bundle.balance.upgrade.stepped_gain.singularity;
+        assert_eq!(player.projectile_count, 1.0 + stepped_sing);
+    }
+
+    #[test]
+    fn rare_projectile_gain_matches_stepped_rare() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "twin-cannon");
+        let tier = find_tier(&bundle, "rare");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        let stepped_rare = bundle.balance.upgrade.stepped_gain.rare;
+        assert_eq!(player.projectile_count, 1.0 + stepped_rare);
+    }
+
+    #[test]
+    fn drone_extra_threshold_grants_two_drones_for_prototype() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "drone-uplink");
+        let tier = find_tier(&bundle, "prototype");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        // prototype.power should pass drone_extra_threshold → +2 drones.
+        assert_eq!(player.drones, 2.0);
+    }
+
+    #[test]
+    fn drone_extra_threshold_grants_only_one_for_rare() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "drone-uplink");
+        let tier = find_tier(&bundle, "rare");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        assert_eq!(player.drones, 1.0);
+    }
+
+    #[test]
+    fn crit_array_does_not_overshoot_cap() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "crit-array");
+        let tier = find_tier(&bundle, "singularity");
+        for _ in 0..30 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert!(player.crit_chance <= bundle.balance.upgrade.caps.crit_chance + 1e-12);
+        assert_eq!(player.crit_chance, bundle.balance.upgrade.caps.crit_chance);
+    }
+
+    #[test]
+    fn ion_engine_speed_compounds_via_addpct() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "ion-engine");
+        let tier = find_tier(&bundle, "standard");
+        let effect = bundle.balance.upgrade.effects.speed;
+        for _ in 0..3 {
+            run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        }
+        assert!((player.bonus.speed_pct - 3.0 * effect).abs() < 1e-12);
+    }
+
+    #[test]
+    fn tier_power_scales_addpct_effects() {
+        let bundle = load_default().unwrap();
+        let upgrade = find_upgrade(&bundle, "ion-engine");
+        let standard = find_tier(&bundle, "standard");
+        let prototype = find_tier(&bundle, "prototype");
+
+        let mut p1 = fresh_player(&bundle);
+        run_effects(&upgrade.effects, standard.power, &bundle.balance, &mut p1);
+        let mut p2 = fresh_player(&bundle);
+        run_effects(&upgrade.effects, prototype.power, &bundle.balance, &mut p2);
+        let ratio = p2.bonus.speed_pct / p1.bonus.speed_pct;
+        assert!((ratio - prototype.power / standard.power).abs() < 1e-12);
+    }
+
+    #[test]
+    fn shield_grant_scales_with_tier_power() {
+        let bundle = load_default().unwrap();
+        let upgrade = find_upgrade(&bundle, "kinetic-shield");
+        let standard = find_tier(&bundle, "standard");
+        let singularity = find_tier(&bundle, "singularity");
+
+        let mut p1 = fresh_player(&bundle);
+        run_effects(&upgrade.effects, standard.power, &bundle.balance, &mut p1);
+        let mut p2 = fresh_player(&bundle);
+        run_effects(
+            &upgrade.effects,
+            singularity.power,
+            &bundle.balance,
+            &mut p2,
+        );
+        // Shield must scale roughly with the singularity power multiplier.
+        assert!(p2.shield > p1.shield);
+        assert_eq!(
+            p1.shield,
+            (bundle.balance.upgrade.effects.shield * standard.power).round(),
+        );
+        assert_eq!(
+            p2.shield,
+            (bundle.balance.upgrade.effects.shield * singularity.power).round(),
+        );
+    }
+
+    #[test]
+    fn magnet_array_scales_pickup_radius_with_tier() {
+        let bundle = load_default().unwrap();
+        let upgrade = find_upgrade(&bundle, "magnet-array");
+        let mut player = fresh_player(&bundle);
+        let tier = find_tier(&bundle, "rare");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        let pickup = bundle.balance.upgrade.effects.pickup_radius;
+        assert!((player.bonus.pickup_radius_pct - pickup * tier.power).abs() < 1e-12);
+    }
+
+    #[test]
+    fn run_effects_calls_recompute_for_multiplicative_stats() {
+        // Sanity: after addPct on damage, target.damage must reflect the bonus, not just bonus_pct.
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "rail-slug");
+        let tier = find_tier(&bundle, "rare");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        let dmg_effect = bundle.balance.upgrade.effects.damage;
+        let baseline = bundle.balance.player.stats.damage;
+        assert!((player.damage - baseline * (1.0 + dmg_effect * tier.power)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn fresh_player_has_no_bonuses() {
+        let bundle = load_default().unwrap();
+        let player = fresh_player(&bundle);
+        assert_eq!(player.bonus.fire_rate_pct, 0.0);
+        assert_eq!(player.bonus.damage_pct, 0.0);
+        assert_eq!(player.bonus.speed_pct, 0.0);
+        assert_eq!(player.bonus.pickup_radius_pct, 0.0);
+        assert_eq!(player.bonus.bullet_speed_pct, 0.0);
+        assert_eq!(player.bonus.bullet_radius_pct, 0.0);
+        assert_eq!(player.shield, 0.0);
+        assert_eq!(player.shield_max, 0.0);
+        assert_eq!(player.shield_regen, 0.0);
+        assert_eq!(player.lifesteal, 0.0);
     }
 }

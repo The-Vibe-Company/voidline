@@ -62,7 +62,11 @@ pub struct Enemy {
 
 impl Enemy {
     pub fn as_circle(&self) -> CircleRef {
-        CircleRef { x: self.x, y: self.y, radius: self.radius }
+        CircleRef {
+            x: self.x,
+            y: self.y,
+            radius: self.radius,
+        }
     }
 }
 
@@ -92,7 +96,11 @@ pub struct Bullet {
 
 impl Bullet {
     pub fn as_circle(&self) -> CircleRef {
-        CircleRef { x: self.x, y: self.y, radius: self.radius }
+        CircleRef {
+            x: self.x,
+            y: self.y,
+            radius: self.radius,
+        }
     }
 
     pub fn has_hit(&self, id: u32) -> bool {

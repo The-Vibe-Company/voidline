@@ -1888,8 +1888,20 @@ h2 {
   outline: none;
 }
 
+.hangar-launch-button:disabled {
+  border-color: rgba(156, 230, 255, 0.18);
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .hangar-launch-button:active {
   transform: scale(0.985);
+}
+
+.hangar-launch-button:disabled:active {
+  transform: none;
 }
 
 .hangar-launch-hint {
@@ -1941,6 +1953,37 @@ h2 {
 .hangar-reward-dismiss:focus-visible {
   color: var(--text);
   border-color: var(--line);
+  outline: none;
+}
+
+.hangar-engine-error {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--red) 36%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--red) 10%, transparent);
+  color: var(--text);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.82rem;
+}
+
+.hangar-engine-retry {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--red) 48%, transparent);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.hangar-engine-retry:hover,
+.hangar-engine-retry:focus-visible {
+  border-color: var(--red);
   outline: none;
 }
 

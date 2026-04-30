@@ -174,6 +174,8 @@ pub struct UpgradeCaps {
     pub projectiles: f64,
     pub pierce: f64,
     pub crit_chance: f64,
+    pub fire_rate_mul: f64,
+    pub damage_mul: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -197,6 +199,16 @@ pub struct TierWeights {
     pub prototype_base: f64,
     pub prototype_per_wave: f64,
     pub singularity_per_wave: f64,
+    pub per_rank: PerRankWeights,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PerRankWeights {
+    pub standard_penalty: f64,
+    pub rare: f64,
+    pub prototype: f64,
+    pub singularity: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]

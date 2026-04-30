@@ -1,23 +1,57 @@
-import { floaters, particles, simulationPerfConfig } from "../state";
-import { acquireFloater, acquireParticle, releaseFloater, releaseParticle } from "../simulation/pools";
-import { random } from "../simulation/random";
+import { counters, floaters, particles, simulationPerfConfig } from "../state";
+import type { Floater, Particle } from "../types";
+import { swapRemove } from "../utils";
+
+function createParticle(): Particle {
+  const particle: Particle = {
+    id: counters.nextParticleId,
+    x: 0,
+    y: 0,
+    vx: 0,
+    vy: 0,
+    size: 0,
+    color: "#ffffff",
+    life: 0,
+    maxLife: 0,
+    behind: false,
+  };
+  counters.nextParticleId += 1;
+  particles.push(particle);
+  return particle;
+}
+
+function createFloater(): Floater {
+  const floater: Floater = {
+    id: counters.nextFloaterId,
+    x: 0,
+    y: 0,
+    text: "",
+    color: "#ffffff",
+    damageText: false,
+    life: 0,
+    maxLife: 0,
+  };
+  counters.nextFloaterId += 1;
+  floaters.push(floater);
+  return floater;
+}
 
 export function burst(x: number, y: number, color: string, count: number, speed: number): void {
   const available = simulationPerfConfig.budgets.maxParticles - particles.length;
   const budgetedCount = Math.max(0, Math.min(count, available));
   for (let i = 0; i < budgetedCount; i += 1) {
-    const angle = random() * Math.PI * 2;
-    const velocity = speed * (0.2 + random() * 0.8);
-    const particle = acquireParticle();
+    const angle = Math.random() * Math.PI * 2;
+    const velocity = speed * (0.2 + Math.random() * 0.8);
+    const particle = createParticle();
     particle.x = x;
     particle.y = y;
     particle.vx = Math.cos(angle) * velocity;
     particle.vy = Math.sin(angle) * velocity;
-    particle.size = random() * 3 + 1.5;
+    particle.size = Math.random() * 3 + 1.5;
     particle.color = color;
-    particle.life = random() * 0.45 + 0.32;
+    particle.life = Math.random() * 0.45 + 0.32;
     particle.maxLife = 0.78;
-    particle.behind = random() > 0.35;
+    particle.behind = Math.random() > 0.35;
   }
 }
 
@@ -25,16 +59,16 @@ export function spark(x: number, y: number, color: string): void {
   const available = simulationPerfConfig.budgets.maxParticles - particles.length;
   const budgetedCount = Math.max(0, Math.min(5, available));
   for (let i = 0; i < budgetedCount; i += 1) {
-    const angle = random() * Math.PI * 2;
-    const velocity = 90 + random() * 140;
-    const particle = acquireParticle();
+    const angle = Math.random() * Math.PI * 2;
+    const velocity = 90 + Math.random() * 140;
+    const particle = createParticle();
     particle.x = x;
     particle.y = y;
     particle.vx = Math.cos(angle) * velocity;
     particle.vy = Math.sin(angle) * velocity;
-    particle.size = random() * 2 + 0.8;
+    particle.size = Math.random() * 2 + 0.8;
     particle.color = color;
-    particle.life = 0.2 + random() * 0.18;
+    particle.life = 0.2 + Math.random() * 0.18;
     particle.maxLife = 0.38;
     particle.behind = false;
   }
@@ -55,7 +89,7 @@ export function pulseText(
     }
     if (activeDamageTexts >= simulationPerfConfig.budgets.maxDamageTexts) return;
   }
-  const floater = acquireFloater();
+  const floater = createFloater();
   floater.x = x;
   floater.y = y;
   floater.text = text;
@@ -74,7 +108,7 @@ export function updateParticles(dt: number): void {
     particle.vx *= 1 - dt * 1.8;
     particle.vy *= 1 - dt * 1.8;
     if (particle.life <= 0) {
-      releaseParticle(i);
+      swapRemove(particles, i);
     }
   }
 
@@ -83,7 +117,7 @@ export function updateParticles(dt: number): void {
     floater.life -= dt;
     floater.y -= 34 * dt;
     if (floater.life <= 0) {
-      releaseFloater(i);
+      swapRemove(floaters, i);
     }
   }
 }

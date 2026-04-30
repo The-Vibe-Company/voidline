@@ -13,7 +13,13 @@ export type CappedIntStat = "projectileCount" | "pierce" | "drones";
 
 export type CappedPctStat = "critChance";
 
-export type CapKey = "projectiles" | "pierce" | "drones" | "critChance";
+export type CapKey =
+  | "projectiles"
+  | "pierce"
+  | "drones"
+  | "critChance"
+  | "fireRateMul"
+  | "damageMul";
 
 export type GainCurve = "stepped" | "droneStepped" | "fixed";
 
@@ -37,6 +43,14 @@ export interface AddCappedEffect {
 export interface AddCappedPctEffect {
   type: "addCappedPct";
   stat: CappedPctStat;
+  amount: number;
+  cap: CapKey;
+  scale?: EffectScale;
+}
+
+export interface AddCappedPctBonusEffect {
+  type: "addCappedPctBonus";
+  stat: PercentStat;
   amount: number;
   cap: CapKey;
   scale?: EffectScale;
@@ -83,6 +97,7 @@ export type EffectOp =
   | AddPctEffect
   | AddCappedEffect
   | AddCappedPctEffect
+  | AddCappedPctBonusEffect
   | ShieldGrantEffect
   | AddLifestealEffect
   | HealFlatEffect
@@ -149,6 +164,13 @@ function applyEffectStep(op: EffectOp, tierPower: number, target: Player): void 
       const cap = balance.upgrade.caps[op.cap];
       const scale = resolveScale(op.scale ?? "tier.power", tierPower);
       target[op.stat] = Math.min(cap, target[op.stat] + op.amount * scale);
+      return;
+    }
+    case "addCappedPctBonus": {
+      const cap = balance.upgrade.caps[op.cap];
+      const scale = resolveScale(op.scale ?? "tier.power", tierPower);
+      const bonusKey = PERCENT_BONUS_KEY[op.stat];
+      target.bonus[bonusKey] = Math.min(cap, target.bonus[bonusKey] + op.amount * scale);
       return;
     }
     case "shieldGrant": {

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createDefaultAccountProgress } from "../game/account-progression";
 import {
   accountProgress,
+  awardRunAccountProgress,
   currentCrystalRewardMultiplier,
   currentLevelUpChoiceCount,
   currentRarityRank,
@@ -307,6 +308,28 @@ describe("crystal persistence and unlock shop", () => {
     expect(accountProgress.lastRunReward?.crystalsGained).toBe(86);
   });
 
+  it("preserves meta upgrade levels when Rust awards a run", () => {
+    restoreAccountProgress({
+      ...createDefaultAccountProgress(),
+      upgradeLevels: { "category:attack": 1 },
+    });
+
+    awardRunAccountProgress(
+      {
+        stage: 2,
+        startStage: 1,
+        elapsedSeconds: 620,
+        runLevel: 8,
+        score: 12_000,
+        bossStages: [1],
+      },
+      storage,
+    );
+
+    expect(accountProgress.upgradeLevels["category:attack"]).toBe(1);
+    expect(storage.getItem("voidline:metaProgress:v1")).toContain("category:attack");
+  });
+
   it("requires objective gates before crystal purchases", () => {
     restoreAccountProgress({ ...createDefaultAccountProgress(), crystals: 200 });
 
@@ -376,7 +399,7 @@ describe("meta upgrade derivations", () => {
     expect(currentRarityRank()).toBe(2);
   });
 
-  it("computes level-up choice count from extra-choice unique and tempo L4", () => {
+  it("computes level-up choice count from extra-choice unique or tempo L4", () => {
     expect(currentLevelUpChoiceCount()).toBe(3);
 
     restoreAccountProgress({
@@ -395,7 +418,7 @@ describe("meta upgrade derivations", () => {
       ...createDefaultAccountProgress(),
       upgradeLevels: { "unique:extra-choice": 1, "category:tempo": 4 },
     });
-    expect(currentLevelUpChoiceCount()).toBe(5);
+    expect(currentLevelUpChoiceCount()).toBe(4);
   });
 
   it("applies a +10% crystal multiplier from salvage L2", () => {

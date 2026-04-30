@@ -1,6 +1,4 @@
-//! Enemy spawning logic ported from `src/game/balance.ts:enemyTypeWeights`/
-//! `selectEnemyType` and `src/entities/enemies.ts:spawnEnemy`/`spawnElite`/
-//! `spawnPointForRadius`.
+//! Enemy spawning logic owned by the Rust runtime engine.
 
 use voidline_data::balance::Balance;
 use voidline_data::catalogs::{BossDef, BossStats, EnemySpawnPolicy, EnemyType, ResidualMarker};
@@ -34,7 +32,9 @@ pub fn enemy_type_weights<'a>(
     let mut non_residual_sum = 0.0;
 
     for ty in &balance.enemies {
-        let policy = spawn_rules.get(&ty.id).expect("spawn policy for enemy kind");
+        let policy = spawn_rules
+            .get(&ty.id)
+            .expect("spawn policy for enemy kind");
         match policy {
             EnemySpawnPolicy::Residual(ResidualMarker::Residual) => {
                 residual = Some(ty);
@@ -78,11 +78,7 @@ pub fn select_enemy_type<'a>(
     weights.last().expect("at least one weighted enemy").ty
 }
 
-pub fn spawn_point_for_radius(
-    world: &World,
-    radius: f64,
-    rolls: [f64; 3],
-) -> (f64, f64) {
+pub fn spawn_point_for_radius(world: &World, radius: f64, rolls: [f64; 3]) -> (f64, f64) {
     let side = (rolls[0] * 4.0).floor() as u32;
     let pad = (radius + 48.0).max(70.0);
     let view_left = world.camera_x;
@@ -139,7 +135,8 @@ pub fn spawn_enemy(
     enemy.age = 0.0;
     enemy.seed = rolls.seed_roll * 100.0;
     enemy.wobble = wobble_for(&balance.enemy.wobble, &ty.id);
-    enemy.wobble_rate = balance.enemy.wobble.rate_base + rolls.wobble_roll * balance.enemy.wobble.rate_random;
+    enemy.wobble_rate =
+        balance.enemy.wobble.rate_base + rolls.wobble_roll * balance.enemy.wobble.rate_random;
     enemy.hit = 0.0;
     enemy.role = EnemyRole::Normal;
 }

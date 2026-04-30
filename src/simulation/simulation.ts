@@ -5,8 +5,6 @@ import {
   enemies,
   experienceOrbs,
   floaters,
-  ownedRelics,
-  ownedUpgrades,
   particles,
   player,
   powerupOrbs,
@@ -14,40 +12,35 @@ import {
   state,
   world,
 } from "../state";
+import { updateParticles } from "../entities/particles";
 import {
-  balance,
-  createPlayerState,
-  spawnGap,
-  spawnPackChance,
-  waveTarget,
-  xpToNextLevel,
-} from "../game/balance";
-import { updateBullets } from "../entities/bullets";
+  clearSimulationEvents,
+  markChestReady,
+  markGameOver,
+  markHudDirty,
+  markUpgradeReady,
+} from "./events";
 import {
-  spawnEnemy,
-  spawnMiniBoss,
-  spawnStageBoss,
-  updateEnemies,
-} from "../entities/enemies";
-import { resetChests, updateChests } from "../entities/chests";
-import { updateExperience } from "../entities/experience";
-import { updateParticles, burst } from "../entities/particles";
-import { updatePlayer } from "../entities/player";
-import { resetPowerups, updatePowerups } from "../entities/powerups";
-import { clearSimulationEvents, markGameOver, markHudDirty } from "./events";
-import { enemyGrid } from "./grids";
-import { clearEntityPools, resetEntityCounters } from "./pools";
-import { random, setSimulationSeed } from "./random";
+  clearRustVisualState,
+  createRustSimulation,
+  resetRustSimulation,
+  resizeRustSimulation,
+  startRustSimulationWave,
+  stepRustSimulation,
+} from "./rust-engine";
 import type { SimulationConfig, SimulationInputState } from "../types";
-import { clamp } from "../utils";
-import {
-  bossBalance,
-  nextMiniBossMisses,
-  shouldSpawnMiniBoss,
-  startingWaveForStage,
-} from "../game/roguelike";
-import { recordChallengeProgress } from "../systems/challenges";
-import { accountProgress, applyEquippedWeapon } from "../systems/account";
+import { startingWaveForStage } from "../game/roguelike";
+import { incrementChallengeProgress, recordChallengeProgress } from "../systems/challenges";
+
+interface ChallengeSnapshot {
+  wave: number;
+  startStage: number;
+  waveKills: number;
+  waveDelay: number;
+  score: number;
+  level: number;
+  runBossStages: number;
+}
 
 export function createSimulation(config: SimulationConfig = {}): {
   resetSimulation: typeof resetSimulation;
@@ -55,7 +48,7 @@ export function createSimulation(config: SimulationConfig = {}): {
   getSimulationView: typeof getSimulationView;
 } {
   applyPerfConfig(config);
-  setSimulationSeed(config.seed);
+  createRustSimulation(config);
   return {
     resetSimulation,
     stepSimulation,
@@ -78,224 +71,97 @@ export function applyPerfConfig(config: SimulationConfig): void {
 }
 
 export function resizeSimulation(width: number, height: number): void {
-  world.dpr = Math.min(window.devicePixelRatio || 1, simulationPerfConfig.dprMax);
-  world.width = Math.max(1, Math.floor(width));
-  world.height = Math.max(1, Math.floor(height));
-  world.arenaWidth = Math.max(3200, Math.round(world.width * 3.2));
-  world.arenaHeight = Math.max(2200, Math.round(world.height * 3.2));
-
-  if (!player.x || !player.y) {
-    player.x = world.arenaWidth / 2;
-    player.y = world.arenaHeight / 2;
-  }
-  player.x = clamp(player.x, player.radius + 8, world.arenaWidth - player.radius - 8);
-  player.y = clamp(player.y, player.radius + 8, world.arenaHeight - player.radius - 8);
-  updateCameraFromPlayer(true);
+  resizeRustSimulation(width, height);
 }
 
 export function startSimulationWave(wave: number): void {
-  state.mode = "playing";
-  state.wave = wave;
-  state.waveKills = 0;
-  const baseTarget = waveTarget(wave);
-  const spawnMiniBossThisWave = shouldSpawnMiniBoss(wave, state.miniBossEligibleMisses, random());
-  state.miniBossEligibleMisses = nextMiniBossMisses(
-    wave,
-    state.miniBossEligibleMisses,
-    spawnMiniBossThisWave,
-  );
-  state.miniBossPending = spawnMiniBossThisWave;
-  state.waveTarget = baseTarget + (spawnMiniBossThisWave ? 1 : 0);
-  state.spawnRemaining = baseTarget;
-  state.spawnGap = spawnGap(wave);
-  state.spawnTimer = balance.wave.spawnTimerStart;
-  state.waveDelay = 0;
+  const previous = captureChallengeSnapshot();
+  startRustSimulationWave(wave);
+  if (wave === previous.wave + 1) {
+    recordChallengeProgress("bestWave", challengeWaveForRun(previous.wave, previous.startStage));
+  }
   markHudDirty();
 }
 
-function challengeWaveForRun(wave: number): number {
-  return Math.max(1, wave - startingWaveForStage(state.startStage) + 1);
-}
-
 export function resetSimulation(seed?: number): void {
-  setSimulationSeed(seed);
   clearSimulationEvents();
-  const startStage = Math.max(
-    1,
-    Math.min(
-      Math.floor(accountProgress.selectedStartStage),
-      Math.max(1, Math.floor(accountProgress.highestStartStageUnlocked)),
-    ),
-  );
-  state.mode = "playing";
-  state.wave = startingWaveForStage(startStage);
-  state.stage = startStage;
-  state.startStage = startStage;
-  state.stageElapsedSeconds = 0;
-  state.runElapsedSeconds = 0;
-  state.stageBossSpawned = false;
-  state.stageBossActive = false;
-  state.highestStageReached = startStage;
-  state.score = 0;
-  state.waveKills = 0;
-  state.killsByKind = { scout: 0, hunter: 0, brute: 0 };
-  state.bestCombo = 0;
-  state.miniBossEligibleMisses = 0;
-  state.miniBossPending = false;
-  state.level = 1;
-  state.xp = 0;
-  state.xpTarget = xpToNextLevel(state.level);
-  state.pendingUpgrades = 0;
-  state.pendingChests = 0;
-  state.heartsCarried = 0;
-  state.magnetsCarried = 0;
-  state.bombsCarried = 0;
-  state.runBossWaves = [];
-  state.runBossStages = [];
-  state.runRewardClaimed = false;
-
-  Object.assign(
-    player,
-    createPlayerState({
-      x: world.arenaWidth / 2,
-      y: world.arenaHeight / 2,
-      invuln: balance.player.resetInvulnerability,
-    }),
-  );
-  applyEquippedWeapon(player);
-  ownedUpgrades.clear();
-  ownedRelics.clear();
-  resetEntityCounters();
-  enemies.length = 0;
-  bullets.length = 0;
-  experienceOrbs.length = 0;
-  particles.length = 0;
-  floaters.length = 0;
-  powerupOrbs.length = 0;
-  chests.length = 0;
-  clearEntityPools();
-  resetPowerups();
-  resetChests();
-
-  updateCameraFromPlayer(true);
-  startSimulationWave(state.wave);
-}
-
-function updateWave(dt: number): void {
-  if (state.miniBossPending) {
-    if (state.stageBossActive || state.stageBossSpawned || hasEliteEnemy()) {
-      state.miniBossPending = false;
-      markHudDirty();
-    } else {
-      spawnMiniBoss();
-      state.miniBossPending = false;
-      markHudDirty();
-    }
-  }
-
-  state.spawnTimer -= dt;
-  if (state.spawnRemaining > 0 && state.spawnTimer <= 0) {
-    const pack = Math.min(
-      state.spawnRemaining,
-      random() < spawnPackChance(state.wave) ? 2 : 1,
-    );
-    for (let i = 0; i < pack; i += 1) {
-      spawnEnemy();
-    }
-    state.spawnRemaining -= pack;
-    state.spawnTimer = state.spawnGap * (0.72 + random() * 0.7);
-    markHudDirty();
-  }
+  resetRustSimulation(seed);
+  clearRustVisualState();
+  markHudDirty();
 }
 
 export function stepSimulation(dt: number, _input?: SimulationInputState): void {
   const cappedDt = Math.min(0.033, Math.max(0, dt));
-  world.time += cappedDt;
-  world.shake = Math.max(0, world.shake - cappedDt * 18);
-
   if (state.mode !== "playing") {
     updateParticles(cappedDt);
     return;
   }
-  if (state.pendingUpgrades > 0 || state.pendingChests > 0) {
-    updateParticles(cappedDt);
-    return;
-  }
 
-  updateStageProgress(cappedDt);
-  updateWave(cappedDt);
-  enemyGrid.rebuild(enemies);
-  updatePlayer(cappedDt);
-  updateBullets(cappedDt);
-  updateEnemies(cappedDt);
-  updateExperience(cappedDt);
-  updatePowerups(cappedDt);
-  updateChests(cappedDt);
+  const previousMode = state.mode;
+  const previousPendingUpgrades = state.pendingUpgrades;
+  const previousPendingChests = state.pendingChests;
+  const previousChallenge = captureChallengeSnapshot();
+
+  stepRustSimulation(cappedDt);
   updateParticles(cappedDt);
-  updateCameraFromPlayer(false);
+  recordRustChallengeProgress(previousChallenge);
 
-  if (player.hp <= 0 && state.mode === "playing") {
-    player.hp = 0;
-    state.mode = "gameover";
-    burst(player.x, player.y, "#39d9ff", 46, 280);
-    world.shake = 22;
+  if (state.pendingUpgrades > previousPendingUpgrades) {
+    markUpgradeReady();
+  }
+  if (state.pendingChests > previousPendingChests) {
+    markChestReady();
+  }
+  if (previousMode === "playing" && (state.mode as string) === "gameover") {
     markGameOver();
   }
+}
 
-  if (
+function captureChallengeSnapshot(): ChallengeSnapshot {
+  return {
+    wave: state.wave,
+    startStage: state.startStage,
+    waveKills: state.waveKills,
+    waveDelay: state.waveDelay,
+    score: state.score,
+    level: state.level,
+    runBossStages: state.runBossStages.length,
+  };
+}
+
+function recordRustChallengeProgress(previous: ChallengeSnapshot): void {
+  if (state.score > previous.score) {
+    recordChallengeProgress("bestScore", state.score);
+  }
+  if (state.level > previous.level) {
+    recordChallengeProgress("bestLevel", state.level);
+  }
+  if (state.runBossStages.length > previous.runBossStages) {
+    incrementChallengeProgress("bossKills", state.runBossStages.length - previous.runBossStages);
+  }
+
+  const killsDelta =
+    state.wave === previous.wave
+      ? state.waveKills - previous.waveKills
+      : Math.max(0, state.waveKills);
+  if (killsDelta > 0) {
+    incrementChallengeProgress("totalKills", killsDelta);
+  }
+
+  if (state.wave > previous.wave) {
+    recordChallengeProgress("bestWave", challengeWaveForRun(previous.wave, previous.startStage));
+  } else if (
+    previous.waveDelay === 0 &&
+    state.waveDelay > 0 &&
     state.spawnRemaining <= 0 &&
-    enemies.length === 0 &&
-    state.mode === "playing"
+    enemies.length === 0
   ) {
-    if (state.waveDelay === 0) {
-      recordChallengeProgress("bestWave", challengeWaveForRun(state.wave));
-    }
-    state.waveDelay += cappedDt;
-    if (state.waveDelay > balance.wave.waveDelay) {
-      startSimulationWave(state.wave + 1);
-    }
+    recordChallengeProgress("bestWave", challengeWaveForRun(state.wave, state.startStage));
   }
 }
 
-function updateStageProgress(dt: number): void {
-  state.runElapsedSeconds += dt;
-  state.stageElapsedSeconds += dt;
-  state.highestStageReached = Math.max(state.highestStageReached, state.stage);
-  if (
-    !state.stageBossSpawned &&
-    !state.stageBossActive &&
-    !hasEliteEnemy() &&
-    state.stageElapsedSeconds >= bossBalance.stageDurationSeconds
-  ) {
-    state.stageBossSpawned = true;
-    state.stageBossActive = true;
-    state.miniBossPending = false;
-    state.spawnRemaining = 0;
-    state.waveTarget = Math.max(1, state.waveKills + 1);
-    state.waveDelay = 0;
-    spawnStageBoss();
-    markHudDirty();
-  }
-}
-
-function hasEliteEnemy(): boolean {
-  return enemies.some((enemy) => enemy.role === "boss" || enemy.role === "mini-boss");
-}
-
-export function updateCameraFromPlayer(snap = false): void {
-  const targetX = clamp(
-    player.x - world.width / 2,
-    0,
-    Math.max(0, world.arenaWidth - world.width),
-  );
-  const targetY = clamp(
-    player.y - world.height / 2,
-    0,
-    Math.max(0, world.arenaHeight - world.height),
-  );
-  const follow = snap ? 1 : 0.16;
-  world.cameraX += (targetX - world.cameraX) * follow;
-  world.cameraY += (targetY - world.cameraY) * follow;
+function challengeWaveForRun(wave: number, startStage: number): number {
+  return Math.max(1, wave - startingWaveForStage(startStage) + 1);
 }
 
 export function getSimulationView(): {

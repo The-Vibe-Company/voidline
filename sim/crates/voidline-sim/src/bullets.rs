@@ -1,6 +1,4 @@
-//! Bullet firing and collision logic, mirroring `src/entities/player.ts`
-//! (fireVolley/fireDrones/nearestEnemy) and `src/entities/bullets.ts`
-//! (updateBullets/spawnRailChain/findRailChainTarget).
+//! Bullet firing and collision logic owned by the Rust runtime engine.
 
 use voidline_data::balance::Balance;
 
@@ -35,10 +33,16 @@ pub fn fire_volley(
     let spread = if drone {
         0.0
     } else {
-        spread_cfg.max.min(spread_cfg.per_extra_projectile * (count - 1.0).max(0.0))
+        spread_cfg
+            .max
+            .min(spread_cfg.per_extra_projectile * (count - 1.0).max(0.0))
     };
     let start = angle - spread / 2.0;
-    let step = if count_int > 1 { spread / (count - 1.0) } else { 0.0 };
+    let step = if count_int > 1 {
+        spread / (count - 1.0)
+    } else {
+        0.0
+    };
     let drone_cfg = &balance.player.drone;
 
     for i in 0..count_int {
@@ -67,7 +71,11 @@ pub fn fire_volley(
         bullet.vx = bullet_angle.cos() * speed;
         bullet.vy = bullet_angle.sin() * speed;
         bullet.radius = base_radius * player.bullet_radius;
-        bullet.damage = if is_crit { base_damage * 2.0 } else { base_damage };
+        bullet.damage = if is_crit {
+            base_damage * 2.0
+        } else {
+            base_damage
+        };
         bullet.pierce = if drone && player.traits.drone_swarm {
             (player.pierce / 2.0).floor().max(1.0) as i32
         } else {
@@ -75,8 +83,16 @@ pub fn fire_volley(
         };
         bullet.life = if drone { drone_cfg.bullet_life } else { 1.15 };
         bullet.trail = 0.0;
-        bullet.source = if drone { BulletSource::Drone } else { BulletSource::Player };
-        bullet.chain_remaining = if !drone && player.traits.rail_splitter { 1 } else { 0 };
+        bullet.source = if drone {
+            BulletSource::Drone
+        } else {
+            BulletSource::Player
+        };
+        bullet.chain_remaining = if !drone && player.traits.rail_splitter {
+            1
+        } else {
+            0
+        };
     }
 }
 
@@ -134,11 +150,14 @@ pub fn fire_drones(
             + (std::f64::consts::TAU * (i as f64)) / (player.drones.max(1.0));
         let x = player.x + angle.cos() * drone_cfg.orbit_radius;
         let y = player.y + angle.sin() * drone_cfg.orbit_radius;
-        if let Some(target_idx) = nearest_enemy(enemies, grid, target_search_radius, arena_diag, x, y)
+        if let Some(target_idx) =
+            nearest_enemy(enemies, grid, target_search_radius, arena_diag, x, y)
         {
             let target = &enemies[target_idx];
             let aim = (target.y - y).atan2(target.x - x);
-            fire_volley(balance, pools, counters, bullets, player, rng, x, y, aim, true);
+            fire_volley(
+                balance, pools, counters, bullets, player, rng, x, y, aim, true,
+            );
         }
     }
 }
@@ -239,7 +258,11 @@ pub fn update_bullets(
                 || b.y > world.arena_height + 80.0;
             (
                 b.life <= 0.0 || oob,
-                CircleRef { x: b.x, y: b.y, radius: b.radius },
+                CircleRef {
+                    x: b.x,
+                    y: b.y,
+                    radius: b.radius,
+                },
                 b.vx,
                 b.vy,
             )

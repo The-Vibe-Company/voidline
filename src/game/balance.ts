@@ -100,7 +100,7 @@ export const waveBalance = {
 };
 
 export const lateWaveBalance = {
-  startWave: 10,
+  startWave: 7,
   targetLinear: 5,
   targetExponent: 1.12,
   targetExponentScale: 1.4,
@@ -152,7 +152,7 @@ export const bossBalance = {
     stageBoss: { offset: 8, stageMultiplier: 4, roll: 0.98 },
   },
   boss: {
-    hpMultiplier: 22,
+    hpMultiplier: 24,
     speedMultiplier: 0.54,
     damageMultiplier: 1.8,
     radiusMultiplier: 2.15,
@@ -160,7 +160,7 @@ export const bossBalance = {
     contactCooldown: 0.95,
   },
   miniBoss: {
-    startWave: 3,
+    startWave: 4,
     spawnChance: 0.32,
     guaranteeAfterEligibleWaves: 4,
     hpMultiplier: 6.4,
@@ -209,7 +209,7 @@ export const enemyTypes = [
 ] satisfies EnemyType[];
 
 export const enemyBalance = {
-  hpScalePerWave: 0.06,
+  hpScalePerWave: 0.065,
   speedScalePerWave: 0.022,
   speedScaleMax: 0.4,
   hunterChancePerWave: 0.07,
@@ -255,7 +255,7 @@ export const upgradeTiers = [
     id: "rare",
     short: "T2",
     name: "Rare",
-    power: 1.45,
+    power: 1.3,
     color: "#72ffb1",
     glow: "rgba(114, 255, 177, 0.25)",
   },
@@ -263,7 +263,7 @@ export const upgradeTiers = [
     id: "prototype",
     short: "T3",
     name: "Prototype",
-    power: 2.05,
+    power: 1.7,
     color: "#ffbf47",
     glow: "rgba(255, 191, 71, 0.28)",
   },
@@ -271,7 +271,7 @@ export const upgradeTiers = [
     id: "singularity",
     short: "T4",
     name: "Singularity",
-    power: 2.8,
+    power: 2.2,
     color: "#ff5a69",
     glow: "rgba(255, 90, 105, 0.3)",
   },
@@ -283,44 +283,52 @@ export const upgradeBalance = {
     projectiles: 8,
     pierce: 5,
     critChance: 0.95,
+    fireRateMul: 1.5,
+    damageMul: 1.8,
   },
   steppedGain: {
-    rareThreshold: 1.4,
-    singularityThreshold: 2.75,
+    rareThreshold: 1.25,
+    singularityThreshold: 2.15,
     standard: 1,
     rare: 2,
     singularity: 3,
   },
   tierWeights: {
-    standardMin: 24,
+    standardMin: 38,
     standardBase: 100,
     standardPerWave: 5.5,
     rareBase: 28,
-    rarePerWave: 2.8,
+    rarePerWave: 1.5,
     prototypeBase: 7,
-    prototypePerWave: 1.45,
-    singularityPerWave: 1.4,
+    prototypePerWave: 0.9,
+    singularityPerWave: 0.8,
+    perRank: {
+      standardPenalty: 4,
+      rare: 3,
+      prototype: 1.5,
+      singularity: 0.6,
+    },
   },
   gates: {
     rare: { minWave: 1, rampWaves: 0 },
-    prototype: { minWave: 2, rampWaves: 0, lockedWeight: 4 },
-    singularity: { minWave: 3, rampWaves: 0, lockedWeight: 0 },
+    prototype: { minWave: 5, rampWaves: 2, lockedWeight: 4 },
+    singularity: { minWave: 8, rampWaves: 2, lockedWeight: 0 },
   },
   effects: {
-    fireRate: 0.22,
-    damage: 0.26,
-    bulletSpeed: 0.055,
+    fireRate: 0.15,
+    damage: 0.18,
+    bulletSpeed: 0.04,
     speed: 0.13,
-    shield: 24,
-    shieldRegen: 2.4,
-    maxHp: 20,
-    heal: 42,
+    shield: 18,
+    shieldRegen: 1.6,
+    maxHp: 14,
+    heal: 32,
     pierceDamage: 0.07,
-    critChance: 0.08,
-    lifesteal: 2,
-    pickupRadius: 0.35,
+    critChance: 0.06,
+    lifesteal: 1.4,
+    pickupRadius: 0.28,
     bulletRadius: 0.18,
-    droneExtraThreshold: 2,
+    droneExtraThreshold: 1.65,
   },
 };
 
@@ -331,7 +339,7 @@ export const synergyBalance = {
     cooldown: 0.16,
     hitDuration: 0.16,
     knockback: 86,
-    damage: { vsDamage: 1.8, vsShield: 0.55, vsSpeed: 0.08 },
+    damage: { vsDamage: 1.4, vsShield: 0.45, vsSpeed: 0.07 },
     shieldCost: { flat: 8, perRadius: 0.42 },
   },
   magnetStorm: {
@@ -340,7 +348,7 @@ export const synergyBalance = {
     hitDuration: 0.18,
     knockback: 42,
     radius: { base: 180, pickupFactor: 42, maxBonus: 115 },
-    damage: { vsDamage: 2.15, vsCharge: 1.65 },
+    damage: { vsDamage: 1.55, vsCharge: 1.3 },
   },
 };
 
@@ -595,6 +603,7 @@ export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[]
   const weights = upgradeBalance.tierWeights;
   const gates = upgradeBalance.gates;
   const rank = Math.max(0, Math.min(3, Math.floor(rarityRank)));
+  const perRank = weights.perRank;
   const protoRamp = gateRampMultiplier(wave, gates.prototype);
   const singularityRamp = gateRampMultiplier(wave, gates.singularity);
   return [
@@ -602,25 +611,26 @@ export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[]
       tier: upgradeTiers[0]!,
       weight: Math.max(
         weights.standardMin,
-        weights.standardBase - wave * weights.standardPerWave - rank * 8,
+        weights.standardBase - wave * weights.standardPerWave - rank * perRank.standardPenalty,
       ),
     },
     {
       tier: upgradeTiers[1]!,
-      weight: weights.rareBase + wave * weights.rarePerWave + rank * 6,
+      weight: weights.rareBase + wave * weights.rarePerWave + rank * perRank.rare,
     },
     {
       tier: upgradeTiers[2]!,
       weight:
         protoRamp > 0
-          ? (weights.prototypeBase + wave * weights.prototypePerWave + rank * 3) * protoRamp
+          ? (weights.prototypeBase + wave * weights.prototypePerWave + rank * perRank.prototype) *
+            protoRamp
           : gates.prototype.lockedWeight,
     },
     {
       tier: upgradeTiers[3]!,
       weight:
         singularityRamp > 0
-          ? (wave * weights.singularityPerWave + rank * 1.5) * singularityRamp
+          ? (wave * weights.singularityPerWave + rank * perRank.singularity) * singularityRamp
           : gates.singularity.lockedWeight,
     },
   ];

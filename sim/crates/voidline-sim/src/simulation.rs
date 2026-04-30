@@ -24,9 +24,7 @@ use crate::player_update::update_player;
 use crate::pools::EntityPools;
 use crate::powerups::{update_powerups, BombSideEffect};
 use crate::rng::Mulberry32;
-use crate::roguelike::{
-    next_mini_boss_misses, should_spawn_mini_boss, starting_wave_for_stage,
-};
+use crate::roguelike::{next_mini_boss_misses, should_spawn_mini_boss, starting_wave_for_stage};
 use crate::spatial_grid::SpatialGrid;
 use crate::spawn::{find_boss_def, select_enemy_type, spawn_elite, spawn_enemy, SpawnRolls};
 use crate::state::{ControlMode, EntityCounters, GameMode, GameState};
@@ -112,7 +110,11 @@ impl Sim {
             enemy_grid: SpatialGrid::new(cell_size),
             max_enemy_radius,
             control_mode: ControlMode::Keyboard,
-            stage_duration_seconds: balance.bosses.stage_duration_seconds.max(0.0).max(STAGE_DURATION_FALLBACK),
+            stage_duration_seconds: balance
+                .bosses
+                .stage_duration_seconds
+                .max(0.0)
+                .max(STAGE_DURATION_FALLBACK),
         };
         sim.reset(config);
         sim
@@ -169,12 +171,18 @@ impl Sim {
         self.state.wave_delay = 0.0;
     }
 
+    pub fn force_start_wave(&mut self, wave: u32) {
+        self.start_wave(wave);
+    }
+
     fn update_wave(&mut self, dt: f64) {
         if self.state.mini_boss_pending {
-            let elite_present = self
-                .enemies
-                .iter()
-                .any(|e| matches!(e.role, crate::entities::EnemyRole::Boss | crate::entities::EnemyRole::MiniBoss));
+            let elite_present = self.enemies.iter().any(|e| {
+                matches!(
+                    e.role,
+                    crate::entities::EnemyRole::Boss | crate::entities::EnemyRole::MiniBoss
+                )
+            });
             if self.state.stage_boss_active || self.state.stage_boss_spawned || elite_present {
                 self.state.mini_boss_pending = false;
             } else {
@@ -269,7 +277,9 @@ impl Sim {
 
     fn spawn_stage_boss(&mut self) {
         let offsets = &self.balance.bosses.spawn_offsets.stage_boss;
-        let wave = self.state.wave + (self.state.stage as u32) * (offsets.stage_multiplier as u32) + offsets.offset as u32;
+        let wave = self.state.wave
+            + (self.state.stage as u32) * (offsets.stage_multiplier as u32)
+            + offsets.offset as u32;
         let ty = select_enemy_type(&self.balance, &self.spawn_rules, wave, offsets.roll).clone();
         let boss_def = find_boss_def(&self.bosses, "boss").clone();
         let rolls = SpawnRolls {
@@ -298,13 +308,14 @@ impl Sim {
     fn update_stage_progress(&mut self, dt: f64) {
         self.state.run_elapsed_seconds += dt;
         self.state.stage_elapsed_seconds += dt;
-        self.state.highest_stage_reached =
-            self.state.highest_stage_reached.max(self.state.stage);
+        self.state.highest_stage_reached = self.state.highest_stage_reached.max(self.state.stage);
 
-        let elite_present = self
-            .enemies
-            .iter()
-            .any(|e| matches!(e.role, crate::entities::EnemyRole::Boss | crate::entities::EnemyRole::MiniBoss));
+        let elite_present = self.enemies.iter().any(|e| {
+            matches!(
+                e.role,
+                crate::entities::EnemyRole::Boss | crate::entities::EnemyRole::MiniBoss
+            )
+        });
         if !self.state.stage_boss_spawned
             && !self.state.stage_boss_active
             && !elite_present
@@ -320,7 +331,7 @@ impl Sim {
         }
     }
 
-    fn update_camera(&mut self, snap: bool) {
+    pub(crate) fn update_camera(&mut self, snap: bool) {
         let target_x = clamp(
             self.player.x - self.world.width / 2.0,
             0.0,
@@ -509,13 +520,16 @@ mod tests {
     #[test]
     fn sim_runs_idle_for_few_steps_without_panic() {
         let bundle = load_default().unwrap();
-        let mut sim = Sim::new(&bundle, SimConfig {
-            seed: 42,
-            start_stage: 1,
-            max_seconds: 5.0,
-            max_wave: 3,
-            step_seconds: 1.0 / 60.0,
-        });
+        let mut sim = Sim::new(
+            &bundle,
+            SimConfig {
+                seed: 42,
+                start_stage: 1,
+                max_seconds: 5.0,
+                max_wave: 3,
+                step_seconds: 1.0 / 60.0,
+            },
+        );
         for _ in 0..120 {
             sim.step(1.0 / 60.0);
         }

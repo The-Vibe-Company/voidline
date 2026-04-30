@@ -1,5 +1,5 @@
 //! Enemy update + kill_enemy + kineticRam + magnetStorm.
-//! Mirrors `src/entities/enemies.ts`.
+//! Rust owns this gameplay path; the original TS runtime module was removed.
 
 use voidline_data::balance::Balance;
 
@@ -103,8 +103,16 @@ fn step_enemy(
     enemy.x += (angle + wobble).cos() * enemy.speed * dt;
     enemy.y += (angle + wobble).sin() * enemy.speed * dt;
 
-    let enemy_circle = CircleRef { x: enemy.x, y: enemy.y, radius: enemy.radius };
-    let player_circle = CircleRef { x: player.x, y: player.y, radius: player.radius };
+    let enemy_circle = CircleRef {
+        x: enemy.x,
+        y: enemy.y,
+        radius: enemy.radius,
+    };
+    let player_circle = CircleRef {
+        x: player.x,
+        y: player.y,
+        radius: player.radius,
+    };
 
     if !circle_hit(enemy_circle, player_circle) {
         return None;
@@ -183,7 +191,10 @@ fn trigger_magnet_storm(
         return;
     }
     let charge = player.magnet_storm_charge;
-    let radius_bonus = storm.radius.max_bonus.min(player.pickup_radius * storm.radius.pickup_factor);
+    let radius_bonus = storm
+        .radius
+        .max_bonus
+        .min(player.pickup_radius * storm.radius.pickup_factor);
     let radius = storm.radius.base + radius_bonus;
     let radius_sq = radius * radius;
     let damage = player.damage * storm.damage.vs_damage + charge * storm.damage.vs_charge;

@@ -101,6 +101,15 @@ try {
   if (report.frame_ms_p99 > maxP99FrameMs) {
     throw new Error(`Stress frame_ms_p99 ${report.frame_ms_p99} above ${maxP99FrameMs}`);
   }
+  if (
+    report.entity_counts?.enemies !== stressEnemies ||
+    report.entity_counts?.bullets !== stressBullets ||
+    report.entity_counts?.orbs !== stressOrbs
+  ) {
+    throw new Error(
+      `Stress entity counts ${JSON.stringify(report.entity_counts)} did not match configured load`,
+    );
+  }
 
   console.log(
     JSON.stringify(

@@ -5,6 +5,7 @@ members = [
     "crates/voidline-sim",
     "crates/voidline-meta",
     "crates/voidline-cli",
+    "crates/voidline-wasm",
 ]
 
 [workspace.package]

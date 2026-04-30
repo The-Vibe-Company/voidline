@@ -60,8 +60,8 @@ impl<'a> MetaProgressionEnv<'a> {
             account: AccountSnapshot::default(),
             run_index: 0,
             seed_offset,
-            max_seconds: 90.0,
-            max_wave: 6,
+            max_seconds: 240.0,
+            max_wave: 30,
             step_seconds: 1.0 / 60.0,
         }
     }
@@ -141,7 +141,12 @@ impl<'a> MetaProgressionEnv<'a> {
             .iter()
             .find(|c| c.id == self.account.selected_character_id)
         {
-            run_effects(&character.effects, 1.0, &sim.balance.clone(), &mut sim.player);
+            run_effects(
+                &character.effects,
+                1.0,
+                &sim.balance.clone(),
+                &mut sim.player,
+            );
         }
         if let Some(weapon) = self
             .bundle

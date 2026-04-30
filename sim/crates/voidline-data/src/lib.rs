@@ -11,10 +11,12 @@ pub mod dsl;
 
 pub use balance::Balance;
 pub use catalogs::{
-    BossDef, BossStats, Character, EnemySpawnPolicy, EnemySpawnRule, EnemyType, MetaUpgrade,
-    Relic, RelicUnlock, ShopItem, Upgrade, UpgradeTier, Weapon,
+    BossDef, BossStats, Character, EnemySpawnPolicy, EnemySpawnRule, EnemyType, MetaUpgrade, Relic,
+    RelicUnlock, ShopItem, Upgrade, UpgradeTier, Weapon,
 };
-pub use dsl::{CapKey, CappedIntStat, CappedPctStat, EffectOp, EffectScale, GainCurve, PercentStat};
+pub use dsl::{
+    CapKey, CappedIntStat, CappedPctStat, EffectOp, EffectScale, GainCurve, PercentStat,
+};
 
 use serde::Deserialize;
 use std::path::Path;
@@ -152,5 +154,101 @@ mod tests {
         let bundle = load_default().expect("load");
         let total_effects: usize = bundle.upgrades.iter().map(|u| u.effects.len()).sum();
         assert!(total_effects > 0, "at least one upgrade has effects");
+    }
+
+    #[test]
+    fn every_upgrade_has_at_least_one_effect() {
+        let bundle = load_default().expect("load");
+        for upgrade in &bundle.upgrades {
+            assert!(
+                !upgrade.effects.is_empty(),
+                "upgrade {} has no effects",
+                upgrade.id,
+            );
+        }
+    }
+
+    #[test]
+    fn every_upgrade_has_at_least_one_tag() {
+        let bundle = load_default().expect("load");
+        for upgrade in &bundle.upgrades {
+            assert!(
+                !upgrade.tags.is_empty(),
+                "upgrade {} has no tags",
+                upgrade.id,
+            );
+        }
+    }
+
+    #[test]
+    fn upgrade_ids_are_unique() {
+        let bundle = load_default().expect("load");
+        let mut seen = std::collections::HashSet::new();
+        for upgrade in &bundle.upgrades {
+            assert!(
+                seen.insert(&upgrade.id),
+                "duplicate upgrade id: {}",
+                upgrade.id
+            );
+        }
+    }
+
+    #[test]
+    fn relic_ids_are_unique() {
+        let bundle = load_default().expect("load");
+        let mut seen = std::collections::HashSet::new();
+        for relic in &bundle.relics {
+            assert!(seen.insert(&relic.id), "duplicate relic id: {}", relic.id);
+        }
+    }
+
+    #[test]
+    fn tier_ids_are_unique_and_ordered() {
+        let bundle = load_default().expect("load");
+        let mut seen = std::collections::HashSet::new();
+        for tier in &bundle.balance.tiers {
+            assert!(seen.insert(&tier.id), "duplicate tier id: {}", tier.id);
+        }
+        assert_eq!(bundle.balance.tiers.len(), 4, "expect 4 tiers");
+        assert_eq!(bundle.balance.tiers[0].id, "standard");
+        assert_eq!(bundle.balance.tiers[3].id, "singularity");
+    }
+
+    #[test]
+    fn caps_struct_includes_new_fire_rate_and_damage_caps() {
+        let bundle = load_default().expect("load");
+        let caps = &bundle.balance.upgrade.caps;
+        assert!(caps.fire_rate_mul > 0.0, "fire_rate_mul must be set");
+        assert!(caps.damage_mul > 0.0, "damage_mul must be set");
+    }
+
+    #[test]
+    fn per_rank_struct_present_in_balance() {
+        let bundle = load_default().expect("load");
+        let pr = &bundle.balance.upgrade.tier_weights.per_rank;
+        assert!(pr.standard_penalty >= 0.0);
+        assert!(pr.rare >= 0.0);
+        assert!(pr.prototype >= 0.0);
+        assert!(pr.singularity >= 0.0);
+    }
+
+    #[test]
+    fn gates_have_consistent_min_waves() {
+        let bundle = load_default().expect("load");
+        let gates = &bundle.balance.upgrade.gates;
+        assert!(gates.rare.min_wave <= gates.prototype.min_wave);
+        assert!(gates.prototype.min_wave <= gates.singularity.min_wave);
+    }
+
+    #[test]
+    fn every_enemy_kind_has_a_spawn_rule() {
+        let bundle = load_default().expect("load");
+        for enemy in &bundle.balance.enemies {
+            assert!(
+                bundle.enemy_spawn_rules.contains_key(&enemy.id),
+                "enemy {} has no matching spawn rule",
+                enemy.id,
+            );
+        }
     }
 }
