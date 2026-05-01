@@ -15,7 +15,7 @@ from .env_voidline import make_env
 from .export_onnx import export_onnx
 
 
-PERSONAS = ["learned-human", "learned-optimizer", "learned-explorer", "learned-novice"]
+PERSONAS = ["oracle"]
 
 
 def load_config(path: Path) -> dict:
@@ -29,7 +29,13 @@ def train_persona(persona: str, model_dir: Path, timesteps: int, seed: int, conf
     model_dir.mkdir(parents=True, exist_ok=True)
     n_envs = int(config.get("n_envs", 1))
     max_steps = int(config.get("max_steps", 3600))
-    env = DummyVecEnv([make_masked_env(seed + i, max_steps=max_steps) for i in range(n_envs)])
+    runs_per_episode = int(config.get("runs_per_episode", 150))
+    env = DummyVecEnv(
+        [
+            make_masked_env(seed + i, max_steps=max_steps, runs_per_episode=runs_per_episode)
+            for i in range(n_envs)
+        ]
+    )
     if not is_masking_supported(env):
         raise RuntimeError("Voidline training env does not expose action_masks")
     model = MaskablePPO(
@@ -59,9 +65,9 @@ def train_persona(persona: str, model_dir: Path, timesteps: int, seed: int, conf
     (model_dir / f"{persona}.json").write_text(json.dumps(metadata, indent=2) + "\n")
 
 
-def make_masked_env(seed: int, max_steps: int):
+def make_masked_env(seed: int, max_steps: int, runs_per_episode: int = 150):
     def _factory():
-        env = make_env(seed, max_steps=max_steps)()
+        env = make_env(seed, max_steps=max_steps, runs_per_episode=runs_per_episode)()
         return ActionMasker(env, lambda wrapped_env: wrapped_env.action_masks())
 
     return _factory
@@ -75,7 +81,11 @@ def main() -> None:
         type=Path,
         default=Path(os.environ.get("VOIDLINE_RL_MODEL_DIR", ".context/rl-models")),
     )
-    parser.add_argument("--timesteps", type=int, default=int(os.environ.get("VOIDLINE_RL_TIMESTEPS", "2048")))
+    parser.add_argument(
+        "--timesteps",
+        type=int,
+        default=int(os.environ.get("VOIDLINE_RL_TIMESTEPS", "2000000")),
+    )
     parser.add_argument("--seed", type=int, default=1109)
     parser.add_argument("--config-dir", type=Path, default=Path(__file__).resolve().parents[1] / "configs")
     args = parser.parse_args()

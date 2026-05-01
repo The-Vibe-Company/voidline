@@ -62,7 +62,15 @@ impl LearnedPolicy {
         upgrade_choices: &[UpgradeChoiceRecord],
         relic_choices: &[RelicChoiceRecord],
     ) -> RlAction {
-        let mask = action_mask(snapshot, upgrade_choices, relic_choices);
+        // The learned-policy fallback path runs strictly inside an active run,
+        // so we feed empty shop slots and `EnvPhase::Run` to the encoder/mask.
+        let mask = action_mask(
+            snapshot,
+            upgrade_choices,
+            relic_choices,
+            &[],
+            crate::obs::EnvPhase::Run,
+        );
         match self.logits(bundle, snapshot, upgrade_choices, relic_choices) {
             Ok(logits) => action_from_logits(&logits, &mask),
             Err(_) => fallback_action(&mask),
@@ -76,7 +84,15 @@ impl LearnedPolicy {
         upgrade_choices: &[UpgradeChoiceRecord],
         relic_choices: &[RelicChoiceRecord],
     ) -> TractResult<Vec<f32>> {
-        let obs = encode_observation(bundle, snapshot, upgrade_choices, relic_choices).flatten();
+        let obs = encode_observation(
+            bundle,
+            snapshot,
+            upgrade_choices,
+            relic_choices,
+            &[],
+            crate::obs::EnvPhase::Run,
+        )
+        .flatten();
         let input = Tensor::from_shape(&[1, OBS_VECTOR_DIM], &obs)?;
         let outputs = self.model.run(tvec!(input.into()))?;
         let Some(first) = outputs.first() else {
@@ -133,6 +149,7 @@ fn fallback_action(mask: &ActionMask) -> RlAction {
             .position(|value| *value)
             .unwrap_or(0),
         relic_pick: mask.relic_pick.iter().position(|value| *value).unwrap_or(0),
+        shop_pick: mask.shop_pick.iter().position(|value| *value).unwrap_or(0),
     }
 }
 

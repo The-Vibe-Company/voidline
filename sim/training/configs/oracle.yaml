@@ -1,0 +1,10 @@
+n_envs: 8
+max_steps: 3600
+runs_per_episode: 150
+n_steps: 2048
+batch_size: 1024
+n_epochs: 8
+gamma: 0.997
+learning_rate: 1e-4
+device: auto
+verbose: 1

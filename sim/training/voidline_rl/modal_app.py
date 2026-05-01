@@ -17,7 +17,7 @@ REMOTE_REPO = Path("/workspace/voidline")
 REPORT_ROOT = Path("/reports")
 MODEL_ROOT = Path("/models")
 CACHE_ROOT = Path("/mnt/voidline-cache")
-PERSONAS = ("learned-human", "learned-optimizer", "learned-explorer", "learned-novice")
+PERSONAS = ("oracle",)
 
 
 def _repo_root_for_modal_image() -> Path:
