@@ -461,6 +461,8 @@ impl Sim {
             self.max_enemy_radius,
         );
 
+        // update_bullets rebuilt enemy_grid earlier this frame; enemy movement
+        // reuses that snapshot for local separation without a second full rebuild.
         update_enemies(
             &self.balance,
             &mut self.pools,
@@ -469,6 +471,7 @@ impl Sim {
             &mut self.player,
             &mut self.world,
             &mut self.enemies,
+            &mut self.enemy_grid,
             &mut self.bullets,
             &mut self.chests,
             &mut self.experience_orbs,
