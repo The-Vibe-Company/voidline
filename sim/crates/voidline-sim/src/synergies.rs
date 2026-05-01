@@ -126,7 +126,7 @@ mod tests {
         let bundle = load_default().unwrap();
         let cannon = upgrade(&bundle, "plasma-core");
         let crit = upgrade(&bundle, "crit-array");
-        let pierce = upgrade(&bundle, "lance-capacitor");
+        let pierce = upgrade(&bundle, "lance-pierce");
         let upgrades = [owned(cannon, 1), owned(crit, 1), owned(pierce, 1)];
         let counts = build_tag_counts(&upgrades, &[]);
         assert!(active_synergies(&counts).contains(&SynergyId::RailSplitter));

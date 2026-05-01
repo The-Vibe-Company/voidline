@@ -66,7 +66,8 @@
       "shardCount": {
         "scout": 2,
         "hunter": 3,
-        "brute": 5
+        "brute": 5,
+        "gunner": 3
       },
       "orbRadiusBase": 6,
       "orbRadiusValueScale": 0.18,
@@ -118,6 +119,7 @@
         "scout": 0.18,
         "hunter": 0.18,
         "brute": 0.08,
+        "gunner": 0.1,
         "rateBase": 2,
         "rateRandom": 2
       }
@@ -155,8 +157,27 @@
         "color": "#b973ff",
         "accent": "#ead4ff",
         "sides": 6
+      },
+      {
+        "id": "gunner",
+        "score": 70,
+        "radius": 16,
+        "hp": 50,
+        "speed": 70,
+        "damage": 22,
+        "color": "#ffd24a",
+        "accent": "#fff7c2",
+        "sides": 5
       }
     ],
+    "gunner": {
+      "attackRange": 360,
+      "attackCooldown": 1.6,
+      "attackTelegraphSeconds": 0.4,
+      "projectileSpeed": 220,
+      "projectileRadius": 8,
+      "projectileLife": 2.2
+    },
     "upgrade": {
       "caps": {
         "drones": 5,
@@ -366,7 +387,8 @@
       "dropChance": {
         "scout": 0.004,
         "hunter": 0.01,
-        "brute": 0.03
+        "brute": 0.03,
+        "gunner": 0.013333333333333334
       }
     },
     "progression": {
@@ -389,6 +411,12 @@
       "baseChance": 0,
       "perPressure": 0.05,
       "maxChance": 0.25,
+      "pressureOnset": 2
+    },
+    "gunner": {
+      "baseChance": 0,
+      "perPressure": 0.04,
+      "maxChance": 0.18,
       "pressureOnset": 2
     }
   },
@@ -455,11 +483,23 @@
           "stat": "damage",
           "amount": 0.2,
           "cap": "damageMul"
-        },
+        }
+      ]
+    },
+    {
+      "id": "velocity-driver",
+      "kind": "technology",
+      "icon": "VEL",
+      "name": "Technologie velocite",
+      "description": "Accelere les projectiles pour des impacts plus secs.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
         {
           "type": "addPct",
           "stat": "bulletSpeed",
-          "amount": 0.04
+          "amount": 0.12
         }
       ]
     },
@@ -553,12 +593,12 @@
       ]
     },
     {
-      "id": "pulse-overdrive",
+      "id": "pulse-cadence",
       "kind": "weapon",
       "weaponId": "pulse",
       "icon": "PUL",
-      "name": "Pulse overdrive",
-      "description": "Level-up du Pulse Rifle: cadence et degats stables.",
+      "name": "Pulse cadence",
+      "description": "Level-up du Pulse Rifle: cadence accrue.",
       "tags": [
         "cannon"
       ],
@@ -566,22 +606,35 @@
         {
           "type": "addPct",
           "stat": "fireRate",
-          "amount": 0.2
-        },
-        {
-          "type": "addPct",
-          "stat": "damage",
-          "amount": 0.16
+          "amount": 0.24
         }
       ]
     },
     {
-      "id": "scatter-loader",
+      "id": "pulse-impact",
+      "kind": "weapon",
+      "weaponId": "pulse",
+      "icon": "PUL",
+      "name": "Pulse impact",
+      "description": "Level-up du Pulse Rifle: punch des projectiles.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.22
+        }
+      ]
+    },
+    {
+      "id": "scatter-volley",
       "kind": "weapon",
       "weaponId": "scatter",
       "icon": "SCT",
-      "name": "Scatter loader",
-      "description": "Level-up du Scatter: densifie la salve et compense les impacts.",
+      "name": "Scatter volley",
+      "description": "Level-up du Scatter: +1 projectile, degats actuels reduits.",
       "tags": [
         "cannon",
         "crit"
@@ -598,11 +651,6 @@
           "type": "scaleCurrentPct",
           "stat": "damage",
           "factor": 0.6
-        },
-        {
-          "type": "addPct",
-          "stat": "damage",
-          "amount": 0.08
         }
       ],
       "softCap": {
@@ -611,12 +659,31 @@
       }
     },
     {
-      "id": "lance-capacitor",
+      "id": "scatter-impact",
+      "kind": "weapon",
+      "weaponId": "scatter",
+      "icon": "SCT",
+      "name": "Scatter impact",
+      "description": "Level-up du Scatter: punch des projectiles.",
+      "tags": [
+        "cannon",
+        "crit"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.18
+        }
+      ]
+    },
+    {
+      "id": "lance-pierce",
       "kind": "weapon",
       "weaponId": "lance",
       "icon": "RLG",
-      "name": "Lance capacitor",
-      "description": "Level-up du Rail Lance: penetration et charge de tir.",
+      "name": "Lance penetration",
+      "description": "Level-up du Rail Lance: traverse une cible de plus.",
       "tags": [
         "pierce",
         "cannon"
@@ -628,17 +695,31 @@
           "amount": 1,
           "cap": "pierce",
           "gainCurve": "stepped"
-        },
-        {
-          "type": "addPct",
-          "stat": "damage",
-          "amount": 0.18
         }
       ],
       "softCap": {
         "stat": "pierce",
         "max": 5
       }
+    },
+    {
+      "id": "lance-impact",
+      "kind": "weapon",
+      "weaponId": "lance",
+      "icon": "RLG",
+      "name": "Lance impact",
+      "description": "Level-up du Rail Lance: charge l'impact des tirs.",
+      "tags": [
+        "pierce",
+        "cannon"
+      ],
+      "effects": [
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": 0.22
+        }
+      ]
     },
     {
       "id": "drone-uplink",
@@ -1024,6 +1105,38 @@
         },
         {
           "summary": "Technologie dégâts peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:velocity-driver",
+      "kind": "card",
+      "name": "Carte vélocité",
+      "description": "Débloque Technologie vélocité et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        0,
+        80,
+        320,
+        420
+      ],
+      "requirement": "available",
+      "tag": "cannon",
+      "technologyId": "velocity-driver",
+      "upgradeId": "velocity-driver",
+      "baseLevel": 1,
+      "levels": [
+        {
+          "summary": "Débloque Technologie vélocité en Standard."
+        },
+        {
+          "summary": "Technologie vélocité peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie vélocité peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie vélocité peut apparaître en Singularity."
         }
       ]
     },

@@ -55,6 +55,13 @@ pub fn acquire_enemy(
         role: crate::entities::EnemyRole::Normal,
         contact_timer: 0.0,
         contact_cooldown: 0.0,
+        attack_timer: 0.0,
+        attack_cooldown: 0.0,
+        attack_range: 0.0,
+        projectile_damage: 0.0,
+        projectile_speed: 0.0,
+        projectile_radius: 0.0,
+        projectile_life: 0.0,
     });
     enemy.id = counters.next_enemy_id;
     counters.next_enemy_id += 1;
@@ -66,6 +73,13 @@ pub fn acquire_enemy(
     enemy.role = crate::entities::EnemyRole::Normal;
     enemy.contact_timer = 0.0;
     enemy.contact_cooldown = 0.0;
+    enemy.attack_timer = 0.0;
+    enemy.attack_cooldown = 0.0;
+    enemy.attack_range = 0.0;
+    enemy.projectile_damage = 0.0;
+    enemy.projectile_speed = 0.0;
+    enemy.projectile_radius = 0.0;
+    enemy.projectile_life = 0.0;
     enemies.push(enemy);
     enemies.len() - 1
 }

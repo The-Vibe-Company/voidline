@@ -7,6 +7,7 @@ export const textureKeys = {
   bullet: "voidline-bullet",
   bulletCrit: "voidline-bullet-crit",
   droneBullet: "voidline-drone-bullet",
+  bulletEnemy: "voidline-bullet-enemy",
   xp: "voidline-xp",
   particle: "voidline-particle",
   powerHeart: "voidline-power-heart",
@@ -18,6 +19,7 @@ export const textureKeys = {
     scout: "voidline-enemy-scout",
     hunter: "voidline-enemy-hunter",
     brute: "voidline-enemy-brute",
+    gunner: "voidline-enemy-gunner",
   },
 } as const;
 
@@ -28,6 +30,7 @@ export function createGeneratedTextures(scene: Phaser.Scene): void {
   generateCircle(graphics, scene, textureKeys.bullet, 22, 0x39d9ff, 0xd9f6ff);
   generateCircle(graphics, scene, textureKeys.bulletCrit, 26, 0xff5af0, 0xffffff);
   generateCircle(graphics, scene, textureKeys.droneBullet, 20, 0xffbf47, 0xfff0b8);
+  generateCircle(graphics, scene, textureKeys.bulletEnemy, 24, 0xff7a45, 0xffd9b8);
   generateDiamond(graphics, scene, textureKeys.xp, 22, 0x72ffb1, 0xeaffd8);
   generateCircle(graphics, scene, textureKeys.particle, 10, 0xffffff, 0xffffff);
   generateCircle(graphics, scene, textureKeys.drone, 22, 0xffbf47, 0xfff0b8);
@@ -111,7 +114,7 @@ function generateEnemy(
   graphics: Phaser.GameObjects.Graphics,
   scene: Phaser.Scene,
   key: string,
-  kind: "scout" | "hunter" | "brute",
+  kind: "scout" | "hunter" | "brute" | "gunner",
 ): void {
   if (skipExisting(scene, key)) return;
   const enemy = balance.enemies.find((item) => item.id === kind)!;
@@ -126,6 +129,22 @@ function generateEnemy(
   } else if (kind === "hunter") {
     graphics.fillRect(10, 10, 36, 36);
     graphics.strokeRect(10, 10, 36, 36);
+  } else if (kind === "gunner") {
+    const cx = 30;
+    const cy = 30;
+    const r = 24;
+    const sides = 5;
+    graphics.beginPath();
+    for (let i = 0; i < sides; i += 1) {
+      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / sides;
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      if (i === 0) graphics.moveTo(px, py);
+      else graphics.lineTo(px, py);
+    }
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
   } else {
     graphics.fillCircle(30, 30, 25);
     graphics.strokeCircle(30, 30, 25);

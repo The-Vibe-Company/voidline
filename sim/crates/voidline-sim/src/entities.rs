@@ -16,6 +16,7 @@ pub enum EnemyKind {
     Scout,
     Hunter,
     Brute,
+    Gunner,
 }
 
 impl EnemyKind {
@@ -24,6 +25,7 @@ impl EnemyKind {
             EnemyKind::Scout => "scout",
             EnemyKind::Hunter => "hunter",
             EnemyKind::Brute => "brute",
+            EnemyKind::Gunner => "gunner",
         }
     }
 
@@ -32,6 +34,7 @@ impl EnemyKind {
             "scout" => Some(EnemyKind::Scout),
             "hunter" => Some(EnemyKind::Hunter),
             "brute" => Some(EnemyKind::Brute),
+            "gunner" => Some(EnemyKind::Gunner),
             _ => None,
         }
     }
@@ -58,6 +61,13 @@ pub struct Enemy {
     pub role: EnemyRole,
     pub contact_timer: f64,
     pub contact_cooldown: f64,
+    pub attack_timer: f64,
+    pub attack_cooldown: f64,
+    pub attack_range: f64,
+    pub projectile_damage: f64,
+    pub projectile_speed: f64,
+    pub projectile_radius: f64,
+    pub projectile_life: f64,
 }
 
 impl Enemy {
@@ -75,6 +85,7 @@ pub enum BulletSource {
     Player,
     Drone,
     Chain,
+    Enemy,
 }
 
 #[derive(Debug, Clone)]

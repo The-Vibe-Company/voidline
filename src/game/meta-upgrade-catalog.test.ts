@@ -27,6 +27,7 @@ const ALL_IDS: MetaUpgradeId[] = [
   "card:twin-cannon",
   "card:plasma-core",
   "card:rail-slug",
+  "card:velocity-driver",
   "card:ion-engine",
   "card:magnet-array",
   "card:kinetic-shield",

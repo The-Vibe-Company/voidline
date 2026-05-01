@@ -8,7 +8,7 @@ export type GameMode =
 
 export type ControlMode = "keyboard" | "trackpad";
 
-export type EnemyKind = "scout" | "hunter" | "brute";
+export type EnemyKind = "scout" | "hunter" | "brute" | "gunner";
 
 export type EnemyRole = "normal" | "mini-boss" | "boss";
 
@@ -48,6 +48,7 @@ export type MetaUpgradeId =
   | "card:twin-cannon"
   | "card:plasma-core"
   | "card:rail-slug"
+  | "card:velocity-driver"
   | "card:ion-engine"
   | "card:magnet-array"
   | "card:kinetic-shield"

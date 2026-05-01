@@ -50,8 +50,10 @@ describe("upgrade draft", () => {
 
   it("offers level-ups only for the selected weapon", () => {
     let ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
-    expect(ids).toContain("pulse-overdrive");
-    expect(ids).not.toContain("lance-capacitor");
+    expect(ids).toContain("pulse-cadence");
+    expect(ids).toContain("pulse-impact");
+    expect(ids).not.toContain("lance-pierce");
+    expect(ids).not.toContain("lance-impact");
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
@@ -60,7 +62,9 @@ describe("upgrade draft", () => {
     });
     ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
 
-    expect(ids).toContain("lance-capacitor");
-    expect(ids).not.toContain("pulse-overdrive");
+    expect(ids).toContain("lance-pierce");
+    expect(ids).toContain("lance-impact");
+    expect(ids).not.toContain("pulse-cadence");
+    expect(ids).not.toContain("pulse-impact");
   });
 });

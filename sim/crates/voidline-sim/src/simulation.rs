@@ -455,7 +455,7 @@ impl Sim {
             &mut self.enemies,
             &mut self.enemy_grid,
             &mut self.player,
-            &self.world,
+            &mut self.world,
             capped_dt,
             &mut self.counters,
             self.max_enemy_radius,

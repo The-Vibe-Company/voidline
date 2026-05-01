@@ -4,8 +4,9 @@
 use voidline_data::balance::Balance;
 
 use crate::balance_curves::score_award;
+use crate::bullets::fire_enemy_projectile;
 use crate::chests::spawn_chest;
-use crate::entities::{ChestEntity, Enemy, EnemyRole, ExperienceOrb, PowerupOrb};
+use crate::entities::{Bullet, ChestEntity, Enemy, EnemyKind, EnemyRole, ExperienceOrb, PowerupOrb};
 use crate::experience::spawn_experience;
 use crate::math::{circle_hit, distance_sq, CircleRef};
 use crate::player::Player;
@@ -52,7 +53,7 @@ pub fn update_enemies(
     world: &mut World,
     enemies: &mut Vec<Enemy>,
     enemy_grid: &mut SpatialGrid,
-    bullets: &mut [crate::entities::Bullet], // unused, kept for symmetry
+    bullets: &mut Vec<Bullet>,
     chests: &mut Vec<ChestEntity>,
     experience_orbs: &mut Vec<ExperienceOrb>,
     powerup_orbs: &mut Vec<PowerupOrb>,
@@ -60,7 +61,6 @@ pub fn update_enemies(
     dt: f64,
     suppress_drops: bool,
 ) {
-    let _ = bullets;
     trigger_magnet_storm(balance, state, player, world, enemies, dt);
 
     let mut i = enemies.len();
@@ -68,6 +68,9 @@ pub fn update_enemies(
         i -= 1;
         let kill_via_collision = step_enemy(
             balance,
+            pools,
+            counters,
+            bullets,
             player,
             world,
             enemies,
@@ -99,8 +102,12 @@ pub fn update_enemies(
 }
 
 /// Returns Some(index) if the enemy should be released after collision damage.
+#[allow(clippy::too_many_arguments)]
 fn step_enemy(
     balance: &Balance,
+    pools: &mut EntityPools,
+    counters: &mut EntityCounters,
+    bullets: &mut Vec<Bullet>,
     player: &mut Player,
     world: &mut World,
     enemies: &mut Vec<Enemy>,
@@ -128,10 +135,56 @@ fn step_enemy(
 
         let angle = dir_y.atan2(dir_x);
         let wobble = (enemy.age * enemy.wobble_rate + enemy.seed).sin() * enemy.wobble;
-        enemy.x += (angle + wobble).cos() * enemy.speed * dt;
-        enemy.y += (angle + wobble).sin() * enemy.speed * dt;
+        let move_speed = if matches!(enemy.kind, EnemyKind::Gunner) {
+            let dx = player.x - enemy.x;
+            let dy = player.y - enemy.y;
+            let dist = (dx * dx + dy * dy).sqrt();
+            if dist <= enemy.attack_range * 0.92 {
+                0.0
+            } else if dist <= enemy.attack_range {
+                enemy.speed * 0.4
+            } else {
+                enemy.speed
+            }
+        } else {
+            enemy.speed
+        };
+        enemy.x += (angle + wobble).cos() * move_speed * dt;
+        enemy.y += (angle + wobble).sin() * move_speed * dt;
         (angle, enemy.speed)
     };
+
+    if matches!(enemies[i].kind, EnemyKind::Gunner)
+        && matches!(enemies[i].role, EnemyRole::Normal)
+    {
+        let dx = player.x - enemies[i].x;
+        let dy = player.y - enemies[i].y;
+        let dist_sq = dx * dx + dy * dy;
+        let range = enemies[i].attack_range * 1.1;
+        enemies[i].attack_timer = (enemies[i].attack_timer - dt).max(0.0);
+        if dist_sq <= range * range && enemies[i].attack_timer <= 0.0 {
+            let aim = dy.atan2(dx);
+            fire_enemy_projectile(pools, counters, bullets, &enemies[i], aim);
+            enemies[i].attack_timer = enemies[i].attack_cooldown;
+        }
+        // Contact damage fallback: if the player rams the gunner anyway, still
+        // apply the enemy's contact damage and consume it. The projectile is the
+        // intended threat, but overlap should not become a free kite spot.
+        let enemy_circle = CircleRef {
+            x: enemies[i].x,
+            y: enemies[i].y,
+            radius: enemies[i].radius,
+        };
+        let player_circle = CircleRef {
+            x: player.x,
+            y: player.y,
+            radius: player.radius,
+        };
+        if circle_hit(enemy_circle, player_circle) && damage_player(player, world, enemies[i].damage) {
+            return Some(i);
+        }
+        return None;
+    }
 
     let enemy_circle = CircleRef {
         x: enemies[i].x,
@@ -528,6 +581,13 @@ mod tests {
             role: EnemyRole::Normal,
             contact_timer: 0.0,
             contact_cooldown: 0.0,
+            attack_timer: 0.0,
+            attack_cooldown: 0.0,
+            attack_range: 0.0,
+            projectile_damage: 0.0,
+            projectile_speed: 0.0,
+            projectile_radius: 0.0,
+            projectile_life: 0.0,
         }
     }
 
@@ -545,9 +605,15 @@ mod tests {
         let mut world = World::default();
         let mut enemies = vec![normal_enemy_at_player(&player)];
         let grid = grid_for(&enemies);
+        let mut pools = EntityPools::default();
+        let mut counters = EntityCounters::default();
+        let mut bullets: Vec<Bullet> = Vec::new();
 
         let killed = step_enemy(
             &bundle.balance,
+            &mut pools,
+            &mut counters,
+            &mut bullets,
             &mut player,
             &mut world,
             &mut enemies,
@@ -570,9 +636,15 @@ mod tests {
         let mut world = World::default();
         let mut enemies = vec![normal_enemy_at_player(&player)];
         let grid = grid_for(&enemies);
+        let mut pools = EntityPools::default();
+        let mut counters = EntityCounters::default();
+        let mut bullets: Vec<Bullet> = Vec::new();
 
         let killed = step_enemy(
             &bundle.balance,
+            &mut pools,
+            &mut counters,
+            &mut bullets,
             &mut player,
             &mut world,
             &mut enemies,
@@ -681,10 +753,16 @@ mod tests {
         let mut enemies = vec![enemy];
 
         let mut killed = None;
+        let mut pools = EntityPools::default();
+        let mut counters = EntityCounters::default();
+        let mut bullets: Vec<Bullet> = Vec::new();
         for _ in 0..180 {
             let grid = grid_for(&enemies);
             killed = step_enemy(
                 &bundle.balance,
+                &mut pools,
+                &mut counters,
+                &mut bullets,
                 &mut player,
                 &mut world,
                 &mut enemies,
