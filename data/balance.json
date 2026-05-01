@@ -102,9 +102,17 @@
       "bruteChanceMax": 0.25,
       "contactBackoff": 0.65,
       "pursuitLane": {
-        "startDistance": 120,
-        "maxTurn": 0.22,
-        "goldenAngleTurn": 0.61803398875
+        "startDistance": 250,
+        "maxTurn": 0.27,
+        "goldenAngleTurn": 0.61803398875,
+        "pressureScaleBase": 0.45,
+        "pressureScalePerPressure": 0.04,
+        "pressureScaleMax": 1,
+        "stageScalePerStageAfterTwo": 3,
+        "separationRadius": 34,
+        "separationStrength": 0.9,
+        "separationMaxNeighbors": 4,
+        "separationSampleStride": 4
       },
       "wobble": {
         "scout": 0.18,

@@ -159,6 +159,14 @@ pub struct EnemyPursuitLane {
     pub start_distance: f64,
     pub max_turn: f64,
     pub golden_angle_turn: f64,
+    pub pressure_scale_base: f64,
+    pub pressure_scale_per_pressure: f64,
+    pub pressure_scale_max: f64,
+    pub stage_scale_per_stage_after_two: f64,
+    pub separation_radius: f64,
+    pub separation_strength: f64,
+    pub separation_max_neighbors: u32,
+    pub separation_sample_stride: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]

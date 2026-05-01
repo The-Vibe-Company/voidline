@@ -13,6 +13,7 @@ use crate::pools::{release_enemy, EntityPools};
 use crate::powerups::maybe_drop_powerup;
 use crate::rng::Mulberry32;
 use crate::roguelike::base_pressure_for_stage;
+use crate::spatial_grid::SpatialGrid;
 use crate::state::{EntityCounters, GameMode, GameState};
 use crate::world::World;
 
@@ -50,6 +51,7 @@ pub fn update_enemies(
     player: &mut Player,
     world: &mut World,
     enemies: &mut Vec<Enemy>,
+    enemy_grid: &mut SpatialGrid,
     bullets: &mut [crate::entities::Bullet], // unused, kept for symmetry
     chests: &mut Vec<ChestEntity>,
     experience_orbs: &mut Vec<ExperienceOrb>,
@@ -64,7 +66,17 @@ pub fn update_enemies(
     let mut i = enemies.len();
     while i > 0 {
         i -= 1;
-        let kill_via_collision = step_enemy(balance, player, world, enemies, i, dt);
+        let kill_via_collision = step_enemy(
+            balance,
+            player,
+            world,
+            enemies,
+            enemy_grid,
+            state.stage,
+            state.pressure,
+            i,
+            dt,
+        );
         if let Some(killed) = kill_via_collision {
             kill_enemy(
                 balance,
@@ -81,6 +93,7 @@ pub fn update_enemies(
                 killed,
                 suppress_drops,
             );
+            enemy_grid.rebuild(enemies);
         }
     }
 }
@@ -91,16 +104,29 @@ fn step_enemy(
     player: &mut Player,
     world: &mut World,
     enemies: &mut Vec<Enemy>,
+    enemy_grid: &SpatialGrid,
+    stage: u32,
+    pressure: u32,
     i: usize,
     dt: f64,
 ) -> Option<usize> {
     let (angle, speed) = {
+        let (dir_x, dir_y) = pursuit_direction(
+            balance,
+            &enemies[i],
+            player,
+            enemies,
+            enemy_grid,
+            stage,
+            pressure,
+            i,
+        );
         let enemy = &mut enemies[i];
         enemy.age += dt;
         enemy.hit = (enemy.hit - dt).max(0.0);
         enemy.contact_timer = (enemy.contact_timer - dt).max(0.0);
 
-        let angle = pursuit_angle(balance, enemy, player);
+        let angle = dir_y.atan2(dir_x);
         let wobble = (enemy.age * enemy.wobble_rate + enemy.seed).sin() * enemy.wobble;
         enemy.x += (angle + wobble).cos() * enemy.speed * dt;
         enemy.y += (angle + wobble).sin() * enemy.speed * dt;
@@ -148,23 +174,138 @@ fn step_enemy(
     None
 }
 
-fn pursuit_angle(balance: &Balance, enemy: &Enemy, player: &Player) -> f64 {
-    let base_angle = (player.y - enemy.y).atan2(player.x - enemy.x);
-    if !matches!(enemy.role, EnemyRole::Normal) {
-        return base_angle;
-    }
+fn pursuit_direction(
+    balance: &Balance,
+    enemy: &Enemy,
+    player: &Player,
+    enemies: &[Enemy],
+    enemy_grid: &SpatialGrid,
+    stage: u32,
+    pressure: u32,
+    self_index: usize,
+) -> (f64, f64) {
     let dx = player.x - enemy.x;
     let dy = player.y - enemy.y;
     let distance = (dx * dx + dy * dy).sqrt();
+    let (base_x, base_y) = if distance > f64::EPSILON {
+        (dx / distance, dy / distance)
+    } else {
+        (0.0, 0.0)
+    };
+
+    if !matches!(enemy.role, EnemyRole::Normal) {
+        return (base_x, base_y);
+    }
+
+    let mut move_x = base_x;
+    let mut move_y = base_y;
     let contact_distance = player.radius + enemy.radius;
     let lane = &balance.enemy.pursuit_lane;
-    if distance <= contact_distance || distance >= lane.start_distance {
-        return base_angle;
+    let pressure_scale = (lane.pressure_scale_base
+        + pressure as f64 * lane.pressure_scale_per_pressure)
+        .min(lane.pressure_scale_max)
+        .max(0.0);
+    let stage_scale = 1.0 + stage.saturating_sub(2) as f64 * lane.stage_scale_per_stage_after_two;
+    let path_scale = pressure_scale * stage_scale.max(0.0);
+    if distance > contact_distance && distance < lane.start_distance {
+        let lane_window = (lane.start_distance - contact_distance).max(1.0);
+        let strength = ((lane.start_distance - distance) / lane_window).clamp(0.0, 1.0);
+        let turn =
+            (enemy.seed * lane.golden_angle_turn).sin() * lane.max_turn * strength * path_scale;
+        move_x += -base_y * turn;
+        move_y += base_x * turn;
+
+        if should_sample_separation(enemy.id, lane.separation_sample_stride) {
+            let (separation_x, separation_y) = local_separation(
+                enemy,
+                enemies,
+                enemy_grid,
+                self_index,
+                lane.separation_radius,
+                lane.separation_max_neighbors,
+            );
+            move_x += separation_x * lane.separation_strength * path_scale;
+            move_y += separation_y * lane.separation_strength * path_scale;
+        }
     }
-    let lane_window = (lane.start_distance - contact_distance).max(1.0);
-    let strength = ((lane.start_distance - distance) / lane_window).clamp(0.0, 1.0);
-    let turn = (enemy.seed * lane.golden_angle_turn).sin() * lane.max_turn * strength;
-    base_angle + turn
+
+    let len = (move_x * move_x + move_y * move_y).sqrt();
+    if len > f64::EPSILON {
+        (move_x / len, move_y / len)
+    } else if distance > f64::EPSILON {
+        (base_x, base_y)
+    } else {
+        (1.0, 0.0)
+    }
+}
+
+fn should_sample_separation(enemy_id: u32, stride: u32) -> bool {
+    stride <= 1 || enemy_id % stride == 0
+}
+
+fn local_separation(
+    enemy: &Enemy,
+    enemies: &[Enemy],
+    enemy_grid: &SpatialGrid,
+    self_index: usize,
+    radius: f64,
+    max_neighbors: u32,
+) -> (f64, f64) {
+    if radius <= 0.0 || max_neighbors == 0 {
+        return (0.0, 0.0);
+    }
+
+    let mut x = 0.0;
+    let mut y = 0.0;
+    let mut scanned = 0_u32;
+    let mut count = 0_u32;
+    let scan_limit = max_neighbors.saturating_mul(4).max(max_neighbors);
+
+    enemy_grid.visit_radius(enemy.x, enemy.y, radius, |idx| {
+        if idx == self_index {
+            return true;
+        }
+        if idx >= enemies.len() {
+            return true;
+        }
+        if count >= max_neighbors || scanned >= scan_limit {
+            return false;
+        }
+        scanned += 1;
+        let other = &enemies[idx];
+        if other.hp <= 0.0 || !matches!(other.role, EnemyRole::Normal) {
+            return true;
+        }
+        let dx = enemy.x - other.x;
+        let dy = enemy.y - other.y;
+        let dist_sq = dx * dx + dy * dy;
+        if dist_sq >= radius * radius {
+            return true;
+        }
+
+        let (push_x, push_y, distance) = if dist_sq > 0.000_001 {
+            let distance = dist_sq.sqrt();
+            (dx / distance, dy / distance, distance)
+        } else {
+            let angle = enemy.seed * std::f64::consts::TAU;
+            (angle.cos(), angle.sin(), 0.0)
+        };
+        let weight = ((radius - distance) / radius).clamp(0.0, 1.0);
+        x += push_x * weight;
+        y += push_y * weight;
+        count += 1;
+        true
+    });
+
+    if count == 0 {
+        return (0.0, 0.0);
+    }
+    let len = (x * x + y * y).sqrt();
+    if len > f64::EPSILON {
+        (x / len, y / len)
+    } else {
+        (0.0, 0.0)
+    }
 }
 
 fn try_kinetic_ram(
@@ -390,6 +531,12 @@ mod tests {
         }
     }
 
+    fn grid_for(enemies: &[Enemy]) -> SpatialGrid {
+        let mut grid = SpatialGrid::new(72.0);
+        grid.rebuild(enemies);
+        grid
+    }
+
     #[test]
     fn invulnerability_blocks_damage_without_consuming_normal_enemy() {
         let bundle = load_default().expect("balance.json");
@@ -397,12 +544,16 @@ mod tests {
         player.invuln = 0.2;
         let mut world = World::default();
         let mut enemies = vec![normal_enemy_at_player(&player)];
+        let grid = grid_for(&enemies);
 
         let killed = step_enemy(
             &bundle.balance,
             &mut player,
             &mut world,
             &mut enemies,
+            &grid,
+            1,
+            1,
             0,
             1.0 / 60.0,
         );
@@ -418,18 +569,104 @@ mod tests {
         let mut player = Player::new(&bundle.balance.player.stats);
         let mut world = World::default();
         let mut enemies = vec![normal_enemy_at_player(&player)];
+        let grid = grid_for(&enemies);
 
         let killed = step_enemy(
             &bundle.balance,
             &mut player,
             &mut world,
             &mut enemies,
+            &grid,
+            1,
+            1,
             0,
             1.0 / 60.0,
         );
 
         assert_eq!(killed, Some(0));
         assert!(player.hp < player.max_hp);
+    }
+
+    #[test]
+    fn normal_enemies_with_different_seeds_take_different_lanes() {
+        let bundle = load_default().expect("balance.json");
+        let player = Player::new(&bundle.balance.player.stats);
+        let mut enemy_a = normal_enemy_at_player(&player);
+        enemy_a.x = player.x + player.radius + enemy_a.radius + 96.0;
+        enemy_a.y = player.y;
+        enemy_a.seed = 1.0;
+        let mut enemy_b = enemy_a.clone();
+        enemy_b.id = 2;
+        enemy_b.seed = 9.0;
+
+        let enemies_a = vec![enemy_a];
+        let grid_a = grid_for(&enemies_a);
+        let dir_a = pursuit_direction(
+            &bundle.balance,
+            &enemies_a[0],
+            &player,
+            &enemies_a,
+            &grid_a,
+            2,
+            10,
+            0,
+        );
+        let enemies_b = vec![enemy_b];
+        let grid_b = grid_for(&enemies_b);
+        let dir_b = pursuit_direction(
+            &bundle.balance,
+            &enemies_b[0],
+            &player,
+            &enemies_b,
+            &grid_b,
+            2,
+            10,
+            0,
+        );
+
+        assert!(dir_a.0 < 0.0);
+        assert!(dir_b.0 < 0.0);
+        assert!((dir_a.1 - dir_b.1).abs() > 0.05);
+    }
+
+    #[test]
+    fn nearby_normal_enemies_push_out_of_the_same_stack() {
+        let bundle = load_default().expect("balance.json");
+        let player = Player::new(&bundle.balance.player.stats);
+        let mut upper = normal_enemy_at_player(&player);
+        upper.id = 4;
+        upper.x = player.x + player.radius + upper.radius + 128.0;
+        upper.y = player.y - 5.0;
+        upper.seed = 0.0;
+        let mut lower = upper.clone();
+        lower.id = 8;
+        lower.y = player.y + 5.0;
+        let enemies = vec![upper, lower];
+        let grid = grid_for(&enemies);
+
+        let upper_dir = pursuit_direction(
+            &bundle.balance,
+            &enemies[0],
+            &player,
+            &enemies,
+            &grid,
+            2,
+            10,
+            0,
+        );
+        let lower_dir = pursuit_direction(
+            &bundle.balance,
+            &enemies[1],
+            &player,
+            &enemies,
+            &grid,
+            2,
+            10,
+            1,
+        );
+
+        assert!(upper_dir.1 < 0.0);
+        assert!(lower_dir.1 > 0.0);
     }
 
     #[test]
@@ -445,11 +682,15 @@ mod tests {
 
         let mut killed = None;
         for _ in 0..180 {
+            let grid = grid_for(&enemies);
             killed = step_enemy(
                 &bundle.balance,
                 &mut player,
                 &mut world,
                 &mut enemies,
+                &grid,
+                1,
+                1,
                 0,
                 1.0 / 60.0,
             );
