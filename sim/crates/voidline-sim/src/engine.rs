@@ -24,12 +24,34 @@ use crate::synergies::{
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct EngineRarityProfile {
+    pub rare: u32,
+    pub prototype: u32,
+    pub singularity: u32,
+}
+
+impl Default for EngineRarityProfile {
+    fn default() -> Self {
+        Self {
+            rare: 0,
+            prototype: 0,
+            singularity: 0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EngineAccountContext {
     pub selected_character_id: String,
     pub selected_weapon_id: String,
     pub selected_start_stage: u32,
     pub highest_start_stage_unlocked: u32,
     pub rarity_rank: u32,
+    #[serde(default)]
+    pub rarity_profile: EngineRarityProfile,
+    #[serde(default)]
+    pub upgrade_tier_caps: HashMap<String, String>,
     pub unlocked_technology_ids: Vec<String>,
     pub unlocked_build_tags: Vec<String>,
     pub unlocked_relic_ids: Vec<String>,
@@ -44,6 +66,8 @@ impl Default for EngineAccountContext {
             selected_start_stage: 1,
             highest_start_stage_unlocked: 1,
             rarity_rank: 0,
+            rarity_profile: EngineRarityProfile::default(),
+            upgrade_tier_caps: HashMap::new(),
             unlocked_technology_ids: Vec::new(),
             unlocked_build_tags: Vec::new(),
             unlocked_relic_ids: Vec::new(),
@@ -546,14 +570,23 @@ impl Engine {
 
         let mut choices = Vec::with_capacity(picked.len());
         for idx in picked {
+            let upgrade = &self.bundle.upgrades[idx];
+            let max_tier_id = self
+                .account
+                .upgrade_tier_caps
+                .get(&upgrade.id)
+                .map(String::as_str);
             let tier = select_upgrade_tier(
                 &self.bundle.balance,
                 self.sim.state.pressure,
                 self.sim.rng.next_f64(),
-                self.account.rarity_rank,
+                self.account.rarity_profile.rare,
+                self.account.rarity_profile.prototype,
+                self.account.rarity_profile.singularity,
+                max_tier_id,
             );
             choices.push(UpgradeChoiceRecord {
-                upgrade_id: self.bundle.upgrades[idx].id.clone(),
+                upgrade_id: upgrade.id.clone(),
                 tier_id: tier.id.clone(),
             });
         }
@@ -924,6 +957,29 @@ fn normalize_account(
         .unlocked_relic_ids
         .retain(|id| bundle.relics.iter().any(|relic| relic.id == *id));
     account.rarity_rank = account.rarity_rank.min(3);
+    account.rarity_profile.rare = account.rarity_profile.rare.min(3);
+    account.rarity_profile.prototype = account.rarity_profile.prototype.min(3);
+    account.rarity_profile.singularity = account.rarity_profile.singularity.min(3);
+    if account.rarity_profile.rare == 0
+        && account.rarity_profile.prototype == 0
+        && account.rarity_profile.singularity == 0
+        && account.rarity_rank > 0
+    {
+        account.rarity_profile.rare = account.rarity_rank;
+        if account.rarity_rank >= 2 {
+            account.rarity_profile.prototype = account.rarity_rank;
+        }
+        if account.rarity_rank >= 3 {
+            account.rarity_profile.singularity = account.rarity_rank;
+        }
+    }
+    account.upgrade_tier_caps.retain(|upgrade_id, tier_id| {
+        bundle
+            .upgrades
+            .iter()
+            .any(|upgrade| upgrade.id == *upgrade_id)
+            && bundle.balance.tiers.iter().any(|tier| tier.id == *tier_id)
+    });
     account.level_up_choice_count = account.level_up_choice_count.max(1);
     account.highest_start_stage_unlocked = account.highest_start_stage_unlocked.max(1);
     account.selected_start_stage = account

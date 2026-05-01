@@ -33,6 +33,12 @@ export interface WeightedTier {
   weight: number;
 }
 
+export interface RarityWeightProfile {
+  rare: number;
+  prototype: number;
+  singularity: number;
+}
+
 export interface WeightedEnemyType {
   type: EnemyType;
   weight: number;
@@ -98,6 +104,8 @@ export const pressureBalance = {
   packChanceMax: 0.62,
 };
 
+export const enemyDensityMultiplier = 3;
+
 export const latePressureBalance = {
   startPressure: 7,
   targetLinear: 5,
@@ -134,12 +142,15 @@ export const xpBalance = {
 
 export const bossBalance = {
   stageDurationSeconds: 600,
-  pressureOffsetPerStage: 9,
+  pressureOffsetPerStage: 4,
+  postStage2PressureOffsetRatio: 0.25,
   contactBackoff: 0.45,
   stageScaling: {
-    hpPerStage: 0,
-    damagePerStage: 0,
-    speedPerStage: 0,
+    hpPerStage: 120,
+    damagePerStage: 0.2,
+    speedPerStage: 0.04,
+    postStage2HpOffsetBase: 0.65,
+    postStage2HpOffsetPerStage: 0.08,
   },
   wobble: {
     boss: { value: 0.05, rate: 1.1 },
@@ -150,7 +161,7 @@ export const bossBalance = {
     stageBoss: { offset: 8, stageMultiplier: 4, roll: 0.98 },
   },
   boss: {
-    hpMultiplier: 24,
+    hpMultiplier: 12,
     speedMultiplier: 0.54,
     damageMultiplier: 1.8,
     radiusMultiplier: 2.15,
@@ -207,6 +218,9 @@ export const enemyTypes = [
 ] satisfies EnemyType[];
 
 export const enemyBalance = {
+  swarmHpScale: 0.25,
+  swarmDamageScale: 0.27,
+  swarmSpeedScale: 0.92,
   hpScalePerPressure: 0.065,
   speedScalePerPressure: 0.022,
   speedScaleMax: 0.4,
@@ -215,6 +229,12 @@ export const enemyBalance = {
   bruteChanceOffsetPressure: 2,
   bruteChancePerPressure: 0.05,
   bruteChanceMax: 0.25,
+  contactBackoff: 0.65,
+  pursuitLane: {
+    startDistance: 120,
+    maxTurn: 0.22,
+    goldenAngleTurn: 0.61803398875,
+  },
   wobble: {
     scout: 0.18,
     hunter: 0.18,
@@ -326,7 +346,7 @@ export const upgradeBalance = {
     lifesteal: 1.4,
     pickupRadius: 0.36,
     bulletRadius: 0.24,
-    projectileDamageFactor: 0.7,
+    projectileDamageFactor: 0.6,
     droneExtraThreshold: 1.65,
   },
 };
@@ -357,9 +377,9 @@ export const powerupBalance = {
   pullStrength: 380,
   velocityDamping: 1.6,
   dropChance: {
-    scout: 0.012,
-    hunter: 0.03,
-    brute: 0.09,
+    scout: 0.012 / enemyDensityMultiplier,
+    hunter: 0.03 / enemyDensityMultiplier,
+    brute: 0.09 / enemyDensityMultiplier,
   } satisfies Record<EnemyKind, number>,
 };
 
@@ -376,6 +396,7 @@ export const progressionBalance = {
 };
 
 export const balance = {
+  enemyDensityMultiplier,
   player: playerBalance,
   pressure: pressureBalance,
   xp: xpBalance,
@@ -449,20 +470,23 @@ export function createPlayerState(overrides: Partial<Player> = {}): Player {
 
 export function pressureTarget(pressure: number): number {
   return Math.round(
-    pressureBalance.targetBase +
+    (pressureBalance.targetBase +
       pressure * pressureBalance.targetLinear +
       Math.pow(pressure, pressureBalance.targetExponent) +
-      latePressureTargetBonus(pressure),
+      latePressureTargetBonus(pressure)) *
+      enemyDensityMultiplier,
   );
 }
 
 export function spawnGap(pressure: number): number {
   const late = latePressure(pressure);
   return Math.max(
-    late > 0 ? latePressureBalance.spawnGapMin : pressureBalance.spawnGapMin,
-    pressureBalance.spawnGapStart -
+    (late > 0 ? latePressureBalance.spawnGapMin : pressureBalance.spawnGapMin) /
+      enemyDensityMultiplier,
+    (pressureBalance.spawnGapStart -
       pressure * pressureBalance.spawnGapPerPressure -
-      late * latePressureBalance.spawnGapPerPressure,
+      late * latePressureBalance.spawnGapPerPressure) /
+      enemyDensityMultiplier,
   );
 }
 
@@ -483,7 +507,7 @@ export function spawnPackChance(pressure: number): number {
 }
 
 export function scoreAward(enemyScore: number, pressure: number): number {
-  return Math.round(enemyScore * (1.25 + pressure * 0.1));
+  return Math.max(1, Math.round((enemyScore * (1.25 + pressure * 0.1)) / enemyDensityMultiplier));
 }
 
 export function xpToNextLevel(level: number): number {
@@ -495,8 +519,12 @@ export function xpToNextLevel(level: number): number {
 }
 
 export function experienceDropTotal(enemyScore: number, pressure: number): number {
-  return Math.round(
-    (enemyScore / xpBalance.dropScoreDivisor) * (1 + pressure * xpBalance.dropPressureScale),
+  return Math.max(
+    1,
+    Math.round(
+      ((enemyScore / xpBalance.dropScoreDivisor) * (1 + pressure * xpBalance.dropPressureScale)) /
+        enemyDensityMultiplier,
+    ),
   );
 }
 
@@ -565,6 +593,18 @@ export function scaledEnemyStats(
   type: EnemyType,
   pressure: number,
 ): Pick<EnemyType, "hp" | "speed" | "damage"> {
+  const stats = scaledEliteEnemyStats(type, pressure);
+  return {
+    hp: stats.hp * enemyBalance.swarmHpScale,
+    speed: stats.speed * enemyBalance.swarmSpeedScale,
+    damage: stats.damage * enemyBalance.swarmDamageScale,
+  };
+}
+
+export function scaledEliteEnemyStats(
+  type: EnemyType,
+  pressure: number,
+): Pick<EnemyType, "hp" | "speed" | "damage"> {
   const late = latePressure(pressure);
   return {
     hp:
@@ -613,16 +653,36 @@ function gateRampMultiplier(
   return Math.min(1, (pressure - gate.minPressure + 1) / gate.rampPressures);
 }
 
-export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTier[] {
+function normalizeRarityProfile(rarity: number | RarityWeightProfile): RarityWeightProfile {
+  if (typeof rarity === "number") {
+    const rank = Math.max(0, Math.min(3, Math.floor(rarity)));
+    return {
+      rare: rank >= 1 ? rank : 0,
+      prototype: rank >= 2 ? rank : 0,
+      singularity: rank >= 3 ? rank : 0,
+    };
+  }
+  return {
+    rare: Math.max(0, Math.min(3, Math.floor(rarity.rare))),
+    prototype: Math.max(0, Math.min(3, Math.floor(rarity.prototype))),
+    singularity: Math.max(0, Math.min(3, Math.floor(rarity.singularity))),
+  };
+}
+
+export function upgradeTierWeights(
+  pressure: number,
+  rarity: number | RarityWeightProfile = 0,
+): WeightedTier[] {
   const weights = upgradeBalance.tierWeights;
   const gates = upgradeBalance.gates;
-  const rank = Math.max(0, Math.min(3, Math.floor(rarityRank)));
+  const profile = normalizeRarityProfile(rarity);
+  const rank = Math.min(3, Math.max(profile.rare, profile.prototype, profile.singularity));
   const perRank = weights.perRank;
   const protoRamp = gateRampMultiplier(pressure, gates.prototype);
   const singularityRamp = gateRampMultiplier(pressure, gates.singularity);
-  const rareUnlocked = rank >= gates.rare.minRank;
-  const prototypeUnlocked = rank >= gates.prototype.minRank;
-  const singularityUnlocked = rank >= gates.singularity.minRank;
+  const rareUnlocked = profile.rare > 0;
+  const prototypeUnlocked = profile.prototype > 0;
+  const singularityUnlocked = profile.singularity > 0;
   return [
     {
       tier: upgradeTiers[0]!,
@@ -636,7 +696,7 @@ export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTi
     {
       tier: upgradeTiers[1]!,
       weight: rareUnlocked
-        ? weights.rareBase + pressure * weights.rarePerPressure + rank * perRank.rare
+        ? weights.rareBase + pressure * weights.rarePerPressure + profile.rare * perRank.rare
         : 0,
     },
     {
@@ -646,7 +706,7 @@ export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTi
         : protoRamp > 0
           ? (weights.prototypeBase +
               pressure * weights.prototypePerPressure +
-              rank * perRank.prototype) *
+              profile.prototype * perRank.prototype) *
             protoRamp
           : gates.prototype.lockedWeight,
     },
@@ -655,15 +715,19 @@ export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTi
       weight: !singularityUnlocked
         ? 0
         : singularityRamp > 0
-          ? (pressure * weights.singularityPerPressure + rank * perRank.singularity) *
+          ? (pressure * weights.singularityPerPressure + profile.singularity * perRank.singularity) *
             singularityRamp
           : gates.singularity.lockedWeight,
     },
   ];
 }
 
-export function selectUpgradeTier(pressure: number, roll: number, rarityRank = 0): UpgradeTier {
-  const weights = upgradeTierWeights(pressure, rarityRank);
+export function selectUpgradeTier(
+  pressure: number,
+  roll: number,
+  rarity: number | RarityWeightProfile = 0,
+): UpgradeTier {
+  const weights = upgradeTierWeights(pressure, rarity);
   const total = weights.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   let target = Math.min(Math.max(roll, 0), 0.999999999) * total;
 

@@ -107,17 +107,22 @@ impl Default for FocusedAttackPolicy {
     fn default() -> Self {
         Self {
             priority: vec![
-                "category:attack",
+                "card:twin-cannon",
+                "card:plasma-core",
+                "rarity:rare-signal",
                 "unique:weapon-scatter",
-                "category:defense",
-                "category:tempo",
+                "card:kinetic-shield",
+                "card:crit-array",
+                "rarity:prototype-lab",
                 "unique:char-tank",
-                "category:salvage",
+                "card:magnet-array",
                 "unique:extra-choice",
-                "unique:reroll",
                 "unique:weapon-lance",
                 "unique:weapon-drone",
+                "unique:char-engineer",
                 "unique:char-runner",
+                "rarity:singularity-core",
+                "utility:crystal-contract",
             ],
         }
     }

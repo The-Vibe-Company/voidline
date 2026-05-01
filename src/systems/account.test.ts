@@ -148,7 +148,7 @@ describe("crystal persistence and unlock shop", () => {
     expect(accountProgress.purchasedUnlockIds).toEqual([]);
   });
 
-  it("refunds and removes the deleted reroll meta upgrade from stored saves", () => {
+  it("refunds and removes deleted reroll and category meta upgrades from stored saves", () => {
     storage.setItem(
       "voidline:metaProgress:v1",
       JSON.stringify({
@@ -163,11 +163,12 @@ describe("crystal persistence and unlock shop", () => {
 
     initializeAccountProgress(storage);
 
-    expect(accountProgress.crystals).toBe(120);
-    expect(accountProgress.spentCrystals).toBe(40);
-    expect(accountProgress.upgradeLevels["category:attack"]).toBe(1);
+    expect(accountProgress.crystals).toBe(160);
+    expect(accountProgress.spentCrystals).toBe(0);
+    expect(accountProgress.upgradeLevels).not.toHaveProperty("category:attack");
     expect(accountProgress.upgradeLevels).not.toHaveProperty("unique:reroll");
     expect(storage.getItem("voidline:metaProgress:v1")).not.toContain("unique:reroll");
+    expect(storage.getItem("voidline:metaProgress:v1")).not.toContain("category:attack");
   });
 
   it("uses recoverable legacy tokens when a stored crystal balance is malformed", () => {
@@ -311,7 +312,7 @@ describe("crystal persistence and unlock shop", () => {
   it("preserves meta upgrade levels when Rust awards a run", () => {
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:attack": 1 },
+      upgradeLevels: { "card:twin-cannon": 1 },
     });
 
     awardRunAccountProgress(
@@ -326,8 +327,8 @@ describe("crystal persistence and unlock shop", () => {
       storage,
     );
 
-    expect(accountProgress.upgradeLevels["category:attack"]).toBe(1);
-    expect(storage.getItem("voidline:metaProgress:v1")).toContain("category:attack");
+    expect(accountProgress.upgradeLevels["card:twin-cannon"]).toBe(1);
+    expect(storage.getItem("voidline:metaProgress:v1")).toContain("card:twin-cannon");
   });
 
   it("requires objective gates before crystal purchases", () => {
@@ -388,18 +389,18 @@ describe("meta upgrade derivations", () => {
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:attack": 4, "category:tempo": 1 },
+      upgradeLevels: { "rarity:singularity-core": 4, "rarity:rare-signal": 1 },
     });
     expect(currentRarityRank()).toBe(3);
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:defense": 2, "category:salvage": 2 },
+      upgradeLevels: { "rarity:prototype-lab": 2 },
     });
     expect(currentRarityRank()).toBe(2);
   });
 
-  it("computes level-up choice count from extra-choice unique or tempo L4", () => {
+  it("computes level-up choice count from extra-choice unique only", () => {
     expect(currentLevelUpChoiceCount()).toBe(3);
 
     restoreAccountProgress({
@@ -410,31 +411,31 @@ describe("meta upgrade derivations", () => {
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:tempo": 4 },
+      upgradeLevels: { "rarity:rare-signal": 3, "card:crit-array": 4 },
     });
-    expect(currentLevelUpChoiceCount()).toBe(4);
+    expect(currentLevelUpChoiceCount()).toBe(3);
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "unique:extra-choice": 1, "category:tempo": 4 },
+      upgradeLevels: { "unique:extra-choice": 1, "rarity:rare-signal": 3 },
     });
     expect(currentLevelUpChoiceCount()).toBe(4);
   });
 
-  it("applies a +10% crystal multiplier from salvage L2", () => {
+  it("applies crystal multiplier from crystal contract levels", () => {
     expect(currentCrystalRewardMultiplier()).toBe(1);
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:salvage": 1 },
+      upgradeLevels: { "utility:crystal-contract": 1 },
     });
-    expect(currentCrystalRewardMultiplier()).toBe(1);
+    expect(currentCrystalRewardMultiplier()).toBeCloseTo(1.05);
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:salvage": 2 },
+      upgradeLevels: { "utility:crystal-contract": 3 },
     });
-    expect(currentCrystalRewardMultiplier()).toBeCloseTo(1.1);
+    expect(currentCrystalRewardMultiplier()).toBeCloseTo(1.15);
   });
 });
 
@@ -451,12 +452,12 @@ describe("purchaseMetaUpgradeLevel", () => {
 
     let totalSpent = 0;
     for (let i = 0; i < 10; i += 1) {
-      const result = purchaseMetaUpgradeLevel("category:attack", storage);
+      const result = purchaseMetaUpgradeLevel("card:twin-cannon", storage);
       if (result.ok) totalSpent += result.cost;
     }
 
-    expect(accountProgress.upgradeLevels["category:attack"]).toBe(4);
-    expect(totalSpent).toBe(40 + 75 + 130 + 220);
+    expect(accountProgress.upgradeLevels["card:twin-cannon"]).toBe(4);
+    expect(totalSpent).toBe(40 + 85 + 360 + 460);
   });
 
   it("rejects unique upgrades after the first purchase", () => {
@@ -489,8 +490,8 @@ describe("upgrade levels sanitization", () => {
       "voidline:metaProgress:v1",
       JSON.stringify({
         upgradeLevels: {
-          "category:attack": 99,
-          "category:defense": -5,
+          "card:twin-cannon": 99,
+          "card:plasma-core": -5,
           "unknown:foo": 3,
           "unique:extra-choice": "not-a-number",
         },
@@ -499,8 +500,8 @@ describe("upgrade levels sanitization", () => {
 
     initializeAccountProgress(storage);
 
-    expect(accountProgress.upgradeLevels["category:attack"]).toBe(4);
-    expect(accountProgress.upgradeLevels["category:defense"]).toBeUndefined();
+    expect(accountProgress.upgradeLevels["card:twin-cannon"]).toBe(4);
+    expect(accountProgress.upgradeLevels["card:plasma-core"]).toBeUndefined();
     expect(accountProgress.upgradeLevels["unique:extra-choice"]).toBeUndefined();
     expect((accountProgress.upgradeLevels as Record<string, unknown>)["unknown:foo"]).toBeUndefined();
   });

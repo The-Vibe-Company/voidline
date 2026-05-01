@@ -12,7 +12,7 @@ import {
   world,
 } from "../state";
 import { burst, pulseText } from "../entities/particles";
-import { bossBalance } from "../game/roguelike";
+import { basePressureForStage, bossBalance } from "../game/roguelike";
 import type { EnemyEntity } from "../types";
 import { swapRemove } from "../utils";
 import { resetSimulation, stepSimulation } from "./simulation";
@@ -172,7 +172,7 @@ describe("simulation performance helpers", () => {
 
     expect(state.stage).toBe(2);
     expect(state.startStage).toBe(2);
-    expect(state.pressure).toBe(10);
+    expect(state.pressure).toBe(basePressureForStage(2));
     expect(player.damage).toBe(24);
     expect(player.projectileCount).toBe(1);
   });

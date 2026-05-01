@@ -24,7 +24,7 @@ export const weaponCatalog: readonly Weapon[] = [
     id: "scatter",
     name: "Scatter Cannon",
     icon: "SCT",
-    description: "Plus de projectiles, degats actuels x0.70 et impacts plus legers.",
+    description: "Plus de projectiles, degats actuels x0.60 et impacts plus legers.",
     tags: ["cannon", "crit"],
     effects: [
       { type: "addCapped", stat: "projectileCount", amount: 1, cap: "projectiles" },

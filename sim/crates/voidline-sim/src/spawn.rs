@@ -3,7 +3,7 @@
 use voidline_data::balance::Balance;
 use voidline_data::catalogs::{BossDef, BossStats, EnemySpawnPolicy, EnemyType, ResidualMarker};
 
-use crate::balance_curves::scaled_enemy_stats;
+use crate::balance_curves::{scaled_elite_enemy_stats, scaled_enemy_stats};
 use crate::entities::{Enemy, EnemyKind, EnemyRole};
 use crate::math::clamp;
 use crate::pools::{acquire_enemy, EntityPools};
@@ -148,14 +148,15 @@ pub fn spawn_elite(
     enemies: &mut Vec<Enemy>,
     world: &World,
     pressure: u32,
+    stage: u32,
     ty: &EnemyType,
     boss: &BossDef,
     rolls: SpawnRolls,
 ) {
-    let tuning = boss_stats_at(&boss.stats, 1); // stage scaling not yet wired
+    let tuning = boss_stats_at(balance, &boss.stats, stage);
     let radius = (ty.radius * tuning.radius_multiplier).round();
     let (x, y) = spawn_point_for_radius(world, radius, rolls.position_rolls);
-    let scaled = scaled_enemy_stats(balance, ty, pressure);
+    let scaled = scaled_elite_enemy_stats(balance, ty, pressure);
     let idx = acquire_enemy(
         pools,
         counters,
@@ -199,12 +200,19 @@ fn wobble_for(wobble: &voidline_data::balance::EnemyWobble, kind: &str) -> f64 {
     }
 }
 
-pub fn boss_stats_at(stats: &BossStats, _stage: u32) -> BossStats {
-    // Stage scaling defaults to 0 in balance.ts so we return a clone for now.
+pub fn boss_stats_at(balance: &Balance, stats: &BossStats, stage: u32) -> BossStats {
+    let stage_offset = stage.saturating_sub(1) as f64;
+    let scaling = &balance.bosses.stage_scaling;
+    let hp_offset = boss_stage_hp_scale_offset(
+        stage_offset,
+        scaling.post_stage2_hp_offset_base,
+        scaling.post_stage2_hp_offset_per_stage,
+    );
     BossStats {
-        hp_multiplier: stats.hp_multiplier,
-        speed_multiplier: stats.speed_multiplier,
-        damage_multiplier: stats.damage_multiplier,
+        hp_multiplier: stats.hp_multiplier * (1.0 + scaling.hp_per_stage * hp_offset),
+        speed_multiplier: stats.speed_multiplier * (1.0 + scaling.speed_per_stage * stage_offset),
+        damage_multiplier: stats.damage_multiplier
+            * (1.0 + scaling.damage_per_stage * stage_offset),
         radius_multiplier: stats.radius_multiplier,
         score_multiplier: stats.score_multiplier,
         contact_cooldown: stats.contact_cooldown,
@@ -213,6 +221,18 @@ pub fn boss_stats_at(stats: &BossStats, _stage: u32) -> BossStats {
         sides: stats.sides,
         wobble: stats.wobble,
         wobble_rate: stats.wobble_rate,
+    }
+}
+
+fn boss_stage_hp_scale_offset(
+    stage_offset: f64,
+    post_stage2_base: f64,
+    post_stage2_per_stage: f64,
+) -> f64 {
+    if stage_offset <= 1.0 {
+        stage_offset
+    } else {
+        post_stage2_base + (stage_offset - 2.0) * post_stage2_per_stage
     }
 }
 
@@ -229,4 +249,55 @@ pub fn find_boss_def<'a>(bosses: &'a [BossDef], role: &str) -> &'a BossDef {
         .iter()
         .find(|b| b.role == role)
         .unwrap_or_else(|| panic!("no boss def for role: {role}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use voidline_data::load_default;
+
+    use super::{boss_stats_at, find_boss_def};
+
+    #[test]
+    fn boss_stage_scaling_uses_post_stage2_knobs() {
+        let bundle = load_default().unwrap();
+        let boss = find_boss_def(&bundle.bosses, "boss");
+        let stage2 = boss_stats_at(&bundle.balance, &boss.stats, 2);
+        let stage3 = boss_stats_at(&bundle.balance, &boss.stats, 3);
+        let stage4 = boss_stats_at(&bundle.balance, &boss.stats, 4);
+        let scaling = &bundle.balance.bosses.stage_scaling;
+
+        assert!(
+            (stage2.hp_multiplier - boss.stats.hp_multiplier * (1.0 + scaling.hp_per_stage)).abs()
+                < 1e-9
+        );
+        assert!(
+            (stage3.hp_multiplier
+                - boss.stats.hp_multiplier
+                    * (1.0 + scaling.hp_per_stage * scaling.post_stage2_hp_offset_base))
+                .abs()
+                < 1e-9
+        );
+        assert!(
+            (stage4.hp_multiplier
+                - boss.stats.hp_multiplier
+                    * (1.0
+                        + scaling.hp_per_stage
+                            * (scaling.post_stage2_hp_offset_base
+                                + scaling.post_stage2_hp_offset_per_stage)))
+                .abs()
+                < 1e-9
+        );
+        assert!(
+            (stage4.damage_multiplier
+                - boss.stats.damage_multiplier * (1.0 + scaling.damage_per_stage * 3.0))
+                .abs()
+                < 1e-9
+        );
+        assert!(
+            (stage4.speed_multiplier
+                - boss.stats.speed_multiplier * (1.0 + scaling.speed_per_stage * 3.0))
+                .abs()
+                < 1e-9
+        );
+    }
 }

@@ -10,12 +10,13 @@ use serde::Serialize;
 use voidline_data::catalogs::{Relic, Upgrade};
 use voidline_data::DataBundle;
 use voidline_sim::engine::{
-    Engine, EngineAccountContext, EngineConfig, EngineInput, EngineSnapshot, RelicChoiceRecord,
-    SnapshotPlayer, UpgradeChoiceRecord,
+    Engine, EngineAccountContext, EngineConfig, EngineInput, EngineRarityProfile, EngineSnapshot,
+    RelicChoiceRecord, SnapshotPlayer, UpgradeChoiceRecord,
 };
 
 use crate::account::{
-    current_rarity_rank, unlocked_build_tags, unlocked_technology_ids, AccountSnapshot,
+    current_rarity_profile, current_rarity_rank, meta_level, unlocked_build_tags,
+    unlocked_technology_ids, AccountSnapshot,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
@@ -167,6 +168,15 @@ pub fn engine_account_context(
         selected_start_stage: account.selected_start_stage.max(1),
         highest_start_stage_unlocked: account.highest_start_stage_unlocked.max(1),
         rarity_rank: current_rarity_rank(account),
+        rarity_profile: {
+            let profile = current_rarity_profile(account);
+            EngineRarityProfile {
+                rare: profile.rare,
+                prototype: profile.prototype,
+                singularity: profile.singularity,
+            }
+        },
+        upgrade_tier_caps: upgrade_tier_caps(bundle, account),
         unlocked_technology_ids: unlocked_technology_ids(bundle, account)
             .into_iter()
             .collect(),
@@ -178,8 +188,33 @@ pub fn engine_account_context(
 
 pub fn current_level_up_choice_count(account: &AccountSnapshot) -> u32 {
     let extra_choice = account.level_of("unique:extra-choice") > 0;
-    let tempo_bonus = account.level_of("category:tempo") >= 4;
-    3 + u32::from(extra_choice || tempo_bonus)
+    3 + u32::from(extra_choice)
+}
+
+fn upgrade_tier_caps(bundle: &DataBundle, account: &AccountSnapshot) -> HashMap<String, String> {
+    let mut caps = HashMap::new();
+    for meta in &bundle.meta_upgrades {
+        if meta.kind != "card" {
+            continue;
+        }
+        let Some(upgrade_id) = &meta.upgrade_id else {
+            continue;
+        };
+        if let Some(tier_id) = tier_cap_at_level(meta_level(account, meta)) {
+            caps.insert(upgrade_id.clone(), tier_id.to_string());
+        }
+    }
+    caps
+}
+
+fn tier_cap_at_level(level: u32) -> Option<&'static str> {
+    match level {
+        0 => None,
+        1 => Some("standard"),
+        2 => Some("rare"),
+        3 => Some("prototype"),
+        _ => Some("singularity"),
+    }
 }
 
 pub fn finish_summary(
@@ -364,9 +399,9 @@ fn base_upgrade_score(upgrade: &Upgrade, profile: PlayerProfileId) -> f64 {
     match upgrade.id.as_str() {
         "twin-cannon" => {
             if optimizer {
-                58.0
+                52.0
             } else {
-                50.0
+                45.0
             }
         }
         "rail-slug" => {
@@ -729,8 +764,8 @@ mod tests {
         assert_eq!(current_level_up_choice_count(&account), 3);
         account
             .upgrade_levels
-            .insert("category:tempo".to_string(), 4);
-        assert_eq!(current_level_up_choice_count(&account), 4);
+            .insert("rarity:rare-signal".to_string(), 3);
+        assert_eq!(current_level_up_choice_count(&account), 3);
         account
             .upgrade_levels
             .insert("unique:extra-choice".to_string(), 1);

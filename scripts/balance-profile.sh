@@ -29,14 +29,15 @@ done
 
 case "$MODE" in
   quick)
-    CAMPAIGNS=8
+    CAMPAIGNS=6
     RUNS=32
-    MAX_SECONDS=120
+    MAX_SECONDS=180
+    EXTRA_ARGS+=(--policy-set focused)
     ;;
   check)
-    CAMPAIGNS=30
-    RUNS=80
-    MAX_SECONDS=240
+    CAMPAIGNS=12
+    RUNS=120
+    MAX_SECONDS=360
     EXTRA_ARGS+=(--check-target balance --policy-set focused)
     ;;
   *)

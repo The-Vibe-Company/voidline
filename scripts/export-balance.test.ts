@@ -71,6 +71,9 @@ interface ExportedMetaUpgrade {
   weaponId?: string;
   characterId?: string;
   technologyId?: string;
+  upgradeId?: string;
+  rarityTier?: string;
+  baseLevel?: number;
   levels?: ReadonlyArray<{ summary: string }>;
 }
 
@@ -138,6 +141,9 @@ function toExportedMetaUpgrade(m: (typeof metaUpgradeCatalog)[number]): Exported
     weaponId: m.weaponId,
     characterId: m.characterId,
     technologyId: m.technologyId,
+    upgradeId: m.upgradeId,
+    rarityTier: m.rarityTier,
+    baseLevel: m.baseLevel,
     levels: m.levels,
   };
 }

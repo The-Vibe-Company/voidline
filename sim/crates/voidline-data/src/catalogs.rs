@@ -125,6 +125,12 @@ pub struct MetaUpgrade {
     #[serde(default)]
     pub technology_id: Option<String>,
     #[serde(default)]
+    pub upgrade_id: Option<String>,
+    #[serde(default)]
+    pub rarity_tier: Option<String>,
+    #[serde(default)]
+    pub base_level: Option<u32>,
+    #[serde(default)]
     pub levels: Option<Vec<MetaUpgradeLevel>>,
 }
 

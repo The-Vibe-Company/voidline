@@ -23,9 +23,9 @@ pub struct EnemyUpdateOutcome {
     pub player_damage_events: Vec<f64>,
 }
 
-pub fn damage_player(player: &mut Player, world: &mut World, amount: f64) {
+pub fn damage_player(player: &mut Player, world: &mut World, amount: f64) -> bool {
     if player.invuln > 0.0 {
-        return;
+        return false;
     }
     let mut incoming = amount;
     if player.shield > 0.0 {
@@ -38,6 +38,7 @@ pub fn damage_player(player: &mut Player, world: &mut World, amount: f64) {
     }
     player.invuln = 0.34;
     world.shake = 14.0_f64.max(world.shake);
+    true
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -93,20 +94,23 @@ fn step_enemy(
     i: usize,
     dt: f64,
 ) -> Option<usize> {
-    let enemy = &mut enemies[i];
-    enemy.age += dt;
-    enemy.hit = (enemy.hit - dt).max(0.0);
-    enemy.contact_timer = (enemy.contact_timer - dt).max(0.0);
+    let (angle, speed) = {
+        let enemy = &mut enemies[i];
+        enemy.age += dt;
+        enemy.hit = (enemy.hit - dt).max(0.0);
+        enemy.contact_timer = (enemy.contact_timer - dt).max(0.0);
 
-    let angle = (player.y - enemy.y).atan2(player.x - enemy.x);
-    let wobble = (enemy.age * enemy.wobble_rate + enemy.seed).sin() * enemy.wobble;
-    enemy.x += (angle + wobble).cos() * enemy.speed * dt;
-    enemy.y += (angle + wobble).sin() * enemy.speed * dt;
+        let angle = pursuit_angle(balance, enemy, player);
+        let wobble = (enemy.age * enemy.wobble_rate + enemy.seed).sin() * enemy.wobble;
+        enemy.x += (angle + wobble).cos() * enemy.speed * dt;
+        enemy.y += (angle + wobble).sin() * enemy.speed * dt;
+        (angle, enemy.speed)
+    };
 
     let enemy_circle = CircleRef {
-        x: enemy.x,
-        y: enemy.y,
-        radius: enemy.radius,
+        x: enemies[i].x,
+        y: enemies[i].y,
+        radius: enemies[i].radius,
     };
     let player_circle = CircleRef {
         x: player.x,
@@ -124,7 +128,6 @@ fn step_enemy(
 
     let role = enemies[i].role;
     let damage = enemies[i].damage;
-    let speed = enemies[i].speed;
     if matches!(role, EnemyRole::MiniBoss | EnemyRole::Boss) {
         if enemies[i].contact_timer <= 0.0 {
             damage_player(player, world, damage);
@@ -136,8 +139,32 @@ fn step_enemy(
         return None;
     }
 
-    damage_player(player, world, damage);
-    Some(i)
+    if damage_player(player, world, damage) {
+        return Some(i);
+    }
+    let backoff = balance.enemy.contact_backoff;
+    enemies[i].x -= angle.cos() * speed * dt * backoff;
+    enemies[i].y -= angle.sin() * speed * dt * backoff;
+    None
+}
+
+fn pursuit_angle(balance: &Balance, enemy: &Enemy, player: &Player) -> f64 {
+    let base_angle = (player.y - enemy.y).atan2(player.x - enemy.x);
+    if !matches!(enemy.role, EnemyRole::Normal) {
+        return base_angle;
+    }
+    let dx = player.x - enemy.x;
+    let dy = player.y - enemy.y;
+    let distance = (dx * dx + dy * dy).sqrt();
+    let contact_distance = player.radius + enemy.radius;
+    let lane = &balance.enemy.pursuit_lane;
+    if distance <= contact_distance || distance >= lane.start_distance {
+        return base_angle;
+    }
+    let lane_window = (lane.start_distance - contact_distance).max(1.0);
+    let strength = ((lane.start_distance - distance) / lane_window).clamp(0.0, 1.0);
+    let turn = (enemy.seed * lane.golden_angle_turn).sin() * lane.max_turn * strength;
+    base_angle + turn
 }
 
 fn try_kinetic_ram(
@@ -242,7 +269,7 @@ pub fn kill_enemy(
     state.phase_kills += 1;
     let kind_key = snapshot.kind.as_str().to_string();
     *state.kills_by_kind.entry(kind_key).or_insert(0) += 1;
-    let awarded = score_award(snapshot.score, state.pressure);
+    let awarded = score_award(balance, snapshot.score, state.pressure);
     state.score += awarded as f64;
     state.best_combo += 1;
     spawn_experience(
@@ -330,5 +357,108 @@ pub fn reap_dead_enemies(
                 suppress_drops,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::EnemyKind;
+    use voidline_data::load_default;
+
+    fn normal_enemy_at_player(player: &Player) -> Enemy {
+        Enemy {
+            id: 1,
+            kind: EnemyKind::Scout,
+            score: 35.0,
+            radius: 14.0,
+            hp: 10.0,
+            max_hp: 10.0,
+            speed: 132.0,
+            damage: 12.0,
+            sides: 3,
+            x: player.x,
+            y: player.y,
+            age: 0.0,
+            seed: 7.0,
+            wobble: 0.0,
+            wobble_rate: 0.0,
+            hit: 0.0,
+            role: EnemyRole::Normal,
+            contact_timer: 0.0,
+            contact_cooldown: 0.0,
+        }
+    }
+
+    #[test]
+    fn invulnerability_blocks_damage_without_consuming_normal_enemy() {
+        let bundle = load_default().expect("balance.json");
+        let mut player = Player::new(&bundle.balance.player.stats);
+        player.invuln = 0.2;
+        let mut world = World::default();
+        let mut enemies = vec![normal_enemy_at_player(&player)];
+
+        let killed = step_enemy(
+            &bundle.balance,
+            &mut player,
+            &mut world,
+            &mut enemies,
+            0,
+            1.0 / 60.0,
+        );
+
+        assert!(killed.is_none());
+        assert_eq!(player.hp, player.max_hp);
+        assert_eq!(enemies.len(), 1);
+    }
+
+    #[test]
+    fn normal_enemy_is_consumed_only_when_contact_damage_lands() {
+        let bundle = load_default().expect("balance.json");
+        let mut player = Player::new(&bundle.balance.player.stats);
+        let mut world = World::default();
+        let mut enemies = vec![normal_enemy_at_player(&player)];
+
+        let killed = step_enemy(
+            &bundle.balance,
+            &mut player,
+            &mut world,
+            &mut enemies,
+            0,
+            1.0 / 60.0,
+        );
+
+        assert_eq!(killed, Some(0));
+        assert!(player.hp < player.max_hp);
+    }
+
+    #[test]
+    fn normal_enemy_lane_steering_still_converges_to_contact() {
+        let bundle = load_default().expect("balance.json");
+        let mut player = Player::new(&bundle.balance.player.stats);
+        let mut world = World::default();
+        let mut enemy = normal_enemy_at_player(&player);
+        enemy.x = player.x + player.radius + enemy.radius + 64.0;
+        enemy.y = player.y;
+        enemy.seed = 13.0;
+        let mut enemies = vec![enemy];
+
+        let mut killed = None;
+        for _ in 0..180 {
+            killed = step_enemy(
+                &bundle.balance,
+                &mut player,
+                &mut world,
+                &mut enemies,
+                0,
+                1.0 / 60.0,
+            );
+            if killed.is_some() {
+                break;
+            }
+        }
+
+        assert_eq!(killed, Some(0));
+        assert!(player.hp < player.max_hp);
     }
 }

@@ -41,7 +41,7 @@ describe("upgrade draft", () => {
 
     restoreAccountProgress({
       ...createDefaultAccountProgress(),
-      upgradeLevels: { "category:defense": 1 },
+      upgradeLevels: { "card:kinetic-shield": 1 },
     });
     ids = pickUpgrades(12).map((choice) => choice.upgrade.id);
 

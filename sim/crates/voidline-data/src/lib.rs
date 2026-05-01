@@ -129,7 +129,7 @@ mod tests {
         assert!(!bundle.meta_upgrades.is_empty(), "meta upgrades non-empty");
         assert!(!bundle.bosses.is_empty(), "bosses non-empty");
         assert_eq!(bundle.weapons.len(), 4);
-        assert_eq!(bundle.characters.len(), 3);
+        assert_eq!(bundle.characters.len(), 4);
     }
 
     #[test]

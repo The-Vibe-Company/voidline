@@ -3,7 +3,20 @@ import { bossBalance } from "./balance";
 export { bossBalance };
 
 export function basePressureForStage(stage: number): number {
-  return 1 + Math.max(0, Math.floor(stage) - 1) * bossBalance.pressureOffsetPerStage;
+  const stageOffset = Math.max(0, Math.floor(stage) - 1);
+  const pressureOffset = bossBalance.pressureOffsetPerStage;
+  if (stageOffset <= 1) {
+    return Math.max(1, Math.round(1 + stageOffset * pressureOffset));
+  }
+  const postStage2Offset = Math.max(
+    1,
+    Math.round(pressureOffset * bossBalance.postStage2PressureOffsetRatio),
+  );
+  return Math.max(
+    1 +
+      Math.round(pressureOffset) +
+      (stageOffset - 1) * postStage2Offset,
+  );
 }
 
 export function pressureForStageElapsed(stage: number, elapsedSeconds: number): number {

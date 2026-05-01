@@ -11,7 +11,7 @@ use voidline_data::balance::Balance;
 use voidline_data::catalogs::{BossDef, EnemySpawnRules, EnemyType};
 use voidline_data::DataBundle;
 
-use crate::balance_curves::{spawn_gap, spawn_pack_chance, pressure_target, xp_to_next_level};
+use crate::balance_curves::{pressure_target, spawn_gap, spawn_pack_chance, xp_to_next_level};
 use crate::bullets::update_bullets;
 use crate::chests::update_chests;
 use crate::enemies::{reap_dead_enemies, update_enemies};
@@ -202,11 +202,12 @@ impl Sim {
         self.state.spawn_timer -= dt;
         let active_target = self.state.enemy_pressure_target as usize;
         if self.enemies.len() < active_target && self.state.spawn_timer <= 0.0 {
-            let mut pack = if self.rng.next_f64() < spawn_pack_chance(&self.balance, self.state.pressure) {
-                2
-            } else {
-                1
-            };
+            let mut pack =
+                if self.rng.next_f64() < spawn_pack_chance(&self.balance, self.state.pressure) {
+                    2
+                } else {
+                    1
+                };
             if self.is_horde_active() {
                 pack += self.balance.hordes.pack_bonus;
             }
@@ -346,6 +347,7 @@ impl Sim {
             &mut self.enemies,
             &self.world,
             self.state.pressure,
+            self.state.stage,
             &ty,
             &boss_def,
             rolls,
@@ -357,7 +359,8 @@ impl Sim {
         let pressure = self.state.pressure
             + (self.state.stage as u32) * (offsets.stage_multiplier as u32)
             + offsets.offset as u32;
-        let ty = select_enemy_type(&self.balance, &self.spawn_rules, pressure, offsets.roll).clone();
+        let ty =
+            select_enemy_type(&self.balance, &self.spawn_rules, pressure, offsets.roll).clone();
         let boss_def = find_boss_def(&self.bosses, "boss").clone();
         let rolls = SpawnRolls {
             position_rolls: [
@@ -376,6 +379,7 @@ impl Sim {
             &mut self.enemies,
             &self.world,
             self.state.pressure,
+            self.state.stage,
             &ty,
             &boss_def,
             rolls,

@@ -28,7 +28,9 @@ import { upgradeTiers } from "../game/balance";
 import {
   accountProgress,
   currentLevelUpChoiceCount,
+  currentRarityProfile,
   currentRarityRank,
+  currentUpgradeTierCaps,
   currentUnlockedBuildTags,
   currentUnlockedTechnologyIds,
 } from "../systems/account";
@@ -55,6 +57,12 @@ interface RustEngineAccountContext {
   selectedStartStage: number;
   highestStartStageUnlocked: number;
   rarityRank: number;
+  rarityProfile: {
+    rare: number;
+    prototype: number;
+    singularity: number;
+  };
+  upgradeTierCaps: Record<string, string>;
   unlockedTechnologyIds: string[];
   unlockedBuildTags: string[];
   unlockedRelicIds: string[];
@@ -300,12 +308,18 @@ function buildConfig(config: SimulationConfig): RustEngineConfig {
 }
 
 function buildAccountContext(): RustEngineAccountContext {
+  const tierCaps: Record<string, string> = {};
+  for (const [upgradeId, cap] of Object.entries(currentUpgradeTierCaps())) {
+    if (cap) tierCaps[upgradeId] = cap;
+  }
   return {
     selectedCharacterId: accountProgress.selectedCharacterId,
     selectedWeaponId: accountProgress.selectedWeaponId,
     selectedStartStage: accountProgress.selectedStartStage,
     highestStartStageUnlocked: accountProgress.highestStartStageUnlocked,
     rarityRank: currentRarityRank(),
+    rarityProfile: currentRarityProfile(),
+    upgradeTierCaps: tierCaps,
     unlockedTechnologyIds: [...currentUnlockedTechnologyIds()],
     unlockedBuildTags: [...currentUnlockedBuildTags()],
     unlockedRelicIds: [...unlockedRelics],

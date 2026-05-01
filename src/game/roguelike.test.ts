@@ -10,10 +10,32 @@ import {
 describe("roguelike pressure cadence", () => {
   it("computes pressure only from stage and elapsed time", () => {
     expect(basePressureForStage(1)).toBe(1);
-    expect(basePressureForStage(2)).toBe(1 + bossBalance.pressureOffsetPerStage);
+    expect(basePressureForStage(2)).toBe(Math.round(1 + bossBalance.pressureOffsetPerStage));
+    expect(basePressureForStage(3)).toBe(
+      1 +
+        Math.round(bossBalance.pressureOffsetPerStage) +
+        Math.max(
+          1,
+          Math.round(
+            bossBalance.pressureOffsetPerStage * bossBalance.postStage2PressureOffsetRatio,
+          ),
+        ),
+    );
     expect(pressureForStageElapsed(1, 0)).toBe(1);
     expect(pressureForStageElapsed(1, 179.9)).toBe(3);
     expect(pressureForStageElapsed(2, 360)).toBe(basePressureForStage(2) + 6);
+  });
+
+  it("rounds fractional stage pressure offsets the same way as Rust", () => {
+    const original = bossBalance.pressureOffsetPerStage;
+    try {
+      bossBalance.pressureOffsetPerStage = 4.5;
+
+      expect(basePressureForStage(2)).toBe(6);
+      expect(basePressureForStage(3)).toBe(7);
+    } finally {
+      bossBalance.pressureOffsetPerStage = original;
+    }
   });
 
   it("can spawn mini-bosses on pressure milestones", () => {

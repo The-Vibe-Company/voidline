@@ -8,6 +8,7 @@ use crate::catalogs::{EnemyType, UpgradeTier};
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Balance {
+    pub enemy_density_multiplier: f64,
     pub player: PlayerBalance,
     pub pressure: PressureBalance,
     pub xp: XpBalance,
@@ -136,6 +137,9 @@ pub struct XpBalance {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnemyBalance {
+    pub swarm_hp_scale: f64,
+    pub swarm_damage_scale: f64,
+    pub swarm_speed_scale: f64,
     pub hp_scale_per_pressure: f64,
     pub speed_scale_per_pressure: f64,
     pub speed_scale_max: f64,
@@ -144,7 +148,17 @@ pub struct EnemyBalance {
     pub brute_chance_offset_pressure: f64,
     pub brute_chance_per_pressure: f64,
     pub brute_chance_max: f64,
+    pub contact_backoff: f64,
+    pub pursuit_lane: EnemyPursuitLane,
     pub wobble: EnemyWobble,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EnemyPursuitLane {
+    pub start_distance: f64,
+    pub max_turn: f64,
+    pub golden_angle_turn: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -255,6 +269,7 @@ pub struct UpgradeEffects {
 pub struct BossBalance {
     pub stage_duration_seconds: f64,
     pub pressure_offset_per_stage: f64,
+    pub post_stage2_pressure_offset_ratio: f64,
     pub contact_backoff: f64,
     pub stage_scaling: BossStageScaling,
     pub wobble: BossWobbleMap,
@@ -269,6 +284,8 @@ pub struct BossStageScaling {
     pub hp_per_stage: f64,
     pub damage_per_stage: f64,
     pub speed_per_stage: f64,
+    pub post_stage2_hp_offset_base: f64,
+    pub post_stage2_hp_offset_per_stage: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]

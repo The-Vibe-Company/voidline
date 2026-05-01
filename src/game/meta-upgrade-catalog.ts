@@ -4,11 +4,42 @@ import type {
   BuildTag,
   MetaUpgrade,
   MetaUpgradeId,
+  TierId,
 } from "../types";
 
-const CATEGORY_COSTS = [40, 75, 130, 220] as const;
-const categoryCostAt = (level: number): number =>
-  CATEGORY_COSTS[Math.max(0, Math.min(CATEGORY_COSTS.length - 1, level - 1))];
+const CARD_COSTS = [40, 85, 360, 460] as const;
+const STARTER_CARD_COSTS = [0, 80, 320, 420] as const;
+const RARE_SIGNAL_COSTS = [50, 105, 180] as const;
+const PROTOTYPE_LAB_COSTS = [220, 420, 750] as const;
+const SINGULARITY_CORE_COSTS = [120, 220, 360] as const;
+const CRYSTAL_CONTRACT_COSTS = [65, 125, 210] as const;
+
+const costFrom = (costs: readonly number[]) => (level: number): number =>
+  costs[Math.max(0, Math.min(costs.length - 1, level - 1))] ?? costs[costs.length - 1] ?? 0;
+
+export const CARD_TIER_BY_LEVEL = [
+  "standard",
+  "rare",
+  "prototype",
+  "singularity",
+] as const satisfies readonly TierId[];
+
+export interface RarityProfile {
+  rare: number;
+  prototype: number;
+  singularity: number;
+}
+
+export type UpgradeTierCaps = Partial<Record<string, TierId>>;
+
+function cardLevels(name: string): ReadonlyArray<{ summary: string }> {
+  return [
+    { summary: `Débloque ${name} en Standard.` },
+    { summary: `${name} peut apparaître en Rare.` },
+    { summary: `${name} peut apparaître en Prototype.` },
+    { summary: `${name} peut apparaître en Singularity.` },
+  ];
+}
 
 export const metaUpgradeCatalog: readonly MetaUpgrade[] = [
   {
@@ -62,79 +93,189 @@ export const metaUpgradeCatalog: readonly MetaUpgrade[] = [
     characterId: "tank",
   },
   {
+    id: "unique:char-engineer",
+    kind: "unique",
+    name: "Ingénieur",
+    description: "Pilote drone/récolte, fort en contrôle de zone mais moins explosif.",
+    maxLevel: 1,
+    costAt: () => 110,
+    requirement: "boss-kill",
+    characterId: "engineer",
+  },
+  {
     id: "unique:extra-choice",
     kind: "unique",
     name: "Banque tactique",
-    description: "+1 choix à chaque level-up.",
+    description: "+1 choix à chaque level-up. Ne se cumule avec aucun autre bonus de choix.",
     maxLevel: 1,
     costAt: () => 120,
     requirement: "available",
   },
   {
-    id: "category:attack",
-    kind: "category",
-    name: "Attaque",
-    description: "Augmente la qualité des upgrades offensifs.",
-    tag: "cannon",
-    technologyId: "heavy-caliber",
+    id: "card:plasma-core",
+    kind: "card",
+    name: "Carte cadence",
+    description: "Débloque Technologie cadence et ses tiers supérieurs.",
     maxLevel: 4,
-    costAt: categoryCostAt,
+    baseLevel: 1,
+    costAt: costFrom(STARTER_CARD_COSTS),
     requirement: "available",
-    levels: [
-      { summary: "Débloque la tech Calibre et les rares offensifs." },
-      { summary: "+25% chance de rare globale." },
-      { summary: "Débloque les prototypes." },
-      { summary: "Augmente la chance de singularité." },
-    ],
+    tag: "cannon",
+    technologyId: "plasma-core",
+    upgradeId: "plasma-core",
+    levels: cardLevels("Technologie cadence"),
   },
   {
-    id: "category:defense",
-    kind: "category",
-    name: "Défense",
-    description: "Renforce la coque et les builds défensifs.",
+    id: "card:rail-slug",
+    kind: "card",
+    name: "Carte dégâts",
+    description: "Débloque Technologie dégâts et ses tiers supérieurs.",
+    maxLevel: 4,
+    baseLevel: 1,
+    costAt: costFrom(STARTER_CARD_COSTS),
+    requirement: "available",
+    tag: "cannon",
+    technologyId: "rail-slug",
+    upgradeId: "rail-slug",
+    levels: cardLevels("Technologie dégâts"),
+  },
+  {
+    id: "card:ion-engine",
+    kind: "card",
+    name: "Carte moteurs",
+    description: "Débloque Technologie moteurs et ses tiers supérieurs.",
+    maxLevel: 4,
+    baseLevel: 1,
+    costAt: costFrom(STARTER_CARD_COSTS),
+    requirement: "available",
+    tag: "salvage",
+    technologyId: "ion-engine",
+    upgradeId: "ion-engine",
+    levels: cardLevels("Technologie moteurs"),
+  },
+  {
+    id: "card:magnet-array",
+    kind: "card",
+    name: "Carte aimant",
+    description: "Débloque Technologie aimant et ses tiers supérieurs.",
+    maxLevel: 4,
+    baseLevel: 1,
+    costAt: costFrom(STARTER_CARD_COSTS),
+    requirement: "available",
+    tag: "magnet",
+    technologyId: "magnet-array",
+    upgradeId: "magnet-array",
+    levels: cardLevels("Technologie aimant"),
+  },
+  {
+    id: "card:twin-cannon",
+    kind: "card",
+    name: "Carte salves",
+    description: "Débloque le +1 tir, puis les tiers qui ajoutent plus de projectiles.",
+    maxLevel: 4,
+    costAt: costFrom(CARD_COSTS),
+    requirement: "available",
+    tag: "cannon",
+    technologyId: "twin-cannon",
+    upgradeId: "twin-cannon",
+    levels: cardLevels("Technologie salves"),
+  },
+  {
+    id: "card:kinetic-shield",
+    kind: "card",
+    name: "Carte bouclier",
+    description: "Débloque Technologie défense et ses tiers supérieurs.",
+    maxLevel: 4,
+    costAt: costFrom(CARD_COSTS),
+    requirement: "reach-10m",
     tag: "shield",
     technologyId: "kinetic-shield",
-    maxLevel: 4,
-    costAt: categoryCostAt,
-    requirement: "available",
-    levels: [
-      { summary: "Débloque la tech Bouclier et les rares défensifs." },
-      { summary: "+1 charge de bouclier au départ." },
-      { summary: "Débloque les prototypes." },
-      { summary: "+0.5 régénération HP au départ." },
-    ],
+    upgradeId: "kinetic-shield",
+    levels: cardLevels("Technologie défense"),
   },
   {
-    id: "category:salvage",
-    kind: "category",
-    name: "Récolte",
-    description: "Optimise la collecte d'XP et les récompenses de run.",
-    tag: "salvage",
+    id: "card:crit-array",
+    kind: "card",
+    name: "Carte critique",
+    description: "Débloque les coups critiques et leurs tiers supérieurs.",
     maxLevel: 4,
-    costAt: categoryCostAt,
+    costAt: costFrom(CARD_COSTS),
     requirement: "available",
-    levels: [
-      { summary: "Débloque les rares de récolte." },
-      { summary: "+10% multiplicateur de cristaux par run." },
-      { summary: "+5% rayon de collecte." },
-      { summary: "Débloque les prototypes." },
-    ],
-  },
-  {
-    id: "category:tempo",
-    kind: "category",
-    name: "Tempo",
-    description: "Cadence, précision et flexibilité de build.",
     tag: "crit",
     technologyId: "crit-array",
+    upgradeId: "crit-array",
+    levels: cardLevels("Technologie critique"),
+  },
+  {
+    id: "card:heavy-caliber",
+    kind: "card",
+    name: "Carte calibre",
+    description: "Débloque Technologie calibre et ses tiers supérieurs.",
     maxLevel: 4,
-    costAt: categoryCostAt,
+    costAt: costFrom(CARD_COSTS),
+    requirement: "reach-stage-2",
+    tag: "cannon",
+    technologyId: "heavy-caliber",
+    upgradeId: "heavy-caliber",
+    levels: cardLevels("Technologie calibre"),
+  },
+  {
+    id: "rarity:rare-signal",
+    kind: "rarity",
+    name: "Signal rare",
+    description: "Autorise les cartes montées à proposer du Rare et augmente son apparition.",
+    maxLevel: 3,
+    costAt: costFrom(RARE_SIGNAL_COSTS),
+    requirement: "available",
+    rarityTier: "rare",
+    levels: [
+      { summary: "Débloque le tier Rare pour les cartes compatibles." },
+      { summary: "Augmente encore la fréquence du Rare." },
+      { summary: "Stabilise fortement les propositions Rare." },
+    ],
+  },
+  {
+    id: "rarity:prototype-lab",
+    kind: "rarity",
+    name: "Laboratoire prototype",
+    description: "Autorise les cartes montées à proposer du Prototype.",
+    maxLevel: 3,
+    costAt: costFrom(PROTOTYPE_LAB_COSTS),
+    requirement: "reach-stage-2",
+    rarityTier: "prototype",
+    levels: [
+      { summary: "Débloque le tier Prototype pour les cartes compatibles." },
+      { summary: "Augmente la fréquence du Prototype après sa gate." },
+      { summary: "Rend les prototypes plus réguliers en mid-game." },
+    ],
+  },
+  {
+    id: "rarity:singularity-core",
+    kind: "rarity",
+    name: "Noyau singularité",
+    description: "Autorise les cartes montées à proposer du Singularity.",
+    maxLevel: 3,
+    costAt: costFrom(SINGULARITY_CORE_COSTS),
+    requirement: "clear-stage-2",
+    rarityTier: "singularity",
+    levels: [
+      { summary: "Débloque le tier Singularity pour les cartes compatibles." },
+      { summary: "Augmente la fréquence du Singularity en late game." },
+      { summary: "Donne une vraie chance aux pics Singularity sans les garantir." },
+    ],
+  },
+  {
+    id: "utility:crystal-contract",
+    kind: "utility",
+    name: "Contrat cristal",
+    description: "Augmente les cristaux gagnés sans ajouter de puissance directe.",
+    maxLevel: 3,
+    costAt: costFrom(CRYSTAL_CONTRACT_COSTS),
     requirement: "available",
     levels: [
-      { summary: "Débloque la tech Critique et les rares de précision." },
-      { summary: "+25% chance de rare globale." },
-      { summary: "Débloque les prototypes." },
-      { summary: "+1 choix au level-up." },
+      { summary: "+5% cristaux gagnés en fin de run." },
+      { summary: "+10% cristaux gagnés en fin de run." },
+      { summary: "+15% cristaux gagnés en fin de run." },
     ],
   },
 ];
@@ -152,7 +293,10 @@ export function findMetaUpgrade(id: MetaUpgradeId): MetaUpgrade {
 }
 
 export function metaUpgradeLevel(progress: AccountProgress, id: MetaUpgradeId): number {
-  return Math.max(0, Math.min(findMetaUpgrade(id).maxLevel, progress.upgradeLevels[id] ?? 0));
+  const upgrade = findMetaUpgrade(id);
+  const base = upgrade.baseLevel ?? 0;
+  const stored = progress.upgradeLevels[id] ?? 0;
+  return Math.max(0, Math.min(upgrade.maxLevel, Math.max(base, stored)));
 }
 
 export function nextLevelCost(progress: AccountProgress, id: MetaUpgradeId): number | null {
@@ -293,4 +437,27 @@ export function unlockedBuildTagsFromMeta(progress: AccountProgress): Set<BuildT
     }
   }
   return tags;
+}
+
+export function upgradeTierCapsFromMeta(progress: AccountProgress): UpgradeTierCaps {
+  const caps: UpgradeTierCaps = {};
+  for (const upgrade of metaUpgradeCatalog) {
+    if (upgrade.kind !== "card" || !upgrade.upgradeId) continue;
+    const cap = cardTierCapAtLevel(metaUpgradeLevel(progress, upgrade.id));
+    if (cap) caps[upgrade.upgradeId] = cap;
+  }
+  return caps;
+}
+
+export function cardTierCapAtLevel(level: number): TierId | null {
+  if (level <= 0) return null;
+  return CARD_TIER_BY_LEVEL[Math.min(CARD_TIER_BY_LEVEL.length - 1, Math.floor(level) - 1)] ?? null;
+}
+
+export function rarityProfileFromMeta(progress: AccountProgress): RarityProfile {
+  return {
+    rare: metaUpgradeLevel(progress, "rarity:rare-signal"),
+    prototype: metaUpgradeLevel(progress, "rarity:prototype-lab"),
+    singularity: metaUpgradeLevel(progress, "rarity:singularity-core"),
+  };
 }

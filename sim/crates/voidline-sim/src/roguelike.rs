@@ -3,7 +3,17 @@
 use voidline_data::balance::Balance;
 
 pub fn base_pressure_for_stage(balance: &Balance, stage: u32) -> u32 {
-    1 + (stage.saturating_sub(1)) * (balance.bosses.pressure_offset_per_stage as u32)
+    let stage_offset = stage.saturating_sub(1);
+    let pressure_offset = balance.bosses.pressure_offset_per_stage;
+    if stage_offset <= 1 {
+        return (1.0 + stage_offset as f64 * pressure_offset)
+            .round()
+            .max(1.0) as u32;
+    }
+    let post_stage2_offset = (pressure_offset * balance.bosses.post_stage2_pressure_offset_ratio)
+        .round()
+        .max(1.0) as u32;
+    (1.0 + pressure_offset).round().max(1.0) as u32 + (stage_offset - 1) * post_stage2_offset
 }
 
 pub fn pressure_for_stage_elapsed(balance: &Balance, stage: u32, elapsed_seconds: f64) -> u32 {
@@ -59,7 +69,19 @@ mod tests {
         assert_eq!(base_pressure_for_stage(balance, 1), 1);
         assert_eq!(
             base_pressure_for_stage(balance, 2),
-            1 + balance.bosses.pressure_offset_per_stage as u32
+            (1.0 + balance.bosses.pressure_offset_per_stage)
+                .round()
+                .max(1.0) as u32
+        );
+        assert_eq!(
+            base_pressure_for_stage(balance, 3),
+            (1.0 + balance.bosses.pressure_offset_per_stage)
+                .round()
+                .max(1.0) as u32
+                + (balance.bosses.pressure_offset_per_stage
+                    * balance.bosses.post_stage2_pressure_offset_ratio)
+                    .round()
+                    .max(1.0) as u32
         );
         assert_eq!(pressure_for_stage_elapsed(balance, 1, 0.0), 1);
         assert_eq!(pressure_for_stage_elapsed(balance, 1, 179.9), 3);
@@ -67,5 +89,14 @@ mod tests {
             pressure_for_stage_elapsed(balance, 2, 360.0),
             base_pressure_for_stage(balance, 2) + 6
         );
+    }
+
+    #[test]
+    fn fractional_stage_pressure_offset_rounds_before_integer_pressure() {
+        let mut bundle = load_default().unwrap();
+        bundle.balance.bosses.pressure_offset_per_stage = 4.5;
+
+        assert_eq!(base_pressure_for_stage(&bundle.balance, 2), 6);
+        assert_eq!(base_pressure_for_stage(&bundle.balance, 3), 7);
     }
 }

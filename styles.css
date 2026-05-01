@@ -3082,17 +3082,27 @@ h2 {
 }
 
 .hangar-shop-pip {
+  display: grid;
+  place-items: center;
   flex: 1;
-  height: 5px;
-  border-radius: 999px;
+  min-width: 0;
+  height: 22px;
+  border-radius: 4px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--line);
+  font-family: "Share Tech Mono", ui-monospace, monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: color-mix(in srgb, var(--muted) 86%, transparent);
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .hangar-shop-pip[data-on="true"] {
   background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 50%, white 20%));
   border-color: var(--accent);
   box-shadow: 0 0 10px color-mix(in srgb, var(--accent) 60%, transparent);
+  color: #061018;
 }
 
 .hangar-shop-summary {
