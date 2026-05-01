@@ -157,7 +157,14 @@ describe("balance curves", () => {
     expect(balance.enemy.swarmHpScale).toBeCloseTo(0.25);
     expect(balance.enemy.swarmDamageScale).toBeCloseTo(0.27);
     expect(balance.enemy.contactBackoff).toBeCloseTo(0.65);
-    expect(balance.enemy.pursuitLane.maxTurn).toBeCloseTo(0.22);
+    expect(balance.enemy.pursuitLane.maxTurn).toBeCloseTo(0.27);
+    expect(balance.enemy.pursuitLane.pressureScaleBase).toBeCloseTo(0.45);
+    expect(balance.enemy.pursuitLane.pressureScalePerPressure).toBeCloseTo(0.04);
+    expect(balance.enemy.pursuitLane.pressureScaleMax).toBeCloseTo(1);
+    expect(balance.enemy.pursuitLane.stageScalePerStageAfterTwo).toBeCloseTo(3);
+    expect(balance.enemy.pursuitLane.separationRadius).toBeCloseTo(34);
+    expect(balance.enemy.pursuitLane.separationStrength).toBeCloseTo(0.9);
+    expect(balance.enemy.pursuitLane.separationSampleStride).toBe(4);
     expect(balance.enemy.hunterChancePerPressure).toBeCloseTo(0.07);
     expect(balance.enemy.bruteChancePerPressure).toBeCloseTo(0.05);
     expect(balance.enemy.bruteChanceOffsetPressure).toBe(2);
