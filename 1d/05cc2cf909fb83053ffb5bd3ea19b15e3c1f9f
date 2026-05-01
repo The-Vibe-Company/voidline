@@ -1,0 +1,35 @@
+sim/training/configs/oracle.yaml
+  6ee0b6ba3dccb406 1-10
+sim/training/voidline_rl/train.py
+  6ee0b6ba3dccb406 18,32-38,68,70,84-88
+sim/crates/voidline-meta/src/obs.rs
+  6ee0b6ba3dccb406 9,17-19,29,32-56,70,81,92,101,111,120,130-131,133,138,145,155-156,158-167,172,181,189-199,204,254,262-268,275,279-280,313,425-441,458-493,603-610,620,627,632-635,638-665
+sim/training/voidline_rl/modal_app.py
+  6ee0b6ba3dccb406 20
+sim/crates/voidline-meta/src/learned_policy.rs
+  6ee0b6ba3dccb406 65-73,87-95,152
+sim/crates/voidline-py/src/lib.rs
+  6ee0b6ba3dccb406 2-7,10-11,18,20-23,25-26,33-38,55-58,65,69-71,75-79,83,85,93,99,103-105,109-113,120,123,131-140,144-145,148-154,156-161,165-180,184-191,193,207-245,251-255,262-263,268-385,426-436,447-448,450,497-503,514,584,596,606,619-622,657-658,669-692
+sim/training/voidline_rl/env_voidline.py
+  6ee0b6ba3dccb406 18-20,47-52,54-59,86,88-90
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "1d05cc2cf909fb83053ffb5bd3ea19b15e3c1f9f",
+  "prompts": {
+    "6ee0b6ba3dccb406": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18ba11b5-b1a6-4dda-9710-3a6a10bec998",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1252,
+      "total_deletions": 2265,
+      "accepted_lines": 905,
+      "overriden_lines": 0
+    }
+  }
+}
