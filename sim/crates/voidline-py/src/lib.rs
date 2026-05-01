@@ -7,7 +7,7 @@
 //! enforced per phase by `voidline_meta::obs::action_mask`.
 #![cfg_attr(not(feature = "extension-module"), allow(dead_code, unused_imports))]
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 #[cfg(feature = "extension-module")]
 use pyo3::prelude::*;
@@ -56,7 +56,26 @@ struct StepInfo {
     runs_completed: u32,
     crystals: u64,
     highest_stage_cleared: u32,
+    /// Final per-episode metrics, populated only on the terminal step. None
+    /// during in-progress steps so consumers can detect episode boundaries.
+    episode_summary: Option<EpisodeSummary>,
     terminal_observation: Option<EncodedObservation>,
+}
+
+/// Per-episode aggregates exposed to the Python evaluator at terminal step.
+#[derive(Debug, Clone, Default)]
+struct EpisodeSummary {
+    runs_completed: u32,
+    final_crystals: u64,
+    highest_stage_cleared: u32,
+    /// Maps stage (1, 2, 3) to the run-index (0-based) at which it was first
+    /// cleared this episode. Absent stages were never cleared.
+    stage_clear_runs: HashMap<u32, u32>,
+    upgrade_offers: HashMap<String, u32>,
+    upgrade_picks: HashMap<String, u32>,
+    relic_offers: HashMap<String, u32>,
+    relic_picks: HashMap<String, u32>,
+    meta_purchases: HashMap<String, u32>,
 }
 
 struct EpisodeEnv {
@@ -77,6 +96,13 @@ struct EpisodeEnv {
     phase: EnvPhase,
     cleared_stages: HashSet<u32>,
     last_run_outcome: Option<RunOutcome>,
+    // Per-episode counters exposed at terminal step (eval-only signal).
+    upgrade_offers: HashMap<String, u32>,
+    upgrade_picks: HashMap<String, u32>,
+    relic_offers: HashMap<String, u32>,
+    relic_picks: HashMap<String, u32>,
+    meta_purchases: HashMap<String, u32>,
+    stage_clear_runs: HashMap<u32, u32>,
 }
 
 impl EpisodeEnv {
@@ -111,6 +137,12 @@ impl EpisodeEnv {
             phase: EnvPhase::Run,
             cleared_stages: HashSet::new(),
             last_run_outcome: None,
+            upgrade_offers: HashMap::new(),
+            upgrade_picks: HashMap::new(),
+            relic_offers: HashMap::new(),
+            relic_picks: HashMap::new(),
+            meta_purchases: HashMap::new(),
+            stage_clear_runs: HashMap::new(),
         })
     }
 
@@ -134,6 +166,12 @@ impl EpisodeEnv {
         self.cleared_stages.clear();
         self.runs_in_episode = 0;
         self.last_run_outcome = None;
+        self.upgrade_offers.clear();
+        self.upgrade_picks.clear();
+        self.relic_offers.clear();
+        self.relic_picks.clear();
+        self.meta_purchases.clear();
+        self.stage_clear_runs.clear();
         self.engine.reset(
             Some(self.seed),
             Some(engine_account_context(&self.bundle, &self.account)),
@@ -142,13 +180,21 @@ impl EpisodeEnv {
     }
 
     /// Build the (observation, action_mask) pair from the current engine
-    /// snapshot + cached choices + cached shop list.
+    /// snapshot + cached choices + cached shop list. Side-effect: when a
+    /// fresh draft is generated we tally each option as an "offer" exactly
+    /// once, before the agent gets a chance to pick.
     fn observe(&mut self) -> (EncodedObservation, ActionMask) {
         let snapshot = self.engine.snapshot();
         if matches!(self.phase, EnvPhase::Run) {
             if snapshot.state.pending_upgrades > 0 {
                 if self.current_upgrades.is_empty() {
                     self.current_upgrades = self.engine.draft_upgrades(4);
+                    for choice in &self.current_upgrades {
+                        *self
+                            .upgrade_offers
+                            .entry(choice.upgrade_id.clone())
+                            .or_insert(0) += 1;
+                    }
                 }
             } else {
                 self.current_upgrades.clear();
@@ -156,6 +202,12 @@ impl EpisodeEnv {
             if snapshot.state.pending_chests > 0 {
                 if self.current_relics.is_empty() {
                     self.current_relics = self.engine.draft_relics(3);
+                    for choice in &self.current_relics {
+                        *self
+                            .relic_offers
+                            .entry(choice.relic_id.clone())
+                            .or_insert(0) += 1;
+                    }
                 }
             } else {
                 self.current_relics.clear();
@@ -189,6 +241,8 @@ impl EpisodeEnv {
 
     fn step_run(&mut self, action: RlAction) -> StepOutput {
         // Apply in-run draft / relic decisions (action[1], action[2]).
+        // (Offers were already tallied in observe() when the draft was
+        // generated.) Picks are tallied inside apply_decision_action.
         self.apply_decision_action(action);
         // Drive movement (action[0]).
         self.engine.set_input(EngineInput {
@@ -213,6 +267,8 @@ impl EpisodeEnv {
         for stage in &snapshot.state.run_boss_stages {
             if !self.cleared_stages.contains(stage) {
                 self.cleared_stages.insert(*stage);
+                self.stage_clear_runs
+                    .insert(*stage, self.runs_in_episode);
                 if let Some((_, value)) = STAGE_CLEAR_BONUSES.iter().find(|(s, _)| s == stage) {
                     bonus += value;
                 }
@@ -253,6 +309,11 @@ impl EpisodeEnv {
             runs_completed: self.runs_in_episode,
             crystals: self.account.crystals,
             highest_stage_cleared: self.account.highest_stage_cleared,
+            episode_summary: if episode_terminated {
+                Some(self.snapshot_summary())
+            } else {
+                None
+            },
             terminal_observation: None,
         };
         let obs = self.observe().0;
@@ -284,6 +345,10 @@ impl EpisodeEnv {
                 {
                     if can_purchase(&self.account, &meta).is_ok() {
                         let _ = purchase(&mut self.account, &meta);
+                        *self
+                            .meta_purchases
+                            .entry(meta.id.clone())
+                            .or_insert(0) += 1;
                         // Reward unlock-y purchases more than rarity/utility tiers.
                         reward += match meta.kind.as_str() {
                             "unique" | "card" => PURCHASE_BONUS,
@@ -335,6 +400,11 @@ impl EpisodeEnv {
             runs_completed: runs_in_episode,
             crystals,
             highest_stage_cleared,
+            episode_summary: if episode_terminated {
+                Some(self.snapshot_summary())
+            } else {
+                None
+            },
             terminal_observation: None,
         };
         let obs = self.observe().0;
@@ -344,6 +414,20 @@ impl EpisodeEnv {
             terminated: episode_terminated,
             truncated: false,
             info,
+        }
+    }
+
+    fn snapshot_summary(&self) -> EpisodeSummary {
+        EpisodeSummary {
+            runs_completed: self.runs_in_episode,
+            final_crystals: self.account.crystals,
+            highest_stage_cleared: self.account.highest_stage_cleared,
+            stage_clear_runs: self.stage_clear_runs.clone(),
+            upgrade_offers: self.upgrade_offers.clone(),
+            upgrade_picks: self.upgrade_picks.clone(),
+            relic_offers: self.relic_offers.clone(),
+            relic_picks: self.relic_picks.clone(),
+            meta_purchases: self.meta_purchases.clone(),
         }
     }
 
@@ -402,11 +486,21 @@ impl EpisodeEnv {
         if snapshot.state.pending_upgrades > 0 && action.upgrade_pick > 0 {
             if self.current_upgrades.is_empty() {
                 self.current_upgrades = self.engine.draft_upgrades(4);
+                // Defensive: if the draft is happening here (rather than via
+                // observe()), still tally offers so picks can never outpace
+                // offers.
+                for choice in &self.current_upgrades {
+                    *self
+                        .upgrade_offers
+                        .entry(choice.upgrade_id.clone())
+                        .or_insert(0) += 1;
+                }
             }
             if let Some(choice) = self.current_upgrades.get(action.upgrade_pick - 1) {
-                let _ = self
-                    .engine
-                    .apply_upgrade(&choice.upgrade_id, &choice.tier_id);
+                let upgrade_id = choice.upgrade_id.clone();
+                let tier_id = choice.tier_id.clone();
+                let _ = self.engine.apply_upgrade(&upgrade_id, &tier_id);
+                *self.upgrade_picks.entry(upgrade_id).or_insert(0) += 1;
                 self.current_upgrades.clear();
             }
         }
@@ -414,9 +508,17 @@ impl EpisodeEnv {
         if snapshot.state.pending_chests > 0 && action.relic_pick > 0 {
             if self.current_relics.is_empty() {
                 self.current_relics = self.engine.draft_relics(3);
+                for choice in &self.current_relics {
+                    *self
+                        .relic_offers
+                        .entry(choice.relic_id.clone())
+                        .or_insert(0) += 1;
+                }
             }
             if let Some(choice) = self.current_relics.get(action.relic_pick - 1) {
-                let _ = self.engine.apply_relic(&choice.relic_id);
+                let relic_id = choice.relic_id.clone();
+                let _ = self.engine.apply_relic(&relic_id);
+                *self.relic_picks.entry(relic_id).or_insert(0) += 1;
                 self.current_relics.clear();
             }
         }
@@ -620,8 +722,62 @@ fn info_to_py(py: Python<'_>, info: &StepInfo) -> PyResult<Py<PyAny>> {
     dict.set_item("runs_completed", info.runs_completed)?;
     dict.set_item("crystals", info.crystals)?;
     dict.set_item("highest_stage_cleared", info.highest_stage_cleared)?;
+    if let Some(summary) = &info.episode_summary {
+        dict.set_item("episode_summary", summary_to_py(py, summary)?)?;
+    }
     if let Some(obs) = &info.terminal_observation {
         dict.set_item("terminal_observation", obs_to_py(py, obs)?)?;
+    }
+    Ok(dict.into_any().unbind())
+}
+
+#[cfg(feature = "extension-module")]
+fn summary_to_py(py: Python<'_>, summary: &EpisodeSummary) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    dict.set_item("runs_completed", summary.runs_completed)?;
+    dict.set_item("final_crystals", summary.final_crystals)?;
+    dict.set_item("highest_stage_cleared", summary.highest_stage_cleared)?;
+    dict.set_item("stage_clear_runs", hashmap_u32_u32_to_py(py, &summary.stage_clear_runs)?)?;
+    dict.set_item(
+        "upgrade_offers",
+        hashmap_string_u32_to_py(py, &summary.upgrade_offers)?,
+    )?;
+    dict.set_item(
+        "upgrade_picks",
+        hashmap_string_u32_to_py(py, &summary.upgrade_picks)?,
+    )?;
+    dict.set_item(
+        "relic_offers",
+        hashmap_string_u32_to_py(py, &summary.relic_offers)?,
+    )?;
+    dict.set_item(
+        "relic_picks",
+        hashmap_string_u32_to_py(py, &summary.relic_picks)?,
+    )?;
+    dict.set_item(
+        "meta_purchases",
+        hashmap_string_u32_to_py(py, &summary.meta_purchases)?,
+    )?;
+    Ok(dict.into_any().unbind())
+}
+
+#[cfg(feature = "extension-module")]
+fn hashmap_string_u32_to_py(
+    py: Python<'_>,
+    map: &HashMap<String, u32>,
+) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    for (k, v) in map {
+        dict.set_item(k, *v)?;
+    }
+    Ok(dict.into_any().unbind())
+}
+
+#[cfg(feature = "extension-module")]
+fn hashmap_u32_u32_to_py(py: Python<'_>, map: &HashMap<u32, u32>) -> PyResult<Py<PyAny>> {
+    let dict = PyDict::new(py);
+    for (k, v) in map {
+        dict.set_item(*k, *v)?;
     }
     Ok(dict.into_any().unbind())
 }

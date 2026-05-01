@@ -9,8 +9,6 @@ from pathlib import Path
 
 import modal
 
-from .detect_anomalies import detect
-
 
 APP_NAME = "voidline-balance"
 REMOTE_REPO = Path("/workspace/voidline")
@@ -91,9 +89,10 @@ image = (
 )
 
 COMMAND_TIMEOUT_SECONDS = {
-    "quick": 270,
+    "quick": 60 * 15,
     "full": 60 * 60 * 4 - 120,
     "train": 60 * 60 * 6 - 120,
+    "test-card": 60 * 20,
 }
 
 RESERVED_REMOTE_ARGS = {"--output", "--model-dir", "--checkpoint-dir", "--repo-root"}
@@ -164,6 +163,27 @@ def _build_voidline_py(env: dict[str, str]) -> None:
     wheel_dir = Path("/tmp/voidline-py-wheel")
     shutil.rmtree(wheel_dir, ignore_errors=True)
     wheel_dir.mkdir(parents=True, exist_ok=True)
+
+    # The persistent cargo cache volume can hold stale .so artefacts past
+    # mtime-based fingerprinting (see scripts/meta-progression-report.sh for
+    # the same issue on the CLI binary). `cargo clean -p` proved unreliable
+    # because maturin's cdylib output is in `target/release/` rather than
+    # the per-package layout cargo expects. The nuclear option (wipe the
+    # release tree once per marker bump) is fast in practice and only fires
+    # when this constant changes.
+    rebuild_marker_value = "20260501e-oracle-rl-foundation"
+    cargo_target = Path(env.get("CARGO_TARGET_DIR", str(REMOTE_REPO / "sim" / "target")))
+    marker = cargo_target / ".voidline-rebuild-marker-py"
+    cargo_target.mkdir(parents=True, exist_ok=True)
+    current = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    if current.strip() != rebuild_marker_value:
+        for victim in (cargo_target / "release", cargo_target / "debug"):
+            try:
+                shutil.rmtree(victim)
+            except FileNotFoundError:
+                pass
+        marker.write_text(rebuild_marker_value + "\n", encoding="utf-8")
+
     subprocess.run(
         [
             "maturin",
@@ -185,71 +205,26 @@ def _build_voidline_py(env: dict[str, str]) -> None:
 
 
 def _require_models(model_dir: Path) -> None:
-    missing = [persona for persona in PERSONAS if not (model_dir / f"{persona}.onnx").is_file()]
+    missing = [
+        persona
+        for persona in PERSONAS
+        if not (model_dir / f"{persona}.zip").is_file()
+    ]
     if missing:
-        joined = ", ".join(f"{persona}.onnx" for persona in missing)
+        joined = ", ".join(f"{persona}.zip" for persona in missing)
         raise RuntimeError(f"missing RL model(s): {joined}; run `npm run balance:train` first")
 
 
-def _heuristic_args(mode: str, output_path: Path, checkpoint_dir: Path) -> list[str]:
-    if mode == "quick":
-        campaigns, runs, max_pressure, trial_seconds, max_seconds = 2, 8, 60, 360, 55
-    else:
-        campaigns, runs, max_pressure, trial_seconds, max_seconds = 12, 120, 80, 720, 360
-    return [
-        "bash",
-        "scripts/meta-progression-report.sh",
-        "--default",
-        "--player-profile",
-        "skilled",
-        "--policy-set",
-        "focused",
-        "--campaigns",
-        str(campaigns),
-        "--runs",
-        str(runs),
-        "--max-pressure",
-        str(max_pressure),
-        "--trial-seconds",
-        str(trial_seconds),
-        "--max-seconds",
-        str(max_seconds),
-        "--checkpoint-dir",
-        str(checkpoint_dir),
-        "--output",
-        str(output_path),
-    ]
-
-
-def _learned_args(mode: str, model_dir: Path, output_path: Path) -> list[str]:
-    if mode == "quick":
-        sizing = [
-            "--quick",
-            "--campaigns",
-            "1",
-            "--runs",
-            "2",
-            "--max-pressure",
-            "20",
-            "--trial-seconds",
-            "90",
-            "--max-seconds",
-            "45",
-        ]
-    else:
-        sizing = [
-            "--campaigns",
-            "6",
-            "--runs",
-            "16",
-            "--max-pressure",
-            "60",
-            "--trial-seconds",
-            "480",
-            "--max-seconds",
-            "240",
-        ]
-    return [
+def _oracle_args(
+    mode: str,
+    model_dir: Path,
+    output_path: Path,
+    target_upgrade_id: str | None = None,
+) -> list[str]:
+    """Single oracle eval entry point — replaces the legacy heuristic +
+    learned report split.
+    """
+    base = [
         "python3",
         "-m",
         "voidline_rl.eval",
@@ -259,8 +234,12 @@ def _learned_args(mode: str, model_dir: Path, output_path: Path) -> list[str]:
         str(model_dir),
         "--output",
         str(output_path),
-        *sizing,
+        "--mode",
+        mode,
     ]
+    if target_upgrade_id is not None:
+        base.extend(["--target-upgrade-id", target_upgrade_id])
+    return base
 
 
 def _write_metadata(
@@ -291,38 +270,26 @@ def _run_report(
     command: str,
     extra_args: list[str],
     artifact_dir: Path,
-    checkpoint_dir: Path,
+    _checkpoint_dir: Path,
     model_dir: Path,
     env: dict[str, str],
+    target_upgrade_id: str | None = None,
 ) -> tuple[dict[str, object], list[list[str]]]:
+    """Run a single oracle eval and write the canonical report.
+
+    The legacy heuristic + learned split was retired with the oracle RL
+    rewrite — both signals now flow through one ``voidline_rl.eval`` run.
+    """
     _require_models(model_dir)
     _build_voidline_py(env)
 
-    heuristic_path = artifact_dir / "heuristic.json"
-    learned_path = artifact_dir / "learned.json"
     output_path = artifact_dir / f"{command}.json"
-
-    heuristic_argv = _merge_extra_args(_heuristic_args(command, heuristic_path, checkpoint_dir), extra_args)
-    learned_argv = _merge_extra_args(_learned_args(command, model_dir, learned_path), extra_args)
-    executed = [
-        _run_timeout(heuristic_argv, env, command),
-        _run_timeout(learned_argv, env, command),
-    ]
-
-    heuristic = json.loads(heuristic_path.read_text(encoding="utf-8"))
-    learned = json.loads(learned_path.read_text(encoding="utf-8"))
-    payload = {
-        "schemaVersion": 1,
-        "mode": command,
-        "modelDir": str(model_dir),
-        "heuristic": heuristic,
-        "learned": learned,
-        "flags": {
-            "heuristic": detect(heuristic),
-            "learned": learned.get("flags", []),
-        },
-    }
-    output_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    argv = _merge_extra_args(
+        _oracle_args(command, model_dir, output_path, target_upgrade_id),
+        extra_args,
+    )
+    executed = [_run_timeout(argv, env, command)]
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
     return payload, executed
 
 
@@ -356,7 +323,7 @@ def _run_command(
     run_id: str,
     resource_class: str,
 ) -> dict[str, object]:
-    if command not in {"quick", "full", "train"}:
+    if command not in {"quick", "full", "train", "test-card"}:
         raise ValueError(f"unknown balance command: {command}")
     extra_args = json.loads(extra_args_json)
     if not isinstance(extra_args, list) or not all(isinstance(item, str) for item in extra_args):
@@ -374,7 +341,31 @@ def _run_command(
     if command == "train":
         payload, executed = _run_train(extra_args, artifact_dir, model_dir, env)
     else:
-        payload, executed = _run_report(command, extra_args, artifact_dir, checkpoint_dir, model_dir, env)
+        # `--target-upgrade-id <id>` is allowed in extra_args for test-card.
+        target_upgrade_id: str | None = None
+        cleaned_extras: list[str] = []
+        skip_next = False
+        for idx, arg in enumerate(extra_args):
+            if skip_next:
+                skip_next = False
+                continue
+            if arg == "--target-upgrade-id" and idx + 1 < len(extra_args):
+                target_upgrade_id = extra_args[idx + 1]
+                skip_next = True
+                continue
+            if arg.startswith("--target-upgrade-id="):
+                target_upgrade_id = arg.split("=", 1)[1]
+                continue
+            cleaned_extras.append(arg)
+        payload, executed = _run_report(
+            command,
+            cleaned_extras,
+            artifact_dir,
+            checkpoint_dir,
+            model_dir,
+            env,
+            target_upgrade_id=target_upgrade_id,
+        )
 
     _write_metadata(
         artifact_dir,
@@ -408,7 +399,7 @@ def _run_command(
     volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
     cpu=32,
     memory=65536,
-    timeout=60 * 5,
+    timeout=60 * 20,
 )
 def run_balance_quick(command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str) -> dict[str, object]:
     return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")
@@ -437,6 +428,19 @@ def run_balance_train(command: str, extra_args_json: str, git_sha: str, balance_
     return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "h100-burst")
 
 
+@app.function(
+    image=image,
+    volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
+    cpu=32,
+    memory=65536,
+    timeout=60 * 25,
+)
+def run_balance_test_card(
+    command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str
+) -> dict[str, object]:
+    return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")
+
+
 @app.local_entrypoint()
 def main(command: str, extra_args_json: str = "[]", git_sha: str = "unknown", balance_hash: str = "unknown", run_id: str = "manual") -> None:
     if command == "quick":
@@ -445,6 +449,10 @@ def main(command: str, extra_args_json: str = "[]", git_sha: str = "unknown", ba
         result = run_balance_full.remote(command, extra_args_json, git_sha, balance_hash, run_id)
     elif command == "train":
         result = run_balance_train.remote(command, extra_args_json, git_sha, balance_hash, run_id)
+    elif command == "test-card":
+        result = run_balance_test_card.remote(
+            command, extra_args_json, git_sha, balance_hash, run_id
+        )
     else:
         raise SystemExit(f"unknown balance command: {command}")
 
