@@ -48,6 +48,8 @@ def train_persona(persona: str, model_dir: Path, timesteps: int, seed: int, conf
         n_epochs=int(config.get("n_epochs", 2)),
         gamma=float(config.get("gamma", 0.99)),
         learning_rate=float(config.get("learning_rate", 3e-4)),
+        ent_coef=float(config.get("ent_coef", 0.0)),
+        clip_range=float(config.get("clip_range", 0.2)),
         device=config.get("device", "auto"),
     )
     model.learn(total_timesteps=timesteps)

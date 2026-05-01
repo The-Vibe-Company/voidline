@@ -30,11 +30,13 @@ use voidline_sim::engine::{
     Engine, EngineConfig, EngineInput, RelicChoiceRecord, UpgradeChoiceRecord,
 };
 
-const DEFAULT_RUNS_PER_EPISODE: u32 = 150;
-const STAGE_CLEAR_BONUSES: [(u32, f64); 3] = [(1, 1000.0), (2, 5000.0), (3, 20000.0)];
-const SHOP_IDLE_STEP_PENALTY: f64 = -0.1;
-const PURCHASE_BONUS: f64 = 50.0;
-const RUN_DEATH_PENALTY: f64 = 100.0;
+const DEFAULT_RUNS_PER_EPISODE: u32 = 30;
+const STAGE_CLEAR_BONUSES: [(u32, f64); 3] = [(1, 200.0), (2, 800.0), (3, 3000.0)];
+const STAGE_ENTRY_BONUS: f64 = 30.0;
+const LEVEL_UP_BONUS: f64 = 5.0;
+const SHOP_IDLE_STEP_PENALTY: f64 = -0.05;
+const PURCHASE_BONUS: f64 = 25.0;
+const RUN_DEATH_PENALTY: f64 = 30.0;
 
 #[derive(Debug, Clone)]
 struct StepOutput {
@@ -89,6 +91,8 @@ struct EpisodeEnv {
     runs_per_episode: u32,
     runs_in_episode: u32,
     last_score: f64,
+    last_level: u32,
+    last_stage: u32,
     current_upgrades: Vec<UpgradeChoiceRecord>,
     current_relics: Vec<RelicChoiceRecord>,
     current_shop: Vec<ShopChoiceRecord>,
@@ -130,6 +134,8 @@ impl EpisodeEnv {
             runs_per_episode: runs_per_episode.max(1),
             runs_in_episode: 0,
             last_score: 0.0,
+            last_level: 1,
+            last_stage: 1,
             current_upgrades: Vec::new(),
             current_relics: Vec::new(),
             current_shop: Vec::new(),
@@ -158,6 +164,8 @@ impl EpisodeEnv {
         self.episode_index = self.episode_index.wrapping_add(1);
         self.step_count = 0;
         self.last_score = 0.0;
+        self.last_level = 1;
+        self.last_stage = 1;
         self.current_upgrades.clear();
         self.current_relics.clear();
         self.current_shop.clear();
@@ -261,9 +269,23 @@ impl EpisodeEnv {
         let run_died = snapshot.state.mode == "gameover";
         let truncated_run = self.step_count >= self.max_steps_per_run;
 
+        // Intermediate dense rewards so the agent gets feedback before it can
+        // ever finish a full stage. Level-up and stage-entry bonuses fire
+        // every time the engine reports a step in those counters.
+        let mut bonus = 0.0;
+        let cur_level = snapshot.state.level;
+        if cur_level > self.last_level {
+            bonus += LEVEL_UP_BONUS * (cur_level - self.last_level) as f64;
+            self.last_level = cur_level;
+        }
+        let cur_stage = snapshot.state.stage;
+        if cur_stage > self.last_stage {
+            bonus += STAGE_ENTRY_BONUS * (cur_stage - self.last_stage) as f64;
+            self.last_stage = cur_stage;
+        }
+
         // First-time stage-clear bonuses fire as soon as the engine reports a
         // boss kill (run_boss_stages includes the cleared stage).
-        let mut bonus = 0.0;
         for stage in &snapshot.state.run_boss_stages {
             if !self.cleared_stages.contains(stage) {
                 self.cleared_stages.insert(*stage);
@@ -441,6 +463,8 @@ impl EpisodeEnv {
         );
         self.step_count = 0;
         self.last_score = 0.0;
+        self.last_level = 1;
+        self.last_stage = 1;
         self.current_upgrades.clear();
         self.current_relics.clear();
         self.phase = EnvPhase::Run;

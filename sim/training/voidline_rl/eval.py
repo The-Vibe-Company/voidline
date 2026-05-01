@@ -272,7 +272,8 @@ def main() -> None:
     )
     episodes_summaries: list[dict[str, Any]] = []
     for idx in range(episodes_n):
-        seed = args.seed + idx * 0x9E3779B1
+        # Wrap seed inside the u32 PyO3 boundary expects.
+        seed = (args.seed + idx * 0x9E3779B1) & 0xFFFFFFFF
         ep = run_episode(model, seed, runs_per_ep, args.max_steps)
         episodes_summaries.append(ep)
         if (idx + 1) % max(1, episodes_n // 10) == 0:
