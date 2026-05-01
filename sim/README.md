@@ -110,71 +110,30 @@ sim/target/release/voidline-cli --quick   # 4 × 15 × 25, max_pressure=12
 sim/target/release/voidline-cli --default # 4 × 50 × 40, max_pressure=30, ~30s budget
 ```
 
-Or via npm wrappers:
-
-```sh
-npm run balance:meta-report:quick
-npm run balance:meta-report
-```
-
-Balance npm wrappers route through `scripts/balance-dispatch.sh`. If Modal
-credentials are configured, Modal is the default backend for `balance:*`
-commands; use `VOIDLINE_BALANCE_BACKEND=local` to force local execution.
-Use `--dry-run` to inspect the selected backend and command without launching
-compute.
-
 Output: `scripts/meta-progression-report.json` with per-policy aggregates
 (median/P25/P75 unlock times, median pressure at run index, milestones, death
 rates).
 
 ### RL balance pipeline
 
-The RL pipeline keeps the sim on CPU/Rayon and trains/evaluates policies from
-Python. Model artifacts are intentionally outside git:
+The RL pipeline keeps the sim on CPU/Rayon and trains/evaluates learned
+personas from Python. Operational balance commands are intentionally not
+documented here: `CLAUDE.md` is the source of truth for when to run
+`balance:quick`, `balance:full`, `balance:train`, and `balance:pull`.
 
-- `VOIDLINE_RL_MODEL_DIR` overrides the model directory.
-- Default model directory: `.context/rl-models`.
-- Expected ONNX names: `learned-human.onnx`, `learned-optimizer.onnx`,
-  `learned-explorer.onnx`, `learned-novice.onnx`.
+The important architecture constraint is that balance reports and training run
+on Modal only. Local development can launch Modal and pull artifacts, but it
+must not run balance checks, reports, or training locally. Remote models live
+in the `voidline-rl-models` Modal volume under the current `data/balance.json`
+hash; reports live in `voidline-balance-reports`; Cargo/uv caches live in
+`voidline-balance-cache` to reduce cold starts.
 
-Commands:
-
-```sh
-npm run balance:rl:train:baseline   # trains/exports the four ONNX personas
-npm run balance:rl:report:quick     # quick learned-persona report
-npm run balance:rl:report           # deeper learned-persona report
-npm run balance:rl:check            # report + anomaly failure code
-npm run balance:rl:smoke            # tiny local end-to-end smoke
-```
-
-Modal burst commands:
-
-```sh
-npm run balance:modal:profile:check # CPU burst balance check
-npm run balance:modal:sweep:check   # CPU burst sweep check
-npm run balance:modal:rl:train      # H100 burst RL training
-npm run balance:modal:pull          # download ONNX models for current balance hash
-npm run balance:modal:pull -- --reports
-```
-
-Remote models live in the `voidline-rl-models` Modal volume under the current
-`data/balance.json` hash. Remote reports live in `voidline-balance-reports` and
-can be pulled into `.context/balance-reports`. Cargo/uv build caches live in
-`voidline-balance-cache` to reduce cold-start rebuild time after the first run.
-Heavy CPU jobs (`profile`, `profile-check`, `sweep-check`, `rl-report`,
-`rl-check`) use the `big-cpu-burst` Modal tier: 64 cores, Modal's current max,
-with extra memory. Quick jobs use a smaller `cpu-burst`; RL training uses H100
-with extra CPU headroom. Every remote command also runs under a process-level
-`timeout --kill-after=60s` guard, in addition to Modal's function timeout, so
-stuck workers are terminated instead of burning burst credits indefinitely.
-
-Internally, `scripts/balance-rl-*.sh` builds the PyO3 module with maturin,
-then uses `sim/training/voidline_rl`. Python wrappers follow the Gymnasium
-step API (`obs, reward, terminated, truncated, info`) and use
-`sb3-contrib` `MaskablePPO` with `MultiDiscrete([9, 5, 4])` actions:
-movement, upgrade pick, relic pick. The Rust learned-policy evaluator and the
-Python env share `voidline-meta/src/obs.rs`; update that module deliberately,
-because changing its feature layout invalidates existing ONNX models.
+Python wrappers follow the Gymnasium step API (`obs, reward, terminated,
+truncated, info`) and use `sb3-contrib` `MaskablePPO` with
+`MultiDiscrete([9, 5, 4])` actions: movement, upgrade pick, relic pick. The
+Rust learned-policy evaluator and the Python env share
+`voidline-meta/src/obs.rs`; update that module deliberately, because changing
+its feature layout invalidates existing ONNX models.
 
 ## How to maintain (the "intelligently" part)
 

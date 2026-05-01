@@ -12,7 +12,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-root", type=Path, required=True)
     parser.add_argument("--model-dir", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=Path("scripts/balance-rl-report.json"))
+    parser.add_argument("--output", type=Path, default=Path(".context/balance-reports/learned.json"))
     parser.add_argument("--quick", action="store_true")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--campaigns", type=int)

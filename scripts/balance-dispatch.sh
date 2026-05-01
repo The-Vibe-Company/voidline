@@ -4,31 +4,21 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TRAINING_DIR="$REPO_ROOT/sim/training"
+PERSONAS=(learned-human learned-optimizer learned-explorer learned-novice)
 
 usage() {
   cat >&2 <<'EOF'
-usage: scripts/balance-dispatch.sh <command> [args...]
+usage: scripts/balance-dispatch.sh <quick|full|train|pull> [args...]
 
 Commands:
-  meta-report              meta progression report
-  meta-report-quick        quick meta progression report
-  profile                  skilled balance profile
-  profile-quick            quick skilled balance profile
-  profile-check            balance profile with anomaly thresholds
-  sweep-quick              quick balance sweep
-  sweep-check              balance sweep with anomaly thresholds
-  phase2-quick             quick isolated stage 2 balance report
-  phase3-quick             quick isolated stage 3 balance report
-  rl-train-baseline        train RL baseline personas
-  rl-report-quick          quick RL learned-policy report
-  rl-report                RL learned-policy report
-  rl-check                 RL learned-policy report with anomaly thresholds
-  rl-smoke                 tiny RL train/export/eval smoke
+  quick   Modal balance trend check, CPU, target <5 min
+  full    Modal deep balance report, big CPU
+  train   Modal H100 RL training, persists ONNX models
+  pull    Pull Modal models/reports into .context
 
-Environment:
-  VOIDLINE_BALANCE_BACKEND=local  force local execution
-  VOIDLINE_BALANCE_BACKEND=modal  force Modal execution
-  unset/auto                     use Modal when credentials exist, otherwise local
+Options:
+  --dry-run     print resolved Modal command/resources without launching
+  pull --reports  pull reports instead of models
 EOF
 }
 
@@ -41,108 +31,52 @@ COMMAND="$1"
 shift
 
 DRY_RUN=0
+PULL_MODE="models"
+BALANCE_HASH=""
+MODEL_DIR="${VOIDLINE_RL_MODEL_DIR:-$REPO_ROOT/.context/rl-models}"
+REPORT_DIR="${VOIDLINE_BALANCE_REPORT_DIR:-$REPO_ROOT/.context/balance-reports}"
 EXTRA_ARGS=()
-for arg in "$@"; do
-  case "$arg" in
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
     --dry-run)
       DRY_RUN=1
+      shift
+      ;;
+    --reports)
+      PULL_MODE="reports"
+      EXTRA_ARGS+=("$1")
+      shift
+      ;;
+    --models)
+      PULL_MODE="models"
+      EXTRA_ARGS+=("$1")
+      shift
+      ;;
+    --balance-hash)
+      BALANCE_HASH="$2"
+      EXTRA_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --model-dir)
+      MODEL_DIR="$2"
+      EXTRA_ARGS+=("$1" "$2")
+      shift 2
+      ;;
+    --report-dir)
+      REPORT_DIR="$2"
+      EXTRA_ARGS+=("$1" "$2")
+      shift 2
       ;;
     *)
-      EXTRA_ARGS+=("$arg")
+      EXTRA_ARGS+=("$1")
+      shift
       ;;
   esac
 done
 
-LOCAL_CMD=()
 case "$COMMAND" in
-  meta-report)
-    LOCAL_CMD=("$REPO_ROOT/scripts/meta-progression-report.sh" --default)
-    ;;
-  meta-report-quick)
-    LOCAL_CMD=("$REPO_ROOT/scripts/meta-progression-report.sh" --quick)
-    ;;
-  profile)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-profile.sh")
-    ;;
-  profile-quick)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-profile.sh" --quick)
-    ;;
-  profile-check)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-profile.sh" --check)
-    ;;
-  sweep-quick)
-    LOCAL_CMD=(
-      "$REPO_ROOT/scripts/meta-progression-report.sh"
-      --default
-      --player-profile expert-human
-      --policy-set focused
-      --campaigns 6
-      --runs 80
-      --max-pressure 80
-      --trial-seconds 720
-      --max-seconds 180
-      --output scripts/balance-sweep-report.json
-    )
-    ;;
-  sweep-check)
-    LOCAL_CMD=(
-      "$REPO_ROOT/scripts/meta-progression-report.sh"
-      --default
-      --player-profile skilled
-      --policy-set focused
-      --campaigns 12
-      --runs 120
-      --max-pressure 80
-      --trial-seconds 720
-      --max-seconds 360
-      --check-target balance
-      --output scripts/balance-sweep-report.json
-    )
-    ;;
-  phase2-quick)
-    LOCAL_CMD=(
-      "$REPO_ROOT/scripts/meta-progression-report.sh"
-      --default
-      --phase stage2
-      --player-profile expert-human
-      --policy-set focused
-      --campaigns 6
-      --runs 80
-      --max-pressure 80
-      --trial-seconds 720
-      --max-seconds 180
-      --output scripts/balance-phase2-report.json
-    )
-    ;;
-  phase3-quick)
-    LOCAL_CMD=(
-      "$REPO_ROOT/scripts/meta-progression-report.sh"
-      --default
-      --phase stage3
-      --player-profile expert-human
-      --policy-set focused
-      --campaigns 6
-      --runs 80
-      --max-pressure 80
-      --trial-seconds 720
-      --max-seconds 180
-      --output scripts/balance-phase3-report.json
-    )
-    ;;
-  rl-train-baseline)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-rl-train-baseline.sh")
-    ;;
-  rl-report-quick)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-rl-report.sh" --quick)
-    ;;
-  rl-report)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-rl-report.sh")
-    ;;
-  rl-check)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-rl-report.sh" --check)
-    ;;
-  rl-smoke)
-    LOCAL_CMD=("$REPO_ROOT/scripts/balance-rl-smoke.sh")
+  quick|full|train|pull)
     ;;
   *)
     echo "unknown balance command: $COMMAND" >&2
@@ -196,87 +130,112 @@ PY
   return 1
 }
 
-has_modal_runner() {
-  command -v uvx >/dev/null 2>&1
+require_modal() {
+  if ! command -v uvx >/dev/null 2>&1; then
+    echo "balance commands require uvx to launch Modal. Install uv first." >&2
+    exit 2
+  fi
+  if ! has_modal_credentials; then
+    echo "balance commands require Modal credentials. Set MODAL_TOKEN_ID/MODAL_TOKEN_SECRET or run modal token set." >&2
+    exit 2
+  fi
 }
 
-BACKEND="${VOIDLINE_BALANCE_BACKEND:-auto}"
-TARGET_BACKEND=""
-case "$BACKEND" in
-  local)
-    TARGET_BACKEND="local"
+resolve_balance_hash() {
+  if [[ -n "$BALANCE_HASH" ]]; then
+    printf "%s" "$BALANCE_HASH"
+    return
+  fi
+  python3 -c 'import hashlib, pathlib; p=pathlib.Path("data/balance.json"); print(hashlib.sha256(p.read_bytes()).hexdigest()[:16] if p.exists() else "missing-balance")'
+}
+
+require_modal
+
+BALANCE_HASH="$(resolve_balance_hash)"
+GIT_SHA="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-${BALANCE_HASH}"
+
+case "$COMMAND" in
+  quick)
+    RESOURCE_CLASS="cpu-burst"
+    TIMEOUT_SECONDS=270
     ;;
-  modal)
-    TARGET_BACKEND="modal"
+  full)
+    RESOURCE_CLASS="big-cpu-burst"
+    TIMEOUT_SECONDS=14280
     ;;
-  auto|"")
-    if has_modal_credentials && has_modal_runner; then
-      TARGET_BACKEND="modal"
-    else
-      TARGET_BACKEND="local"
-      if [[ "$DRY_RUN" -eq 0 ]]; then
-        echo "[balance-dispatch] Modal credentials or uv runner not found; running locally. Set VOIDLINE_BALANCE_BACKEND=modal to require Modal." >&2
-      fi
-    fi
+  train)
+    RESOURCE_CLASS="h100-burst"
+    TIMEOUT_SECONDS=21480
     ;;
-  *)
-    echo "unsupported VOIDLINE_BALANCE_BACKEND=$BACKEND; expected local, modal, or auto" >&2
-    exit 2
+  pull)
+    RESOURCE_CLASS="local-pull"
+    TIMEOUT_SECONDS=0
     ;;
 esac
 
-if [[ "$TARGET_BACKEND" == "modal" ]]; then
-  if ! has_modal_credentials; then
-    echo "Modal backend requested but credentials were not found. Configure MODAL_TOKEN_ID/MODAL_TOKEN_SECRET or run modal token set." >&2
-    exit 2
-  fi
-  if ! has_modal_runner; then
-    echo "Modal backend requested but uv was not found; install uv or force VOIDLINE_BALANCE_BACKEND=local." >&2
-    exit 2
-  fi
-fi
-
 if [[ "$DRY_RUN" -eq 1 ]]; then
-  echo "backend=$TARGET_BACKEND"
+  echo "backend=modal"
   echo "command=$COMMAND"
-  if ((${#EXTRA_ARGS[@]})); then
-    echo "local_command=$(shell_join "${LOCAL_CMD[@]}" "${EXTRA_ARGS[@]}")"
+  echo "resource_class=$RESOURCE_CLASS"
+  echo "balance_hash=$BALANCE_HASH"
+  echo "git_sha=$GIT_SHA"
+  echo "run_id=$RUN_ID"
+  if [[ "$COMMAND" == "pull" ]]; then
+    echo "pull_mode=$PULL_MODE"
+    echo "model_dir=$MODEL_DIR"
+    echo "report_dir=$REPORT_DIR"
   else
-    echo "local_command=$(shell_join "${LOCAL_CMD[@]}")"
-  fi
-  if [[ "$TARGET_BACKEND" == "modal" ]]; then
     echo "modal_app=voidline-balance"
     echo "modal_entrypoint=voidline_rl.modal_app::main"
-    echo "modal_command=$COMMAND"
+    echo "timeout_seconds=$TIMEOUT_SECONDS"
+    echo "report_path=/reports/$BALANCE_HASH/$COMMAND/$RUN_ID/$COMMAND.json"
+    echo "model_dir=/models/$BALANCE_HASH"
+    if ((${#EXTRA_ARGS[@]})); then
+      echo "extra_args=$(shell_join "${EXTRA_ARGS[@]}")"
+    fi
   fi
   exit 0
 fi
 
-if [[ "$TARGET_BACKEND" == "local" ]]; then
-  echo "[balance-dispatch] backend=local command=$COMMAND" >&2
-  exec "${LOCAL_CMD[@]}" "${EXTRA_ARGS[@]}"
+if [[ "$COMMAND" == "pull" ]]; then
+  if [[ "$PULL_MODE" == "models" ]]; then
+    TMP_DIR="$REPO_ROOT/.context/modal-pull/models-$BALANCE_HASH"
+    rm -rf "$TMP_DIR"
+    mkdir -p "$TMP_DIR" "$MODEL_DIR"
+    uvx modal volume get voidline-rl-models "$BALANCE_HASH" "$TMP_DIR" --force
+    MODEL_SOURCE="$TMP_DIR/$BALANCE_HASH"
+    if [[ ! -d "$MODEL_SOURCE" ]]; then
+      MODEL_SOURCE="$TMP_DIR"
+    fi
+    for persona in "${PERSONAS[@]}"; do
+      if [[ ! -s "$MODEL_SOURCE/$persona.onnx" ]]; then
+        echo "Modal model pull is missing $persona.onnx for balance hash $BALANCE_HASH" >&2
+        exit 1
+      fi
+    done
+    find "$MODEL_SOURCE" -maxdepth 1 \( -name '*.onnx' -o -name '*.json' \) -exec cp {} "$MODEL_DIR"/ \;
+    echo "Pulled Modal RL models for $BALANCE_HASH into $MODEL_DIR"
+  else
+    mkdir -p "$REPORT_DIR"
+    uvx modal volume get voidline-balance-reports "$BALANCE_HASH" "$REPORT_DIR" --force
+    echo "Pulled Modal balance reports for $BALANCE_HASH into $REPORT_DIR"
+  fi
+  exit 0
 fi
 
 if ((${#EXTRA_ARGS[@]})); then
-  json_args="$(
-    python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${EXTRA_ARGS[@]}"
-  )"
+  JSON_ARGS="$(python3 -c 'import json, sys; print(json.dumps(sys.argv[1:]))' "${EXTRA_ARGS[@]}")"
 else
-  json_args="[]"
+  JSON_ARGS="[]"
 fi
-git_sha="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
-balance_hash="$(
-  python3 -c 'import hashlib, pathlib; p=pathlib.Path("data/balance.json"); print(hashlib.sha256(p.read_bytes()).hexdigest()[:16] if p.exists() else "missing-balance")' \
-    2>/dev/null
-)"
-run_id="$(date -u +%Y%m%dT%H%M%SZ)-${balance_hash}"
 
-echo "[balance-dispatch] backend=modal command=$COMMAND run_id=$run_id" >&2
+echo "[balance-dispatch] backend=modal command=$COMMAND resource=$RESOURCE_CLASS run_id=$RUN_ID" >&2
 cd "$REPO_ROOT"
 export PYTHONPATH="$TRAINING_DIR${PYTHONPATH:+:$PYTHONPATH}"
 exec uvx modal run -m voidline_rl.modal_app::main \
   --command "$COMMAND" \
-  --extra-args-json "$json_args" \
-  --git-sha "$git_sha" \
-  --balance-hash "$balance_hash" \
-  --run-id "$run_id"
+  --extra-args-json "$JSON_ARGS" \
+  --git-sha "$GIT_SHA" \
+  --balance-hash "$BALANCE_HASH" \
+  --run-id "$RUN_ID"

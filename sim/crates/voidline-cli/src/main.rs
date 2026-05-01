@@ -2205,7 +2205,7 @@ mod tests {
     fn test_args() -> Args {
         Args {
             balance: None,
-            output: PathBuf::from("scripts/balance-profile-report.json"),
+            output: PathBuf::from("scripts/meta-progression-report.json"),
             quick: true,
             default_mode: false,
             max_seconds: 12.0,
