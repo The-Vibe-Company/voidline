@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createDefaultAccountProgress } from "./account-progression";
 import {
+  bossBountyBonusFromMeta,
   canPurchaseLevel,
   cardTierCapAtLevel,
   findMetaUpgrade,
@@ -35,6 +36,7 @@ const ALL_IDS: MetaUpgradeId[] = [
   "rarity:prototype-lab",
   "rarity:singularity-core",
   "utility:crystal-contract",
+  "utility:boss-bounty",
 ];
 
 describe("meta upgrade catalog", () => {
@@ -219,5 +221,22 @@ describe("derived unlocks from meta levels", () => {
     expect(cardTierCapAtLevel(2)).toBe("rare");
     expect(cardTierCapAtLevel(3)).toBe("prototype");
     expect(cardTierCapAtLevel(4)).toBe("singularity");
+  });
+
+  it("returns the boss-bounty bonus per level and clamps overflow", () => {
+    const progress = createDefaultAccountProgress();
+    expect(bossBountyBonusFromMeta(progress)).toBe(0);
+
+    progress.upgradeLevels["utility:boss-bounty"] = 1;
+    expect(bossBountyBonusFromMeta(progress)).toBe(8);
+
+    progress.upgradeLevels["utility:boss-bounty"] = 2;
+    expect(bossBountyBonusFromMeta(progress)).toBe(16);
+
+    progress.upgradeLevels["utility:boss-bounty"] = 3;
+    expect(bossBountyBonusFromMeta(progress)).toBe(25);
+
+    progress.upgradeLevels["utility:boss-bounty"] = 99;
+    expect(bossBountyBonusFromMeta(progress)).toBe(25);
   });
 });

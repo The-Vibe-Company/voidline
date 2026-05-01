@@ -109,4 +109,24 @@ describe("crystal account progression", () => {
     expect(progress.records.bestStage).toBe(1);
     expect(progress.highestStartStageUnlocked).toBe(1);
   });
+
+  it("adds the boss-bounty bonus to bossCrystals per unique boss kill", () => {
+    const summary = {
+      stage: 2,
+      startStage: 1,
+      elapsedSeconds: 600,
+      runLevel: 8,
+      score: 12_000,
+      bossStages: [1, 2],
+    } as const;
+
+    const baseProgress = createDefaultAccountProgress();
+    const base = computeRunCrystalBreakdown(baseProgress, summary);
+    expect(base.bossCrystals).toBe(2 * 45);
+
+    const boosted = createDefaultAccountProgress();
+    boosted.upgradeLevels["utility:boss-bounty"] = 2;
+    const withBounty = computeRunCrystalBreakdown(boosted, summary);
+    expect(withBounty.bossCrystals).toBe(2 * (45 + 16));
+  });
 });

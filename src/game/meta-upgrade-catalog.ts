@@ -13,6 +13,9 @@ const RARE_SIGNAL_COSTS = [50, 105, 180] as const;
 const PROTOTYPE_LAB_COSTS = [220, 420, 750] as const;
 const SINGULARITY_CORE_COSTS = [120, 220, 360] as const;
 const CRYSTAL_CONTRACT_COSTS = [65, 125, 210] as const;
+const BOSS_BOUNTY_COSTS = [120, 240, 420] as const;
+
+const BOSS_BOUNTY_PER_LEVEL = [0, 8, 16, 25] as const;
 
 const costFrom = (costs: readonly number[]) => (level: number): number =>
   costs[Math.max(0, Math.min(costs.length - 1, level - 1))] ?? costs[costs.length - 1] ?? 0;
@@ -278,6 +281,20 @@ export const metaUpgradeCatalog: readonly MetaUpgrade[] = [
       { summary: "+15% cristaux gagnés en fin de run." },
     ],
   },
+  {
+    id: "utility:boss-bounty",
+    kind: "utility",
+    name: "Prime de boss",
+    description: "Cristaux supplémentaires à chaque boss tué dans la run.",
+    maxLevel: 3,
+    costAt: costFrom(BOSS_BOUNTY_COSTS),
+    requirement: "boss-kill",
+    levels: [
+      { summary: "+8 cristaux par boss tué." },
+      { summary: "+16 cristaux par boss tué." },
+      { summary: "+25 cristaux par boss tué." },
+    ],
+  },
 ];
 
 const idIndex = new Map<MetaUpgradeId, MetaUpgrade>(
@@ -460,4 +477,9 @@ export function rarityProfileFromMeta(progress: AccountProgress): RarityProfile 
     prototype: metaUpgradeLevel(progress, "rarity:prototype-lab"),
     singularity: metaUpgradeLevel(progress, "rarity:singularity-core"),
   };
+}
+
+export function bossBountyBonusFromMeta(progress: AccountProgress): number {
+  const level = metaUpgradeLevel(progress, "utility:boss-bounty");
+  return BOSS_BOUNTY_PER_LEVEL[Math.max(0, Math.min(BOSS_BOUNTY_PER_LEVEL.length - 1, level))] ?? 0;
 }

@@ -1313,6 +1313,30 @@
           "summary": "+15% cristaux gagnés en fin de run."
         }
       ]
+    },
+    {
+      "id": "utility:boss-bounty",
+      "kind": "utility",
+      "name": "Prime de boss",
+      "description": "Cristaux supplémentaires à chaque boss tué dans la run.",
+      "maxLevel": 3,
+      "costs": [
+        120,
+        240,
+        420
+      ],
+      "requirement": "boss-kill",
+      "levels": [
+        {
+          "summary": "+8 cristaux par boss tué."
+        },
+        {
+          "summary": "+16 cristaux par boss tué."
+        },
+        {
+          "summary": "+25 cristaux par boss tué."
+        }
+      ]
     }
   ],
   "shopItems": [
