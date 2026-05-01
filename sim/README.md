@@ -110,16 +110,30 @@ sim/target/release/voidline-cli --quick   # 4 × 15 × 25, max_pressure=12
 sim/target/release/voidline-cli --default # 4 × 50 × 40, max_pressure=30, ~30s budget
 ```
 
-Or via npm wrappers:
-
-```sh
-npm run balance:meta-report:quick
-npm run balance:meta-report
-```
-
 Output: `scripts/meta-progression-report.json` with per-policy aggregates
 (median/P25/P75 unlock times, median pressure at run index, milestones, death
 rates).
+
+### RL balance pipeline
+
+The RL pipeline keeps the sim on CPU/Rayon and trains/evaluates learned
+personas from Python. Operational balance commands are intentionally not
+documented here: `CLAUDE.md` is the source of truth for when to run
+`balance:quick`, `balance:full`, `balance:train`, and `balance:pull`.
+
+The important architecture constraint is that balance reports and training run
+on Modal only. Local development can launch Modal and pull artifacts, but it
+must not run balance checks, reports, or training locally. Remote models live
+in the `voidline-rl-models` Modal volume under the current `data/balance.json`
+hash; reports live in `voidline-balance-reports`; Cargo/uv caches live in
+`voidline-balance-cache` to reduce cold starts.
+
+Python wrappers follow the Gymnasium step API (`obs, reward, terminated,
+truncated, info`) and use `sb3-contrib` `MaskablePPO` with
+`MultiDiscrete([9, 5, 4])` actions: movement, upgrade pick, relic pick. The
+Rust learned-policy evaluator and the Python env share
+`voidline-meta/src/obs.rs`; update that module deliberately, because changing
+its feature layout invalidates existing ONNX models.
 
 ## How to maintain (the "intelligently" part)
 

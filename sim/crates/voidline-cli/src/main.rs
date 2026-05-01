@@ -21,7 +21,7 @@ use voidline_meta::campaign::{
 use voidline_meta::policies::{
     FocusedAttackPolicy, GreedyCheapPolicy, HoarderPolicy, MetaPolicy, PolicyId, RandomPolicy,
 };
-use voidline_meta::profiles::RunStatSnapshot;
+use voidline_meta::profiles::{default_model_dir, model_path_for_profile, RunStatSnapshot};
 use voidline_meta::{PlayerProfileId, ProfileRunSummary};
 
 #[derive(Clone, Debug, ValueEnum)]
@@ -29,6 +29,11 @@ enum PlayerProfileArg {
     Idle,
     ExpertHuman,
     Optimizer,
+    LearnedHuman,
+    LearnedOptimizer,
+    LearnedExplorer,
+    LearnedNovice,
+    LearnedAll,
     Skilled,
     All,
 }
@@ -39,6 +44,11 @@ impl PlayerProfileArg {
             PlayerProfileArg::Idle => "idle",
             PlayerProfileArg::ExpertHuman => "expert-human",
             PlayerProfileArg::Optimizer => "optimizer",
+            PlayerProfileArg::LearnedHuman => "learned-human",
+            PlayerProfileArg::LearnedOptimizer => "learned-optimizer",
+            PlayerProfileArg::LearnedExplorer => "learned-explorer",
+            PlayerProfileArg::LearnedNovice => "learned-novice",
+            PlayerProfileArg::LearnedAll => "learned-all",
             PlayerProfileArg::Skilled => "skilled",
             PlayerProfileArg::All => "all",
         }
@@ -49,6 +59,16 @@ impl PlayerProfileArg {
             PlayerProfileArg::Idle => vec![PlayerProfileId::Idle],
             PlayerProfileArg::ExpertHuman => vec![PlayerProfileId::ExpertHuman],
             PlayerProfileArg::Optimizer => vec![PlayerProfileId::Optimizer],
+            PlayerProfileArg::LearnedHuman => vec![PlayerProfileId::LearnedHuman],
+            PlayerProfileArg::LearnedOptimizer => vec![PlayerProfileId::LearnedOptimizer],
+            PlayerProfileArg::LearnedExplorer => vec![PlayerProfileId::LearnedExplorer],
+            PlayerProfileArg::LearnedNovice => vec![PlayerProfileId::LearnedNovice],
+            PlayerProfileArg::LearnedAll => vec![
+                PlayerProfileId::LearnedHuman,
+                PlayerProfileId::LearnedOptimizer,
+                PlayerProfileId::LearnedExplorer,
+                PlayerProfileId::LearnedNovice,
+            ],
             PlayerProfileArg::Skilled => {
                 vec![PlayerProfileId::ExpertHuman, PlayerProfileId::Optimizer]
             }
@@ -175,6 +195,10 @@ struct Args {
     /// Player profile used by the run simulator
     #[arg(long, value_enum, default_value = "idle")]
     player_profile: PlayerProfileArg,
+
+    /// Directory containing learned RL ONNX models.
+    #[arg(long)]
+    model_dir: Option<PathBuf>,
 
     /// Base seed used to derive deterministic campaign/run seeds
     #[arg(long, default_value_t = 1109)]
@@ -422,6 +446,7 @@ struct ReportConfig {
     seed: u32,
     player_profile_arg: String,
     player_profiles: Vec<String>,
+    model_dir: Option<String>,
     policy_set: String,
     phase: String,
     phase_isolated: bool,
@@ -467,6 +492,7 @@ struct RunSettings {
     max_pressure: u32,
     trial_seconds: f64,
     player_profiles: Vec<PlayerProfileId>,
+    model_dir: Option<PathBuf>,
     thresholds: Phase1Thresholds,
     base_options: CampaignOptions,
 }
@@ -996,7 +1022,7 @@ fn write_checkpoint_file(path: &Path, file: &CheckpointFile) -> Result<(), Strin
 fn checkpoint_cache_path(
     dir: &Path,
     data_hash: &str,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     policy: PolicyId,
     checkpoint_stage: u32,
 ) -> PathBuf {
@@ -1010,7 +1036,7 @@ fn checkpoint_cache_path(
 
 fn checkpoint_file_from_results(
     data_hash: &str,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     policy: PolicyId,
     checkpoint_stage: u32,
     results: &[CampaignResult],
@@ -1028,7 +1054,7 @@ fn checkpoint_file_from_results(
 fn validate_checkpoint_file(
     file: &CheckpointFile,
     data_hash: &str,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     policy: PolicyId,
     checkpoint_stage: u32,
 ) -> Result<(), String> {
@@ -1085,7 +1111,7 @@ fn load_or_generate_checkpoints(
         checkpoint_cache_path(
             &resolve_output_path(&args.checkpoint_dir),
             data_hash,
-            profile,
+            &profile,
             policy,
             checkpoint_stage,
         )
@@ -1093,7 +1119,7 @@ fn load_or_generate_checkpoints(
 
     if path.exists() && !args.refresh_checkpoints {
         let file = load_checkpoint_file(&path)?;
-        validate_checkpoint_file(&file, data_hash, profile, policy, checkpoint_stage)?;
+        validate_checkpoint_file(&file, data_hash, &profile, policy, checkpoint_stage)?;
         return Ok(file.checkpoints);
     }
 
@@ -1112,9 +1138,10 @@ fn load_or_generate_checkpoints(
         path.display()
     );
     let mut options = settings.base_options.clone();
-    options.player_profile = profile;
+    options.player_profile = profile.clone();
     let results = run_policy_id(policy, bundle, options, settings.campaigns, None);
-    let file = checkpoint_file_from_results(data_hash, profile, policy, checkpoint_stage, &results);
+    let file =
+        checkpoint_file_from_results(data_hash, &profile, policy, checkpoint_stage, &results);
     if file.checkpoints.is_empty() {
         return Err(format!(
             "could not generate stage {checkpoint_stage} checkpoints for {} {}",
@@ -1147,8 +1174,7 @@ fn write_checkpoint_out(
         return Err("no policies available for checkpoint output".to_string());
     };
     let checkpoint_stage = args.phase.checkpoint_stage().unwrap_or(1);
-    let file =
-        checkpoint_file_from_results(data_hash, *profile, *policy, checkpoint_stage, results);
+    let file = checkpoint_file_from_results(data_hash, profile, *policy, checkpoint_stage, results);
     write_checkpoint_file(path, &file)
 }
 
@@ -1359,6 +1385,10 @@ fn resolve_settings(args: &Args) -> RunSettings {
     let max_pressure = args.max_pressure.unwrap_or(profile.max_pressure);
     let trial_seconds = args.trial_seconds.unwrap_or(profile.trial_seconds);
     let player_profiles = args.player_profile.expand();
+    let model_dir = player_profiles
+        .iter()
+        .any(PlayerProfileId::is_learned)
+        .then(|| args.model_dir.clone().unwrap_or_else(default_model_dir));
     let thresholds = Phase1Thresholds::default();
     let base_options = CampaignOptions {
         seed: args.seed,
@@ -1369,6 +1399,7 @@ fn resolve_settings(args: &Args) -> RunSettings {
         step_seconds: 1.0 / 60.0,
         max_decisions_per_run: 16,
         player_profile: PlayerProfileId::Idle,
+        learned_model_dir: model_dir.clone(),
         initial_account: None,
         initial_run_index: 0,
         initial_unlock_run_index: HashMap::new(),
@@ -1379,6 +1410,7 @@ fn resolve_settings(args: &Args) -> RunSettings {
         max_pressure,
         trial_seconds,
         player_profiles,
+        model_dir,
         thresholds,
         base_options,
     }
@@ -1413,7 +1445,7 @@ fn run_report(
 
     for player_profile in &settings.player_profiles {
         let mut options = settings.base_options.clone();
-        options.player_profile = *player_profile;
+        options.player_profile = player_profile.clone();
         let mut sections = Vec::new();
         let mut policy_results = Vec::new();
 
@@ -1425,7 +1457,7 @@ fn run_report(
                     bundle,
                     settings,
                     data_hash,
-                    *player_profile,
+                    player_profile.clone(),
                     policy,
                     stage,
                 )?),
@@ -1447,7 +1479,7 @@ fn run_report(
             player_profile: player_profile.as_str().to_string(),
             policies: sections,
         });
-        policy_results_by_profile.push((*player_profile, policy_results));
+        policy_results_by_profile.push((player_profile.clone(), policy_results));
     }
 
     let elapsed = start.elapsed();
@@ -1470,6 +1502,10 @@ fn run_report(
                 .iter()
                 .map(|profile| profile.as_str().to_string())
                 .collect(),
+            model_dir: settings
+                .model_dir
+                .as_ref()
+                .map(|path| path.display().to_string()),
             policy_set: args.policy_set.as_str().to_string(),
             phase: args.phase.as_str().to_string(),
             phase_isolated: args.phase.is_isolated(),
@@ -1565,6 +1601,32 @@ fn summary_row(
     }
 }
 
+fn validate_learned_models(settings: &RunSettings) -> Result<(), String> {
+    let learned_profiles = settings
+        .player_profiles
+        .iter()
+        .filter(|profile| profile.is_learned())
+        .collect::<Vec<_>>();
+    if learned_profiles.is_empty() {
+        return Ok(());
+    }
+    let Some(model_dir) = settings.model_dir.as_deref() else {
+        return Err("learned profiles require --model-dir or VOIDLINE_RL_MODEL_DIR".to_string());
+    };
+    for profile in learned_profiles {
+        let path = model_path_for_profile(profile, Some(model_dir))
+            .ok_or_else(|| format!("no model path for {}", profile.as_str()))?;
+        if !path.exists() {
+            return Err(format!(
+                "missing RL model for {}: {}",
+                profile.as_str(),
+                path.display()
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn main() {
     let args = Args::parse();
 
@@ -1600,6 +1662,10 @@ fn main() {
         });
 
     let settings = resolve_settings(&args);
+    validate_learned_models(&settings).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        std::process::exit(2);
+    });
     let variation_mode = !fixed_overrides.is_empty() || !sweep_axes.is_empty();
     if variation_mode {
         if args.record_history {
@@ -1935,6 +2001,12 @@ fn build_replay_command(args: &Args, output_path: &PathBuf) -> String {
         shell_word(&output_path.display().to_string())
     ));
     parts.push(format!("--player-profile {}", args.player_profile.as_str()));
+    if let Some(model_dir) = &args.model_dir {
+        parts.push(format!(
+            "--model-dir {}",
+            shell_word(&model_dir.display().to_string())
+        ));
+    }
     parts.push(format!("--policy-set {}", args.policy_set.as_str()));
     parts.push(format!("--phase {}", args.phase.as_str()));
     parts.push(format!("--seed {}", args.seed));
@@ -2133,7 +2205,7 @@ mod tests {
     fn test_args() -> Args {
         Args {
             balance: None,
-            output: PathBuf::from("scripts/balance-profile-report.json"),
+            output: PathBuf::from("scripts/meta-progression-report.json"),
             quick: true,
             default_mode: false,
             max_seconds: 12.0,
@@ -2143,6 +2215,7 @@ mod tests {
             trial_seconds: Some(660.0),
             threads: Some(1),
             player_profile: PlayerProfileArg::Skilled,
+            model_dir: None,
             seed: 1234,
             check_target: Some(CheckTargetArg::Balance),
             policy_set: PolicySetArg::Focused,
@@ -2256,6 +2329,7 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
+                model_dir: None,
                 policy_set: "focused".to_string(),
                 phase: "full".to_string(),
                 phase_isolated: false,
@@ -2462,6 +2536,7 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
+                model_dir: None,
                 policy_set: "all".to_string(),
                 phase: "full".to_string(),
                 phase_isolated: false,

@@ -24,7 +24,7 @@ Voir `sim/README.md` pour l'architecture complète et les workflows de maintenan
 
 Avant de proposer des chiffres de balance, de coût, de yield, de courbe de progression ou tout autre choix calibré sur des valeurs empiriques : **mesurer**, jamais estimer.
 
-- Crystal yield par run, runs nécessaires pour atteindre un palier, valeurs de stats, taux de pick, fréquences de drop : passer par `npm run balance:meta-report:quick`, `npm run balance:profile:quick`, ou un grep sur les rapports existants. Si le `:quick` est trop court (cap `trial-seconds` à 90s par défaut), augmenter via `--trial-seconds 720 --max-pressure 80 --runs 100 --max-seconds 240` pour un échantillon représentatif d'un joueur skilled.
+- Crystal yield par run, runs nécessaires pour atteindre un palier, valeurs de stats, taux de pick, fréquences de drop : passer par `npm run balance:quick` sur Modal, ou lire un rapport Modal existant. Si le quick est trop court, lancer `npm run balance:full` plutôt que d'inventer des chiffres.
 - Si l'outillage manque pour mesurer, le dire explicitement et demander la donnée à l'utilisateur AVANT de finaliser un cost array, un cap, ou une courbe.
 - Une formule lue dans `account-progression.ts` n'est PAS une mesure : elle décrit un calcul, pas une distribution observée. Toujours croiser avec un run réel ou un sim agrégé.
 - Cette règle s'applique aussi aux niveaux de meta-progression, aux coûts d'unlocks, et à toute proposition de design qui fixe un nombre.
@@ -57,7 +57,7 @@ Les phases de progression correspondent aux boss de stage:
 - **Phase 2 / stage 2**: un bon joueur doit pouvoir clear le boss stage 2 autour de 50 runs cumulees.
 - **Phase 3 / stage 3**: un bon joueur doit pouvoir clear le boss stage 3 autour de 100 runs cumulees.
 
-Aucun pilote, arme, carte, upgrade, relique ou synergie ne doit creer un build dominant qui trivialise ces fenetres. Si un changement ajoute de la puissance, il doit passer par `npm run balance:profile:check` et ne doit pas generer de warning `op-pick`.
+Aucun pilote, arme, carte, upgrade, relique ou synergie ne doit creer un build dominant qui trivialise ces fenetres. Si un changement ajoute de la puissance, il doit passer par `npm run balance:quick` sur Modal et ne doit pas generer de warning dominant/OP dans le rapport.
 
 La densite cible est environ **3x plus d'ennemis vivants a l'ecran** que le baseline historique. Ce multiplicateur doit venir des knobs centraux de balance, avec XP, score, powerups et economie reequilibres pour que la progression meta ne soit pas acceleree gratuitement.
 
@@ -71,19 +71,16 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 - Ajouter un type d'ennemi → `data:export` + 1 entry dans `EnemyKind` (Rust).
 - Voir `sim/README.md` pour l'architecture complète.
 
-**Commands** :
-- `npm run balance:profile:quick` — diagnostic balance rapide avec profils actifs skilled (`expert-human`, `optimizer`)
-- `npm run balance:profile` — diagnostic balance plus profond, assez long pour aller au-delà de la phase 1
-- `npm run balance:profile:check` — check opt-in qui échoue si le jeu devient trop facile pour les profils skilled
-- `npm run balance:sweep:quick` / `:check` — teste plusieurs knobs via `--sweep path=v1,v2` sans modifier `data/balance.json`
-- `npm run balance:phase2:quick` / `balance:phase3:quick` — tuning rapide depuis checkpoints caches dans `.context/balance-checkpoints`
-- `npm run balance:meta-report:quick` — profil méta-progression/économie rapide (idle, comparaisons relatives)
-- `npm run balance:meta-report` — profil méta-progression/économie profond
+**Commandes balance officielles (Modal uniquement)** :
+- `npm run balance:quick` — rapport rapide (<5 min cible) pour tendances heuristiques + learned RL
+- `npm run balance:full` — rapport profond, plus long, pour validation avant décision importante
+- `npm run balance:train` — entraîne/exporte les personas RL sur H100 et persiste les ONNX dans Modal
+- `npm run balance:pull` / `npm run balance:pull -- --reports` — récupère modèles ou rapports Modal vers `.context/`
 - `npm run data:export` — régénère `data/balance.json`
 - `npm run data:check` — vérifie que `data/balance.json` est à jour
 - `cd sim && cargo test --workspace` — tests parité Rust (28 tests)
 
-**Toujours utiliser le Rust sim pour les itérations de balance**. Le harness TS `balance:report` (Vitest, 25s pour 150 trials, capé à `maxSeconds=120`) a été supprimé. Pour la difficulté réelle, utiliser `balance:profile:*` : le wrapper lance suffisamment de runs, de secondes simulées et de pression pour tester la phase 1 et l'après-phase 1 avec les profils actifs. Pour l'économie/meta-progression pure, utiliser `balance:meta-report:*`.
+**Toute mesure d'équilibrage passe par Modal.** Ne lance pas de check/report/train balance en local et n'ajoute pas de workflow CI pour la balance. Le local sert seulement à lancer Modal, à exporter `data/balance.json`, à lancer les tests standard, et à récupérer des artefacts avec `balance:pull`.
 
 ## Architecture (rappel)
 
@@ -142,23 +139,24 @@ Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit`, `renderCockpit`,
 - Spawn ennemis : `src/game/balance.ts:enemySpawnRules` est un `Record<EnemyKind, EnemySpawnRule | "residual">`. Ajouter un type d'ennemi = entrée dans `enemyTypes` + entrée dans `enemySpawnRules`.
 - Unlock predicates : `src/game/shop-catalog.ts:unlockPredicates` est un `Record<UnlockRequirement, predicate>`. `isUnlockRequirementMet` est partagé entre shop et meta-upgrades.
 
-### Validation harness — uniquement Rust
+### Validation balance — Modal uniquement
 
 Le harness TS (`src/game/balance-simulation.ts`) a été supprimé : il était trop lent (25s pour 150 trials, capé à 120s sim time). **Toute validation balance passe par le Rust sim** (`sim/`, voir section "Sim Rust").
 
-Pour la difficulté, ne pas exposer une forêt de paramètres dans les scripts courants. Utiliser le wrapper opinionated `scripts/balance-profile.sh` via :
+Pour la difficulté, ne pas exposer une forêt de paramètres dans les scripts courants. Utiliser uniquement :
 
-- `npm run balance:profile:quick` — échantillon rapide pour voir les tendances.
-- `npm run balance:profile` — rapport plus profond, avec assez de runs/pression/temps pour aller au-delà de la phase 1.
-- `npm run balance:profile:check` — check opt-in, volontairement non branché sur `npm test`, qui échoue si les profils skilled rendent le jeu trop facile.
+- `npm run balance:quick` pour voir les tendances rapidement. Cette commande combine profils skilled heuristiques (`expert-human`, `optimizer`) et personas learned RL. Elle doit rester sous 5 minutes sur Modal après warm cache.
+- `npm run balance:full` pour un rapport plus profond quand une décision de design dépend de la mesure. Cette commande peut dépasser 5 minutes.
+- `npm run balance:train` pour régénérer les modèles learned RL quand `data/balance.json` ou l'encodeur d'observation change. Les modèles restent hors git dans le volume Modal `voidline-rl-models`, par hash de `data/balance.json`.
+- `npm run balance:pull -- --reports` pour récupérer les rapports dans `.context/balance-reports`; `npm run balance:pull` récupère les ONNX dans `.context/rl-models`.
 
-Le wrapper utilise `--player-profile skilled`, soit `expert-human` + `optimizer`. `expert-human` approxime un très bon joueur humain (kite, collecte l'XP, choisit les builds forts sans information parfaite). `optimizer` cherche les choix dominants et sert à repérer les upgrades/reliques OP. Le check ne cherche pas une valeur exacte de runs ; il protège surtout contre une phase 1 triviale et contre une progression trop facile après phase 1 (`runsToStage1Clear`, `runsToStage2Clear`).
+`quick` et `full` échouent si les ONNX attendus manquent: lancer `npm run balance:train` d'abord. Les rapports Modal vivent dans `voidline-balance-reports`; les caches Cargo/uv dans `voidline-balance-cache`.
 
 Le CLI garde des options avancées (`--player-profile`, `--campaigns`, `--runs`, `--max-pressure`, `--trial-seconds`, `--seed`) uniquement pour rejouer un historique ou faire une investigation ponctuelle. Ne pas les ajouter aux scripts npm sans vraie raison.
 
-Sweeps : `--set path=value` applique un override en mémoire, `--sweep path=v1,v2` produit des variations avec `variations[]` et `summaryTable[]`. Ces runs ne modifient pas `data/balance.json` et servent à choisir un candidat; exporter ensuite le knob retenu via `npm run data:export`.
+Sweeps ponctuels : passer les options CLI avancées à `balance:quick` ou `balance:full` si nécessaire (`-- --sweep path=v1,v2`, `-- --set path=value`). Ces runs ne modifient pas `data/balance.json`; exporter ensuite le knob retenu via `npm run data:export`.
 
-Checkpoints : `--phase stage2` démarre depuis checkpoints post-stage 1, `--phase stage3` depuis checkpoints post-stage 2. Les checkpoints vivent par défaut dans `.context/balance-checkpoints` et sont un accélérateur de tuning, pas une validation finale. Toujours terminer par `npm run balance:profile:check` sans phase isolée.
+Checkpoints : les rapports Modal stockent les checkpoints dans le volume de reports par hash de balance. Ils sont un accélérateur de tuning, pas une validation finale. Toujours terminer par `npm run balance:quick` ou `npm run balance:full` sans phase isolée.
 
 Historique : `--record-history` ajoute une entrée JSONL dans `data/balance-profile-history.jsonl` avec commit, branch, dirty flag, hash de `data/balance.json`, commande de replay, inputs résolus et output agrégé. Par défaut, l'écriture d'historique refuse un worktree dirty ; utiliser `--allow-dirty-history` seulement pour une capture de travail approximative.
 
@@ -204,12 +202,10 @@ Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress
 - `npm run test:balance` — suites `balance.test.ts` + `balance-curves.test.ts`
 - `npm run bench` — Vitest benchmarks
 - `npm run smoke` — `npm run build && node scripts/browser-smoke.mjs` (smoke Playwright headless)
-- `npm run balance:profile:quick` — diagnostic balance rapide (`expert-human` + `optimizer`)
-- `npm run balance:profile` — diagnostic balance approfondi
-- `npm run balance:profile:check` — check opt-in "pas trop facile"
-- `npm run balance:sweep:quick` / `balance:sweep:check` — variations rapides de knobs via `--sweep`
-- `npm run balance:phase2:quick` / `balance:phase3:quick` — phases isolées depuis checkpoints
-- `npm run balance:meta-report` / `:quick` — Rust sim (voir section "Sim Rust")
+- `npm run balance:quick` — rapport balance Modal rapide, heuristique + learned RL
+- `npm run balance:full` — rapport balance Modal profond
+- `npm run balance:train` — entraînement/export ONNX sur Modal H100
+- `npm run balance:pull` — récupère les modèles Modal; `-- --reports` récupère les rapports
 
 Lancer un test isolé (par fichier ou par nom):
 
