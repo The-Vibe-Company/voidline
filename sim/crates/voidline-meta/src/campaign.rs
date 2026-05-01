@@ -97,8 +97,8 @@ pub fn run_meta_campaign<P: MetaPolicy>(
     env.max_decisions_per_run = options.max_decisions_per_run;
     if let Some(account) = options.initial_account.clone() {
         env.account = account;
-        env.run_index = options.initial_run_index;
     }
+    env.run_index = options.initial_run_index;
 
     let mut timeline = Vec::new();
     let mut unlock_run_index: HashMap<String, u32> = options.initial_unlock_run_index.clone();
@@ -285,5 +285,23 @@ mod tests {
         assert_eq!(result.first_stage2_clear, Some(50));
         assert_eq!(result.first_stage3_clear, Some(50));
         assert_eq!(result.unlock_run_index["card:twin-cannon"], 12);
+    }
+
+    #[test]
+    fn campaign_starts_from_initial_run_index_without_account_snapshot() {
+        let bundle = load_default().unwrap();
+        let options = CampaignOptions {
+            runs_count: 0,
+            initial_run_index: 37,
+            initial_account: None,
+            ..CampaignOptions::default()
+        };
+        let mut policy = FocusedAttackPolicy::default();
+
+        let result = run_meta_campaign(&bundle, options, &mut policy);
+
+        assert_eq!(result.initial_run_index, 37);
+        assert_eq!(result.final_run_index, 37);
+        assert_eq!(result.first_stage1_clear, None);
     }
 }
