@@ -91,7 +91,7 @@ image = (
 )
 
 COMMAND_TIMEOUT_SECONDS = {
-    "quick": 270,
+    "quick": 540,
     "full": 60 * 60 * 4 - 120,
     "train": 60 * 60 * 6 - 120,
 }
@@ -192,10 +192,13 @@ def _require_models(model_dir: Path) -> None:
 
 
 def _heuristic_args(mode: str, output_path: Path, checkpoint_dir: Path) -> list[str]:
+    # Prioritize trial duration over run count: a run that reaches the stage 3
+    # boss (~1800s in-game) is more informative than ten runs that die in
+    # stage 1. Calibrated against a Rust sim that runs ~600x realtime.
     if mode == "quick":
-        campaigns, runs, max_pressure, trial_seconds, max_seconds = 2, 8, 60, 360, 55
+        campaigns, runs, max_pressure, trial_seconds, max_seconds = 2, 4, 80, 1800, 200
     else:
-        campaigns, runs, max_pressure, trial_seconds, max_seconds = 12, 120, 80, 720, 360
+        campaigns, runs, max_pressure, trial_seconds, max_seconds = 8, 125, 80, 2400, 1500
     return [
         "bash",
         "scripts/meta-progression-report.sh",
@@ -222,6 +225,8 @@ def _heuristic_args(mode: str, output_path: Path, checkpoint_dir: Path) -> list[
 
 
 def _learned_args(mode: str, model_dir: Path, output_path: Path) -> list[str]:
+    # Same duration-over-count bias as _heuristic_args: each learned trial runs
+    # long enough to reach the stage 3 boss when the policy survives.
     if mode == "quick":
         sizing = [
             "--quick",
@@ -230,24 +235,24 @@ def _learned_args(mode: str, model_dir: Path, output_path: Path) -> list[str]:
             "--runs",
             "2",
             "--max-pressure",
-            "20",
+            "80",
             "--trial-seconds",
-            "90",
+            "1800",
             "--max-seconds",
-            "45",
+            "200",
         ]
     else:
         sizing = [
             "--campaigns",
-            "6",
+            "4",
             "--runs",
-            "16",
+            "32",
             "--max-pressure",
-            "60",
+            "80",
             "--trial-seconds",
-            "480",
+            "2400",
             "--max-seconds",
-            "240",
+            "1200",
         ]
     return [
         "python3",
@@ -408,7 +413,7 @@ def _run_command(
     volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
     cpu=32,
     memory=65536,
-    timeout=60 * 5,
+    timeout=60 * 20,
 )
 def run_balance_quick(command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str) -> dict[str, object]:
     return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")

@@ -291,7 +291,14 @@ describe("upgrade effects", () => {
     const damageTarget = createPlayerState();
     findUpgrade("rail-slug").apply(tier("standard"), damageTarget);
     expect(damageTarget.damage).toBeCloseTo(24 * (1 + damageEffect));
-    expect(damageTarget.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
+    expect(damageTarget.bulletSpeed).toBe(610);
+
+    const velocityTarget = createPlayerState();
+    findUpgrade("velocity-driver").apply(tier("standard"), velocityTarget);
+    // velocity-driver carries a card-specific bullet-speed bonus, decoupled
+    // from balance.upgrade.effects.bulletSpeed (which still calibrates rail-slug).
+    expect(velocityTarget.bulletSpeed).toBeGreaterThan(610);
+    expect(bulletSpeedEffect).toBeGreaterThan(0);
   });
 
   it("applies defensive and utility upgrades to an isolated player", () => {
@@ -339,7 +346,7 @@ describe("upgrade effects", () => {
 
     expect(ids).not.toContain("drone-uplink");
     expect(ids).not.toContain("twin-cannon");
-    expect(ids).not.toContain("lance-capacitor");
+    expect(ids).not.toContain("lance-pierce");
 
     const critPlayer = createPlayerState({ critChance: 0.94 });
     findUpgrade("crit-array").apply(tier("singularity"), critPlayer);
@@ -352,7 +359,7 @@ describe("upgrade effects", () => {
     });
     findUpgrade("drone-uplink").apply(tier("singularity"), nearCapPlayer);
     findUpgrade("twin-cannon").apply(tier("singularity"), nearCapPlayer);
-    findUpgrade("lance-capacitor").apply(tier("singularity"), nearCapPlayer);
+    findUpgrade("lance-pierce").apply(tier("singularity"), nearCapPlayer);
 
     expect(nearCapPlayer.drones).toBe(balance.upgrade.caps.drones);
     expect(nearCapPlayer.projectileCount).toBe(balance.upgrade.caps.projectiles);
@@ -379,11 +386,11 @@ describe("multiplicative upgrade additivity", () => {
   it("sums contributions from different upgrades sharing the same stat", () => {
     const target = createPlayerState();
     findUpgrade("rail-slug").apply(tier("standard"), target);
-    findUpgrade("lance-capacitor").apply(tier("standard"), target);
+    findUpgrade("lance-impact").apply(tier("standard"), target);
 
     const expected =
       balance.player.stats.damage *
-      (1 + balance.upgrade.effects.damage + 0.18);
+      (1 + balance.upgrade.effects.damage + 0.22);
     expect(target.damage).toBeCloseTo(expected);
   });
 

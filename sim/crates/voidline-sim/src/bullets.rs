@@ -11,6 +11,32 @@ use crate::spatial_grid::SpatialGrid;
 use crate::state::EntityCounters;
 use crate::world::World;
 
+/// Spawn a single bullet from an enemy aimed at `angle`. Used by the gunner
+/// enemy. The bullet is tagged `BulletSource::Enemy` so the bullet update loop
+/// resolves collisions against the player instead of other enemies.
+pub fn fire_enemy_projectile(
+    pools: &mut EntityPools,
+    counters: &mut EntityCounters,
+    bullets: &mut Vec<Bullet>,
+    enemy: &Enemy,
+    angle: f64,
+) {
+    let idx = acquire_bullet(pools, counters, bullets);
+    let bullet = &mut bullets[idx];
+    let muzzle = enemy.radius + enemy.projectile_radius + 4.0;
+    bullet.x = enemy.x + angle.cos() * muzzle;
+    bullet.y = enemy.y + angle.sin() * muzzle;
+    bullet.vx = angle.cos() * enemy.projectile_speed;
+    bullet.vy = angle.sin() * enemy.projectile_speed;
+    bullet.radius = enemy.projectile_radius;
+    bullet.damage = enemy.projectile_damage;
+    bullet.pierce = 0;
+    bullet.life = enemy.projectile_life;
+    bullet.trail = 0.0;
+    bullet.source = BulletSource::Enemy;
+    bullet.chain_remaining = 0;
+}
+
 const RAIL_CHAIN_RADIUS: f64 = 285.0;
 const RAIL_CHAIN_DAMAGE_SCALE: f64 = 0.48;
 
@@ -233,7 +259,7 @@ pub fn update_bullets(
     enemies: &mut Vec<Enemy>,
     grid: &mut SpatialGrid,
     player: &mut Player,
-    world: &World,
+    world: &mut World,
     dt: f64,
     counters: &mut EntityCounters,
     max_enemy_radius: f64,
@@ -246,7 +272,7 @@ pub fn update_bullets(
         i -= 1;
 
         // step bullet
-        let (life_expired, bullet_circle, vx, vy) = {
+        let (life_expired, bullet_circle, vx, vy, source) = {
             let b = &mut bullets[i];
             b.life -= dt;
             b.x += b.vx * dt;
@@ -265,10 +291,25 @@ pub fn update_bullets(
                 },
                 b.vx,
                 b.vy,
+                b.source,
             )
         };
         if life_expired {
             release_bullet(pools, bullets, i);
+            continue;
+        }
+
+        if source == BulletSource::Enemy {
+            let player_circle = CircleRef {
+                x: player.x,
+                y: player.y,
+                radius: player.radius,
+            };
+            if circle_hit(bullet_circle, player_circle) {
+                let damage = bullets[i].damage;
+                crate::enemies::damage_player(player, world, damage);
+                release_bullet(pools, bullets, i);
+            }
             continue;
         }
 
@@ -321,4 +362,169 @@ pub fn update_bullets(
     }
 
     killed_indices
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entities::{EnemyKind, EnemyRole};
+    use crate::player::Player;
+    use crate::pools::EntityPools;
+    use crate::state::EntityCounters;
+    use crate::world::World;
+    use voidline_data::load_default;
+
+    fn gunner_at(x: f64, y: f64, balance_gunner: &voidline_data::balance::GunnerBalance) -> Enemy {
+        Enemy {
+            id: 1,
+            kind: EnemyKind::Gunner,
+            score: 70.0,
+            radius: 16.0,
+            hp: 50.0,
+            max_hp: 50.0,
+            speed: 70.0,
+            damage: 22.0,
+            sides: 5,
+            x,
+            y,
+            age: 0.0,
+            seed: 1.0,
+            wobble: 0.0,
+            wobble_rate: 0.0,
+            hit: 0.0,
+            role: EnemyRole::Normal,
+            contact_timer: 0.0,
+            contact_cooldown: 0.0,
+            attack_timer: 0.0,
+            attack_cooldown: balance_gunner.attack_cooldown,
+            attack_range: balance_gunner.attack_range,
+            projectile_damage: 22.0,
+            projectile_speed: balance_gunner.projectile_speed,
+            projectile_radius: balance_gunner.projectile_radius,
+            projectile_life: balance_gunner.projectile_life,
+        }
+    }
+
+    #[test]
+    fn fire_enemy_projectile_tags_bullet_with_enemy_source() {
+        let bundle = load_default().expect("balance.json");
+        let mut pools = EntityPools::default();
+        let mut counters = EntityCounters::default();
+        let mut bullets: Vec<Bullet> = Vec::new();
+        let enemy = gunner_at(0.0, 0.0, &bundle.balance.gunner);
+        fire_enemy_projectile(&mut pools, &mut counters, &mut bullets, &enemy, 0.0);
+        assert_eq!(bullets.len(), 1);
+        assert_eq!(bullets[0].source, BulletSource::Enemy);
+        assert!(bullets[0].damage > 0.0);
+        assert!(bullets[0].vx > 0.0);
+    }
+
+    #[test]
+    fn enemy_bullet_damages_player_and_releases() {
+        let bundle = load_default().expect("balance.json");
+        let mut pools = EntityPools::default();
+        let mut counters = EntityCounters::default();
+        let mut bullets: Vec<Bullet> = Vec::new();
+        let mut enemies: Vec<Enemy> = Vec::new();
+        let mut grid = SpatialGrid::new(72.0);
+        let mut player = Player::new(&bundle.balance.player.stats);
+        player.x = 100.0;
+        player.y = 100.0;
+        let mut world = World::default();
+        world.arena_width = 4000.0;
+        world.arena_height = 4000.0;
+
+        // Place an enemy bullet right on the player.
+        let enemy = gunner_at(player.x, player.y, &bundle.balance.gunner);
+        fire_enemy_projectile(&mut pools, &mut counters, &mut bullets, &enemy, 0.0);
+        // Move bullet onto player so circle_hit succeeds (the projectile spawns
+        // outside the enemy radius, so reposition it to overlap the player).
+        bullets[0].x = player.x;
+        bullets[0].y = player.y;
+
+        let baseline_hp = player.hp;
+        let _ = update_bullets(
+            &mut pools,
+            &mut bullets,
+            &mut enemies,
+            &mut grid,
+            &mut player,
+            &mut world,
+            1.0 / 60.0,
+            &mut counters,
+            16.0,
+        );
+
+        assert!(player.hp < baseline_hp, "player should have taken damage");
+        assert!(bullets.is_empty(), "enemy bullet should be released after hit");
+    }
+
+    #[test]
+    fn enemy_bullet_does_not_hit_other_enemies() {
+        let bundle = load_default().expect("balance.json");
+        let mut pools = EntityPools::default();
+        let mut counters = EntityCounters::default();
+        let mut bullets: Vec<Bullet> = Vec::new();
+        let mut grid = SpatialGrid::new(72.0);
+        let mut player = Player::new(&bundle.balance.player.stats);
+        player.x = -1000.0;
+        player.y = -1000.0;
+        let mut world = World::default();
+        world.arena_width = 4000.0;
+        world.arena_height = 4000.0;
+
+        let mut bystander = Enemy {
+            id: 99,
+            kind: EnemyKind::Scout,
+            score: 0.0,
+            radius: 14.0,
+            hp: 10.0,
+            max_hp: 10.0,
+            speed: 0.0,
+            damage: 0.0,
+            sides: 3,
+            x: 0.0,
+            y: 0.0,
+            age: 0.0,
+            seed: 1.0,
+            wobble: 0.0,
+            wobble_rate: 0.0,
+            hit: 0.0,
+            role: EnemyRole::Normal,
+            contact_timer: 0.0,
+            contact_cooldown: 0.0,
+            attack_timer: 0.0,
+            attack_cooldown: 0.0,
+            attack_range: 0.0,
+            projectile_damage: 0.0,
+            projectile_speed: 0.0,
+            projectile_radius: 0.0,
+            projectile_life: 0.0,
+        };
+        let baseline_bystander_hp = bystander.hp;
+        let mut enemies = vec![bystander.clone()];
+
+        let enemy = gunner_at(50.0, 50.0, &bundle.balance.gunner);
+        fire_enemy_projectile(&mut pools, &mut counters, &mut bullets, &enemy, 0.0);
+        bullets[0].x = bystander.x;
+        bullets[0].y = bystander.y;
+
+        let _ = update_bullets(
+            &mut pools,
+            &mut bullets,
+            &mut enemies,
+            &mut grid,
+            &mut player,
+            &mut world,
+            1.0 / 60.0,
+            &mut counters,
+            16.0,
+        );
+
+        assert_eq!(
+            enemies[0].hp, baseline_bystander_hp,
+            "bystander enemy must not take damage from enemy bullets"
+        );
+        bystander.hp = baseline_bystander_hp;
+    }
 }

@@ -89,12 +89,23 @@ export const upgradePool: Upgrade[] = [
         amount: balance.upgrade.effects.damage,
         cap: "damageMul",
       },
-      { type: "addPct", stat: "bulletSpeed", amount: balance.upgrade.effects.bulletSpeed },
     ],
     effect(tier) {
-      return `+${percent(balance.upgrade.effects.damage * tier.power)} degats, +${percent(
-        balance.upgrade.effects.bulletSpeed * tier.power,
-      )} vitesse`;
+      return `+${percent(balance.upgrade.effects.damage * tier.power)} degats`;
+    },
+  }),
+  defineUpgrade({
+    id: "velocity-driver",
+    kind: "technology",
+    icon: "VEL",
+    name: "Technologie velocite",
+    description: "Accelere les projectiles pour des impacts plus secs.",
+    tags: ["cannon"],
+    effects: [
+      { type: "addPct", stat: "bulletSpeed", amount: 0.12 },
+    ],
+    effect(tier) {
+      return `+${percent(0.12 * tier.power)} vitesse projectile`;
     },
   }),
   defineUpgrade({
@@ -177,28 +188,38 @@ export const upgradePool: Upgrade[] = [
     },
   }),
   defineUpgrade({
-    id: "pulse-overdrive",
+    id: "pulse-cadence",
     kind: "weapon",
     weaponId: "pulse",
     icon: "PUL",
-    name: "Pulse overdrive",
-    description: "Level-up du Pulse Rifle: cadence et degats stables.",
+    name: "Pulse cadence",
+    description: "Level-up du Pulse Rifle: cadence accrue.",
     tags: ["cannon"],
-    effects: [
-      { type: "addPct", stat: "fireRate", amount: 0.2 },
-      { type: "addPct", stat: "damage", amount: 0.16 },
-    ],
+    effects: [{ type: "addPct", stat: "fireRate", amount: 0.24 }],
     effect(tier) {
-      return `+${percent(0.2 * tier.power)} cadence, +${percent(0.16 * tier.power)} degats`;
+      return `+${percent(0.24 * tier.power)} cadence`;
     },
   }),
   defineUpgrade({
-    id: "scatter-loader",
+    id: "pulse-impact",
+    kind: "weapon",
+    weaponId: "pulse",
+    icon: "PUL",
+    name: "Pulse impact",
+    description: "Level-up du Pulse Rifle: punch des projectiles.",
+    tags: ["cannon"],
+    effects: [{ type: "addPct", stat: "damage", amount: 0.22 }],
+    effect(tier) {
+      return `+${percent(0.22 * tier.power)} degats`;
+    },
+  }),
+  defineUpgrade({
+    id: "scatter-volley",
     kind: "weapon",
     weaponId: "scatter",
     icon: "SCT",
-    name: "Scatter loader",
-    description: "Level-up du Scatter: densifie la salve et compense les impacts.",
+    name: "Scatter volley",
+    description: "Level-up du Scatter: +1 projectile, degats actuels reduits.",
     tags: ["cannon", "crit"],
     softCap: { stat: "projectileCount", max: balance.upgrade.caps.projectiles },
     effects: [
@@ -214,31 +235,53 @@ export const upgradePool: Upgrade[] = [
         stat: "damage",
         factor: balance.upgrade.effects.projectileDamageFactor,
       },
-      { type: "addPct", stat: "damage", amount: 0.08 },
     ],
     effect(tier) {
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, degats actuels ${factor(
         balance.upgrade.effects.projectileDamageFactor,
-      )}, +${percent(
-        0.08 * tier.power,
-      )} degats`;
+      )}`;
     },
   }),
   defineUpgrade({
-    id: "lance-capacitor",
+    id: "scatter-impact",
+    kind: "weapon",
+    weaponId: "scatter",
+    icon: "SCT",
+    name: "Scatter impact",
+    description: "Level-up du Scatter: punch des projectiles.",
+    tags: ["cannon", "crit"],
+    effects: [{ type: "addPct", stat: "damage", amount: 0.18 }],
+    effect(tier) {
+      return `+${percent(0.18 * tier.power)} degats`;
+    },
+  }),
+  defineUpgrade({
+    id: "lance-pierce",
     kind: "weapon",
     weaponId: "lance",
     icon: "RLG",
-    name: "Lance capacitor",
-    description: "Level-up du Rail Lance: penetration et charge de tir.",
+    name: "Lance penetration",
+    description: "Level-up du Rail Lance: traverse une cible de plus.",
     tags: ["pierce", "cannon"],
     softCap: { stat: "pierce", max: balance.upgrade.caps.pierce },
     effects: [
       { type: "addCapped", stat: "pierce", amount: 1, cap: "pierce", gainCurve: "stepped" },
-      { type: "addPct", stat: "damage", amount: 0.18 },
     ],
     effect(tier) {
-      return `+${pierceGain(tier)} penetration, +${percent(0.18 * tier.power)} degats`;
+      return `+${pierceGain(tier)} penetration`;
+    },
+  }),
+  defineUpgrade({
+    id: "lance-impact",
+    kind: "weapon",
+    weaponId: "lance",
+    icon: "RLG",
+    name: "Lance impact",
+    description: "Level-up du Rail Lance: charge l'impact des tirs.",
+    tags: ["pierce", "cannon"],
+    effects: [{ type: "addPct", stat: "damage", amount: 0.22 }],
+    effect(tier) {
+      return `+${percent(0.22 * tier.power)} degats`;
     },
   }),
   defineUpgrade({

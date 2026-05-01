@@ -585,25 +585,53 @@ fn base_upgrade_score(upgrade: &Upgrade, profile: &PlayerProfileId) -> f64 {
                 44.0
             }
         }
-        "pulse-overdrive" => {
+        "pulse-cadence" => {
             if optimizer {
                 52.0
             } else {
                 44.0
             }
         }
-        "scatter-loader" => {
+        "pulse-impact" => {
+            if optimizer {
+                51.0
+            } else {
+                43.0
+            }
+        }
+        "scatter-volley" => {
             if optimizer {
                 55.0
             } else {
                 46.0
             }
         }
-        "lance-capacitor" => {
+        "scatter-impact" => {
+            if optimizer {
+                50.0
+            } else {
+                42.0
+            }
+        }
+        "lance-pierce" => {
             if optimizer {
                 52.0
             } else {
                 44.0
+            }
+        }
+        "lance-impact" => {
+            if optimizer {
+                51.0
+            } else {
+                43.0
+            }
+        }
+        "velocity-driver" => {
+            if optimizer {
+                34.0
+            } else {
+                30.0
             }
         }
         "drone-uplink" => {

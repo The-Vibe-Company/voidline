@@ -139,6 +139,16 @@ pub fn spawn_enemy(
         balance.enemy.wobble.rate_base + rolls.wobble_roll * balance.enemy.wobble.rate_random;
     enemy.hit = 0.0;
     enemy.role = EnemyRole::Normal;
+    if matches!(enemy.kind, EnemyKind::Gunner) {
+        let g = &balance.gunner;
+        enemy.attack_cooldown = g.attack_cooldown;
+        enemy.attack_timer = g.attack_cooldown * (0.4 + rolls.wobble_roll * 0.6);
+        enemy.attack_range = g.attack_range;
+        enemy.projectile_damage = scaled.damage;
+        enemy.projectile_speed = g.projectile_speed;
+        enemy.projectile_radius = g.projectile_radius;
+        enemy.projectile_life = g.projectile_life;
+    }
 }
 
 pub fn spawn_elite(
@@ -196,6 +206,7 @@ fn wobble_for(wobble: &voidline_data::balance::EnemyWobble, kind: &str) -> f64 {
         "scout" => wobble.scout,
         "hunter" => wobble.hunter,
         "brute" => wobble.brute,
+        "gunner" => wobble.gunner,
         _ => 0.0,
     }
 }

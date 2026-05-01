@@ -119,6 +119,13 @@ mod tests {
             role: EnemyRole::Normal,
             contact_timer: 0.0,
             contact_cooldown: 0.0,
+            attack_timer: 0.0,
+            attack_cooldown: 0.0,
+            attack_range: 0.0,
+            projectile_damage: 0.0,
+            projectile_speed: 0.0,
+            projectile_radius: 0.0,
+            projectile_life: 0.0,
         }
     }
 

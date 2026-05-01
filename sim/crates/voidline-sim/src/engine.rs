@@ -504,6 +504,13 @@ impl Engine {
                 role: EnemyRole::Normal,
                 contact_timer: 0.0,
                 contact_cooldown: 0.0,
+                attack_timer: 0.0,
+                attack_cooldown: 0.0,
+                attack_range: 0.0,
+                projectile_damage: 0.0,
+                projectile_speed: 0.0,
+                projectile_radius: 0.0,
+                projectile_life: 0.0,
             });
             self.sim.counters.next_enemy_id += 1;
         }
@@ -1373,6 +1380,7 @@ fn bullet_source_str(source: BulletSource) -> &'static str {
         BulletSource::Player => "player",
         BulletSource::Drone => "drone",
         BulletSource::Chain => "chain",
+        BulletSource::Enemy => "enemy",
     }
 }
 
@@ -1381,6 +1389,7 @@ fn bullet_color(source: BulletSource) -> &'static str {
         BulletSource::Player => "#39d9ff",
         BulletSource::Drone => "#ffbf47",
         BulletSource::Chain => "#ff5af0",
+        BulletSource::Enemy => "#ff7a45",
     }
 }
 

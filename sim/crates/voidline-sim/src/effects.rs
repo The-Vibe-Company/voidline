@@ -255,16 +255,29 @@ mod tests {
     }
 
     #[test]
-    fn rail_slug_standard_boosts_damage_and_bullet_speed() {
+    fn rail_slug_standard_boosts_damage_only() {
         let bundle = load_default().unwrap();
         let mut player = fresh_player(&bundle);
         let upgrade = find_upgrade(&bundle, "rail-slug");
         let tier = find_tier(&bundle, "standard");
         run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
         let dmg = bundle.balance.upgrade.effects.damage;
-        let bs = bundle.balance.upgrade.effects.bullet_speed;
         assert!((player.damage - 24.0 * (1.0 + dmg)).abs() < 1e-12);
-        assert!((player.bullet_speed - 610.0 * (1.0 + bs)).abs() < 1e-12);
+        // bullet_speed effect now lives on the velocity-driver card.
+        assert_eq!(player.bullet_speed, 610.0);
+    }
+
+    #[test]
+    fn velocity_driver_standard_boosts_bullet_speed_only() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "velocity-driver");
+        let tier = find_tier(&bundle, "standard");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        // velocity-driver uses a card-specific bullet-speed bonus (decoupled from
+        // balance.upgrade.effects.bulletSpeed which still calibrates rail-slug etc.)
+        assert!(player.bullet_speed > 610.0);
+        assert_eq!(player.damage, 24.0);
     }
 
     #[test]
@@ -480,8 +493,8 @@ mod tests {
             player.bonus.damage_pct,
             cap,
         );
-        // bullet_speed leg uses uncapped addPct, so it should keep accumulating.
-        assert!(player.bonus.bullet_speed_pct > cap);
+        // rail-slug no longer carries a bullet_speed leg; that effect moved to velocity-driver.
+        assert_eq!(player.bonus.bullet_speed_pct, 0.0);
     }
 
     #[test]
@@ -519,7 +532,7 @@ mod tests {
     fn pierce_caps_at_balance_cap() {
         let bundle = load_default().unwrap();
         let mut player = fresh_player(&bundle);
-        let upgrade = find_upgrade(&bundle, "lance-capacitor");
+        let upgrade = find_upgrade(&bundle, "lance-pierce");
         let tier = find_tier(&bundle, "singularity");
         for _ in 0..15 {
             run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);

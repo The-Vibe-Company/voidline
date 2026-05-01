@@ -15,6 +15,7 @@ pub struct Balance {
     pub late_pressure: LatePressureBalance,
     pub enemy: EnemyBalance,
     pub enemies: Vec<EnemyType>,
+    pub gunner: GunnerBalance,
     pub upgrade: UpgradeBalance,
     pub tiers: Vec<UpgradeTier>,
     pub bosses: BossBalance,
@@ -175,8 +176,20 @@ pub struct EnemyWobble {
     pub scout: f64,
     pub hunter: f64,
     pub brute: f64,
+    pub gunner: f64,
     pub rate_base: f64,
     pub rate_random: f64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GunnerBalance {
+    pub attack_range: f64,
+    pub attack_cooldown: f64,
+    pub attack_telegraph_seconds: f64,
+    pub projectile_speed: f64,
+    pub projectile_radius: f64,
+    pub projectile_life: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]

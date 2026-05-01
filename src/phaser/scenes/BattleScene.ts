@@ -28,6 +28,7 @@ export class BattleScene extends Phaser.Scene {
     scout: new ImageRenderPool(this, textureKeys.enemies.scout, 20),
     hunter: new ImageRenderPool(this, textureKeys.enemies.hunter, 20),
     brute: new ImageRenderPool(this, textureKeys.enemies.brute, 20),
+    gunner: new ImageRenderPool(this, textureKeys.enemies.gunner, 16),
   };
   private readonly bulletPool = new ImageRenderPool(this, textureKeys.bullet, 30);
   private readonly xpPool = new ImageRenderPool(this, textureKeys.xp, 15);
@@ -195,6 +196,7 @@ export class BattleScene extends Phaser.Scene {
     this.enemyPools.scout.sweep(frame);
     this.enemyPools.hunter.sweep(frame);
     this.enemyPools.brute.sweep(frame);
+    this.enemyPools.gunner.sweep(frame);
   }
 
   private syncBullets(frame: number): void {
@@ -210,7 +212,9 @@ export class BattleScene extends Phaser.Scene {
           ? textureKeys.bulletCrit
           : bullet.color === "#ffbf47"
             ? textureKeys.droneBullet
-            : textureKeys.bullet;
+            : bullet.color === "#ff7a45"
+              ? textureKeys.bulletEnemy
+              : textureKeys.bullet;
       sprite.setTexture(key);
       sprite.setPosition(bullet.x, bullet.y);
       sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));

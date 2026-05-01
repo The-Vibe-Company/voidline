@@ -52,7 +52,7 @@ export const state: GameState = {
   highestStageReached: 1,
   score: 0,
   phaseKills: 0,
-  killsByKind: { scout: 0, hunter: 0, brute: 0 },
+  killsByKind: { scout: 0, hunter: 0, brute: 0, gunner: 0 },
   enemyPressureTarget: 0,
   spawnTimer: 0,
   spawnGap: 0.7,

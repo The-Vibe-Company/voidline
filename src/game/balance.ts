@@ -133,6 +133,7 @@ export const xpBalance = {
     scout: 2,
     hunter: 3,
     brute: 5,
+    gunner: 3,
   } satisfies Record<EnemyKind, number>,
   orbRadiusBase: 6,
   orbRadiusValueScale: 0.18,
@@ -215,6 +216,17 @@ export const enemyTypes = [
     accent: "#ead4ff",
     sides: 6,
   },
+  {
+    id: "gunner",
+    score: 70,
+    radius: 16,
+    hp: 50,
+    speed: 70,
+    damage: 22,
+    color: "#ffd24a",
+    accent: "#fff7c2",
+    sides: 5,
+  },
 ] satisfies EnemyType[];
 
 export const enemyBalance = {
@@ -247,9 +259,19 @@ export const enemyBalance = {
     scout: 0.18,
     hunter: 0.18,
     brute: 0.08,
+    gunner: 0.1,
     rateBase: 2,
     rateRandom: 2,
   } satisfies Record<EnemyKind, number> & { rateBase: number; rateRandom: number },
+};
+
+export const gunnerBalance = {
+  attackRange: 360,
+  attackCooldown: 1.6,
+  attackTelegraphSeconds: 0.4,
+  projectileSpeed: 220,
+  projectileRadius: 8,
+  projectileLife: 2.2,
 };
 
 export const enemySpawnRules: Record<EnemyKind, EnemySpawnPolicy> = {
@@ -265,6 +287,12 @@ export const enemySpawnRules: Record<EnemyKind, EnemySpawnPolicy> = {
     perPressure: enemyBalance.bruteChancePerPressure,
     maxChance: enemyBalance.bruteChanceMax,
     pressureOnset: enemyBalance.bruteChanceOffsetPressure,
+  },
+  gunner: {
+    baseChance: 0,
+    perPressure: 0.04,
+    maxChance: 0.18,
+    pressureOnset: 2,
   },
 };
 
@@ -388,6 +416,7 @@ export const powerupBalance = {
     scout: 0.012 / enemyDensityMultiplier,
     hunter: 0.03 / enemyDensityMultiplier,
     brute: 0.09 / enemyDensityMultiplier,
+    gunner: 0.04 / enemyDensityMultiplier,
   } satisfies Record<EnemyKind, number>,
 };
 
@@ -411,6 +440,7 @@ export const balance = {
   latePressure: latePressureBalance,
   enemy: enemyBalance,
   enemies: enemyTypes,
+  gunner: gunnerBalance,
   upgrade: upgradeBalance,
   tiers: upgradeTiers,
   bosses: bossBalance,

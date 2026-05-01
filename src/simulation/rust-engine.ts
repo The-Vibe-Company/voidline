@@ -114,7 +114,7 @@ interface RustSnapshot {
     highestStageReached: number;
     score: number;
     phaseKills: number;
-    killsByKind: Partial<Record<"scout" | "hunter" | "brute", number>>;
+    killsByKind: Partial<Record<"scout" | "hunter" | "brute" | "gunner", number>>;
     enemyPressureTarget: number;
     spawnTimer: number;
     spawnGap: number;
@@ -375,6 +375,7 @@ function syncState(snapshot: RustSnapshot, preserveModalMode: boolean): void {
     scout: snapshot.state.killsByKind.scout ?? 0,
     hunter: snapshot.state.killsByKind.hunter ?? 0,
     brute: snapshot.state.killsByKind.brute ?? 0,
+    gunner: snapshot.state.killsByKind.gunner ?? 0,
   };
 }
 

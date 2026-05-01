@@ -15,7 +15,7 @@ describe("build synergy calculation", () => {
   it("activates rail splitter from cannon, crit, and pierce tags", () => {
     const upgradeLoadout = [
       { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
-      { upgrade: findUpgrade("lance-capacitor"), tier, count: 1 },
+      { upgrade: findUpgrade("lance-pierce"), tier, count: 1 },
       { upgrade: findUpgrade("crit-array"), tier, count: 1 },
     ];
     const counts = buildTagCountsFromLoadout(upgradeLoadout, []);
@@ -54,7 +54,7 @@ describe("build synergy calculation", () => {
     const target = createPlayerState();
     const upgradeLoadout = [
       { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
-      { upgrade: findUpgrade("lance-capacitor"), tier, count: 1 },
+      { upgrade: findUpgrade("lance-pierce"), tier, count: 1 },
       { upgrade: findUpgrade("crit-array"), tier, count: 1 },
       { upgrade: findUpgrade("drone-uplink"), tier, count: 1 },
       { upgrade: findUpgrade("kinetic-shield"), tier, count: 1 },
@@ -102,7 +102,7 @@ describe("build synergy calculation", () => {
       [
         { upgrade: findUpgrade("rail-slug"), tier, count: 1 },
         { upgrade: findUpgrade("crit-array"), tier, count: 1 },
-        { upgrade: findUpgrade("lance-capacitor"), tier, count: 1 },
+        { upgrade: findUpgrade("lance-pierce"), tier, count: 1 },
       ],
       [],
     );
