@@ -1,0 +1,73 @@
+src/game/upgrade-catalog.ts
+  6ee0b6ba3dccb406 94-108,191,195-196,198-211,213,217,221-222,242-255,259,263-264,271-284
+sim/crates/voidline-sim/src/entities.rs
+  6ee0b6ba3dccb406 19,28,37,64-70,88
+src/systems/synergies.test.ts
+  6ee0b6ba3dccb406 18,57,105
+sim/crates/voidline-sim/src/bullets.rs
+  6ee0b6ba3dccb406 14-39,262,275,294,302-315,366-530
+src/state.ts
+  6ee0b6ba3dccb406 55
+sim/crates/voidline-data/src/balance.rs
+  6ee0b6ba3dccb406 18,179,184-192
+sim/crates/voidline-sim/src/spawn.rs
+  6ee0b6ba3dccb406 142-151,209
+sim/crates/voidline-sim/src/spatial_grid.rs
+  6ee0b6ba3dccb406 122-128
+src/simulation/rust-engine.ts
+  6ee0b6ba3dccb406 117,378
+scripts/meta-progression-report.sh
+  6ee0b6ba3dccb406 12-23
+src/game/balance.ts
+  6ee0b6ba3dccb406 136,219-229,262,268-276,291-296,419,443
+src/phaser/scenes/BattleScene.ts
+  6ee0b6ba3dccb406 31,199,215-217
+sim/crates/voidline-sim/src/effects.rs
+  6ee0b6ba3dccb406 258,266-280,496-497,535
+src/game/meta-upgrade-catalog.test.ts
+  6ee0b6ba3dccb406 30
+sim/crates/voidline-meta/src/profiles.rs
+  6ee0b6ba3dccb406 588,595-602,609-616,623-634
+sim/crates/voidline-sim/src/simulation.rs
+  6ee0b6ba3dccb406 458
+src/game/meta-upgrade-catalog.ts
+  6ee0b6ba3dccb406 146-158
+sim/crates/voidline-sim/src/synergies.rs
+  6ee0b6ba3dccb406 129
+sim/crates/voidline-sim/src/pools.rs
+  6ee0b6ba3dccb406 58-64,76-82
+sim/crates/voidline-sim/src/enemies.rs
+  6ee0b6ba3dccb406 7,9,56,71-73,105,108-110,138-153,157-188,584-590,608-610,614-616,639-641,645-647,756-758,763-765
+src/game/balance.test.ts
+  6ee0b6ba3dccb406 294-301,349,362,389,393
+sim/crates/voidline-sim/src/engine.rs
+  6ee0b6ba3dccb406 507-513,1383,1392
+src/phaser/textures.ts
+  6ee0b6ba3dccb406 10,22,33,117,132-147
+src/systems/upgrades.test.ts
+  6ee0b6ba3dccb406 53-56,65-68
+data/balance.json
+  6ee0b6ba3dccb406 69-70,122,160-170,173-180,390-391,415-420,486-498,502,596,600-601,609-623,627,632,636-637,662-681,685-686,705-723,1111-1139
+src/types.ts
+  6ee0b6ba3dccb406 11,51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "04f9cd584b82cbd9eff87cf2690a8159d738386d",
+  "prompts": {
+    "6ee0b6ba3dccb406": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18ba11b5-b1a6-4dda-9710-3a6a10bec998",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 2347,
+      "total_deletions": 132,
+      "accepted_lines": 1076,
+      "overriden_lines": 0
+    }
+  }
+}
