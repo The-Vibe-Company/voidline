@@ -29,30 +29,37 @@ done
 
 case "$MODE" in
   quick)
-    CAMPAIGNS=3
-    RUNS=12
-    MAX_SECONDS=60
+    CAMPAIGNS=8
+    RUNS=32
+    MAX_SECONDS=120
     ;;
   check)
-    CAMPAIGNS=8
-    RUNS=20
-    MAX_SECONDS=120
-    EXTRA_ARGS+=(--check-target balance)
+    CAMPAIGNS=30
+    RUNS=80
+    MAX_SECONDS=240
+    EXTRA_ARGS+=(--check-target balance --policy-set focused)
     ;;
   *)
     CAMPAIGNS=12
-    RUNS=24
+    RUNS=48
     MAX_SECONDS=180
     ;;
 esac
 
-exec "$(dirname "$0")/meta-progression-report.sh" \
-  --default \
-  --player-profile skilled \
-  --campaigns "$CAMPAIGNS" \
-  --runs "$RUNS" \
-  --max-pressure 80 \
-  --trial-seconds 720 \
-  --max-seconds "$MAX_SECONDS" \
-  --output scripts/balance-profile-report.json \
-  "${EXTRA_ARGS[@]}"
+CMD=(
+  "$(dirname "$0")/meta-progression-report.sh"
+  --default
+  --player-profile skilled
+  --campaigns "$CAMPAIGNS"
+  --runs "$RUNS"
+  --max-pressure 80
+  --trial-seconds 720
+  --max-seconds "$MAX_SECONDS"
+  --output scripts/balance-profile-report.json
+)
+
+if ((${#EXTRA_ARGS[@]})); then
+  CMD+=("${EXTRA_ARGS[@]}")
+fi
+
+exec "${CMD[@]}"

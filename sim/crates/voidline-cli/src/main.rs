@@ -73,6 +73,28 @@ impl CheckTargetArg {
     }
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+enum PolicySetArg {
+    All,
+    Focused,
+}
+
+impl PolicySetArg {
+    fn as_str(&self) -> &'static str {
+        match self {
+            PolicySetArg::All => "all",
+            PolicySetArg::Focused => "focused",
+        }
+    }
+
+    fn policy_count(&self) -> usize {
+        match self {
+            PolicySetArg::All => 4,
+            PolicySetArg::Focused => 1,
+        }
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "voidline-cli", about = "Voidline meta-progression report")]
 struct Args {
@@ -127,6 +149,10 @@ struct Args {
     /// Optional balance check to enforce after writing the report
     #[arg(long, value_enum)]
     check_target: Option<CheckTargetArg>,
+
+    /// Policy set to simulate. Balance checks only need focused-attack.
+    #[arg(long, value_enum, default_value = "all")]
+    policy_set: PolicySetArg,
 
     /// Append a compact replayable snapshot to the history JSONL file
     #[arg(long)]
@@ -260,6 +286,7 @@ struct ReportConfig {
     seed: u32,
     player_profile_arg: String,
     player_profiles: Vec<String>,
+    policy_set: String,
     check_target: Option<String>,
     thresholds: Phase1Thresholds,
     threads: usize,
@@ -283,8 +310,8 @@ impl Default for Phase1Thresholds {
             optimizer_stage1_p50_min: 3.0,
             expert_human_stage2_p50_min: 10.0,
             optimizer_stage2_p50_min: 5.0,
-            min_campaigns_for_check: 4,
-            min_runs_for_check: 16,
+            min_campaigns_for_check: 30,
+            min_runs_for_check: 80,
             min_trial_seconds_for_check: 660.0,
             min_min_max_pressure_for_check: 50,
         }
@@ -694,8 +721,12 @@ fn main() {
     };
 
     eprintln!(
-        "voidline-cli: {} profile(s) × 4 policies × {campaigns} campaigns × {runs} runs (max_pressure={}, trial_seconds={}s, budget={}s)",
-        player_profiles.len(), max_pressure, trial_seconds, args.max_seconds,
+        "voidline-cli: {} profile(s) × {} policy/policies × {campaigns} campaigns × {runs} runs (max_pressure={}, trial_seconds={}s, budget={}s)",
+        player_profiles.len(),
+        args.policy_set.policy_count(),
+        max_pressure,
+        trial_seconds,
+        args.max_seconds,
     );
 
     let start = Instant::now();
@@ -706,17 +737,19 @@ fn main() {
         options.player_profile = *player_profile;
         let mut sections = Vec::new();
 
-        eprintln!("[profile:{}][random]", player_profile.as_str());
-        let random_results =
-            run_policy_campaigns(&bundle, options, campaigns, |seed| RandomPolicy::new(seed));
-        sections.push(build_section(PolicyId::Random, runs, &random_results));
-        check_budget(&start, args.max_seconds);
+        if matches!(args.policy_set, PolicySetArg::All) {
+            eprintln!("[profile:{}][random]", player_profile.as_str());
+            let random_results =
+                run_policy_campaigns(&bundle, options, campaigns, |seed| RandomPolicy::new(seed));
+            sections.push(build_section(PolicyId::Random, runs, &random_results));
+            check_budget(&start, args.max_seconds);
 
-        eprintln!("[profile:{}][greedy-cheap]", player_profile.as_str());
-        let greedy_results =
-            run_policy_campaigns(&bundle, options, campaigns, |_| GreedyCheapPolicy);
-        sections.push(build_section(PolicyId::GreedyCheap, runs, &greedy_results));
-        check_budget(&start, args.max_seconds);
+            eprintln!("[profile:{}][greedy-cheap]", player_profile.as_str());
+            let greedy_results =
+                run_policy_campaigns(&bundle, options, campaigns, |_| GreedyCheapPolicy);
+            sections.push(build_section(PolicyId::GreedyCheap, runs, &greedy_results));
+            check_budget(&start, args.max_seconds);
+        }
 
         eprintln!("[profile:{}][focused-attack]", player_profile.as_str());
         let focused_results = run_policy_campaigns(&bundle, options, campaigns, |_| {
@@ -729,10 +762,13 @@ fn main() {
         ));
         check_budget(&start, args.max_seconds);
 
-        eprintln!("[profile:{}][hoarder]", player_profile.as_str());
-        let hoarder_results = run_policy_campaigns(&bundle, options, campaigns, |_| HoarderPolicy);
-        sections.push(build_section(PolicyId::Hoarder, runs, &hoarder_results));
-        check_budget(&start, args.max_seconds);
+        if matches!(args.policy_set, PolicySetArg::All) {
+            eprintln!("[profile:{}][hoarder]", player_profile.as_str());
+            let hoarder_results =
+                run_policy_campaigns(&bundle, options, campaigns, |_| HoarderPolicy);
+            sections.push(build_section(PolicyId::Hoarder, runs, &hoarder_results));
+            check_budget(&start, args.max_seconds);
+        }
 
         profiles.push(ProfileSection {
             player_profile: player_profile.as_str().to_string(),
@@ -759,6 +795,7 @@ fn main() {
                 .iter()
                 .map(|profile| profile.as_str().to_string())
                 .collect(),
+            policy_set: args.policy_set.as_str().to_string(),
             check_target: args
                 .check_target
                 .as_ref()
@@ -983,6 +1020,7 @@ fn build_replay_command(args: &Args, output_path: &PathBuf) -> String {
         shell_word(&output_path.display().to_string())
     ));
     parts.push(format!("--player-profile {}", args.player_profile.as_str()));
+    parts.push(format!("--policy-set {}", args.policy_set.as_str()));
     parts.push(format!("--seed {}", args.seed));
     if args.quick {
         parts.push("--quick".to_string());
@@ -1128,6 +1166,7 @@ mod tests {
             player_profile: PlayerProfileArg::Skilled,
             seed: 1234,
             check_target: Some(CheckTargetArg::Balance),
+            policy_set: PolicySetArg::Focused,
             record_history: true,
             history_path: PathBuf::from("data/balance-profile-history.jsonl"),
             allow_dirty_history: false,
@@ -1140,6 +1179,7 @@ mod tests {
         let command = build_replay_command(&args, &args.output);
 
         assert!(command.contains("--player-profile skilled"));
+        assert!(command.contains("--policy-set focused"));
         assert!(command.contains("--seed 1234"));
         assert!(command.contains("--campaigns 2"));
         assert!(command.contains("--runs 3"));
@@ -1149,11 +1189,7 @@ mod tests {
     }
 
     fn percentile_summary(p50: Option<f64>, p75: Option<f64>) -> PercentileSummary {
-        PercentileSummary {
-            p25: p50,
-            p50,
-            p75,
-        }
+        PercentileSummary { p25: p50, p50, p75 }
     }
 
     fn policy_section(
@@ -1223,6 +1259,7 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
+                policy_set: "focused".to_string(),
                 check_target: Some("balance".to_string()),
                 thresholds,
                 threads: 1,
@@ -1272,7 +1309,9 @@ mod tests {
     #[test]
     fn balance_checks_fail_without_expert_profile() {
         let mut report = checkable_report();
-        report.profiles.retain(|profile| profile.player_profile != "expert-human");
+        report
+            .profiles
+            .retain(|profile| profile.player_profile != "expert-human");
 
         let errors = run_balance_checks(&report, &CheckTargetArg::Balance).unwrap_err();
 
@@ -1309,6 +1348,7 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
+                policy_set: "all".to_string(),
                 check_target: None,
                 thresholds: Phase1Thresholds::default(),
                 threads: 1,

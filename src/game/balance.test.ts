@@ -170,34 +170,74 @@ describe("balance curves", () => {
 
   it("keeps upgrade tier weights valid", () => {
     for (const pressure of [1, 2, 5, 12, 40]) {
-      const weights = upgradeTierWeights(pressure);
-      expect(weights.every((item) => item.weight >= 0)).toBe(true);
-      expect(weights.reduce((sum, item) => sum + item.weight, 0)).toBeGreaterThan(0);
+      for (const rank of [0, 1, 2, 3]) {
+        const weights = upgradeTierWeights(pressure, rank);
+        expect(weights.every((item) => item.weight >= 0)).toBe(true);
+        expect(weights.reduce((sum, item) => sum + item.weight, 0)).toBeGreaterThan(0);
+      }
     }
 
     const singularityGate = balance.upgrade.gates.singularity.minPressure;
+    const singularityRank = balance.upgrade.gates.singularity.minRank;
     expect(
-      upgradeTierWeights(singularityGate - 1).find((item) => item.tier.id === "singularity")
-        ?.weight,
+      upgradeTierWeights(singularityGate - 1, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
     ).toBe(0);
     expect(
-      upgradeTierWeights(singularityGate).find((item) => item.tier.id === "singularity")?.weight,
+      upgradeTierWeights(singularityGate, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
     ).toBeGreaterThan(0);
     expect(selectUpgradeTier(1, 0).id).toBe("standard");
   });
 
-  it("lets account rarity ranks tilt tier odds without early singularities", () => {
-    const basePressureFive = upgradeTierWeights(5, 0);
-    const boostedPressureFive = upgradeTierWeights(5, 3);
-    const baseRare = basePressureFive.find((item) => item.tier.id === "rare")!.weight;
-    const boostedRare = boostedPressureFive.find((item) => item.tier.id === "rare")!.weight;
+  it("hard-gates higher tiers behind rarity rank", () => {
+    for (const pressure of [1, 5, 12, 40]) {
+      const r0 = upgradeTierWeights(pressure, 0);
+      expect(r0.find((item) => item.tier.id === "rare")?.weight).toBe(0);
+      expect(r0.find((item) => item.tier.id === "prototype")?.weight).toBe(0);
+      expect(r0.find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+      expect(r0.find((item) => item.tier.id === "standard")?.weight).toBeGreaterThan(0);
 
-    expect(boostedRare).toBeGreaterThan(baseRare);
+      const r1 = upgradeTierWeights(pressure, 1);
+      expect(r1.find((item) => item.tier.id === "prototype")?.weight).toBe(0);
+      expect(r1.find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+
+      const r2 = upgradeTierWeights(pressure, 2);
+      expect(r2.find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+    }
+  });
+
+  it("monotonically rewards rank with stronger biases past combined gates", () => {
+    const protoGate = balance.upgrade.gates.prototype.minPressure;
+    const protoRank = balance.upgrade.gates.prototype.minRank;
+    const ramp = balance.upgrade.gates.prototype.rampPressures;
+    const fullyRamped = protoGate + ramp + 1;
+    for (let rank = protoRank; rank < 3; rank += 1) {
+      const lower = upgradeTierWeights(fullyRamped, rank).find(
+        (item) => item.tier.id === "prototype",
+      )!.weight;
+      const higher = upgradeTierWeights(fullyRamped, rank + 1).find(
+        (item) => item.tier.id === "prototype",
+      )!.weight;
+      expect(higher).toBeGreaterThan(lower);
+    }
+  });
+
+  it("keeps singularity locked before its pressure gate even at full rank", () => {
     const singularityGate = balance.upgrade.gates.singularity.minPressure;
+    const singularityRank = balance.upgrade.gates.singularity.minRank;
     expect(
-      upgradeTierWeights(singularityGate - 1, 3).find((item) => item.tier.id === "singularity")
-        ?.weight,
+      upgradeTierWeights(singularityGate - 1, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
     ).toBe(0);
+    expect(
+      upgradeTierWeights(singularityGate, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps enemy and XP formulas valid", () => {
@@ -229,13 +269,17 @@ describe("upgrade effects", () => {
 
     findUpgrade("twin-cannon").apply(tier("rare"), target);
     expect(target.projectileCount).toBe(3);
+    expect(target.damage).toBeCloseTo(
+      24 * balance.upgrade.effects.projectileDamageFactor,
+    );
 
     findUpgrade("plasma-core").apply(tier("standard"), target);
     expect(target.fireRate).toBeCloseTo(3 * (1 + fireRateEffect));
 
-    findUpgrade("rail-slug").apply(tier("standard"), target);
-    expect(target.damage).toBeCloseTo(24 * (1 + damageEffect));
-    expect(target.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
+    const damageTarget = createPlayerState();
+    findUpgrade("rail-slug").apply(tier("standard"), damageTarget);
+    expect(damageTarget.damage).toBeCloseTo(24 * (1 + damageEffect));
+    expect(damageTarget.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
   });
 
   it("applies defensive and utility upgrades to an isolated player", () => {

@@ -101,8 +101,40 @@ describe("rarity weights and probabilities", () => {
 
   it("makes singularity unlock exactly at the configured gate", () => {
     const unlockPressure = balance.upgrade.gates.singularity.minPressure;
-    expect(rarityProbabilitiesAt(unlockPressure - 1).singularity).toBe(0);
-    expect(rarityProbabilitiesAt(unlockPressure).singularity).toBeGreaterThan(0);
+    const fullRank = balance.upgrade.gates.singularity.minRank;
+    expect(rarityProbabilitiesAt(unlockPressure - 1, fullRank).singularity).toBe(0);
+    expect(rarityProbabilitiesAt(unlockPressure, fullRank).singularity).toBeGreaterThan(0);
+  });
+
+  it("hard-gates higher tiers behind rarity rank", () => {
+    for (let pressure = 1; pressure <= 40; pressure += 1) {
+      const r0 = rarityProbabilitiesAt(pressure, 0);
+      expect(r0.standard).toBeCloseTo(1, 6);
+      expect(r0.rare).toBe(0);
+      expect(r0.prototype).toBe(0);
+      expect(r0.singularity).toBe(0);
+
+      const r1 = rarityProbabilitiesAt(pressure, 1);
+      expect(r1.prototype).toBe(0);
+      expect(r1.singularity).toBe(0);
+
+      const r2 = rarityProbabilitiesAt(pressure, 2);
+      expect(r2.singularity).toBe(0);
+    }
+  });
+
+  it("rewards meta progression: prototype weight grows monotonically with rank past its gate", () => {
+    const protoGate = balance.upgrade.gates.prototype.minPressure;
+    const protoRank = balance.upgrade.gates.prototype.minRank;
+    for (let pressure = protoGate + 2; pressure <= 30; pressure += 1) {
+      let prev = 0;
+      for (let rank = protoRank; rank <= 3; rank += 1) {
+        const proto = rarityWeightsAt(pressure, rank).find((item) => item.tier.id === "prototype")!
+          .weight;
+        expect(proto).toBeGreaterThan(prev);
+        prev = proto;
+      }
+    }
   });
 });
 
@@ -120,7 +152,7 @@ describe("upgrade unlock gates", () => {
 });
 
 describe("rarity distribution stays within target bands across mid-game", () => {
-  it("keeps each tier within healthy probability bands averaged over pressures 5..15", () => {
+  it("keeps each tier within healthy probability bands averaged over pressures 5..15 at full rank", () => {
     const startPressure = 5;
     const endPressure = 15;
     const totals: Record<"standard" | "rare" | "prototype" | "singularity", number> = {
@@ -130,7 +162,7 @@ describe("rarity distribution stays within target bands across mid-game", () => 
       singularity: 0,
     };
     for (let pressure = startPressure; pressure <= endPressure; pressure += 1) {
-      const probs = rarityProbabilitiesAt(pressure);
+      const probs = rarityProbabilitiesAt(pressure, 3);
       totals.standard += probs.standard;
       totals.rare += probs.rare;
       totals.prototype += probs.prototype;
@@ -151,7 +183,7 @@ describe("rarity distribution stays within target bands across mid-game", () => 
     expect(avg.prototype).toBeGreaterThanOrEqual(0.05);
     expect(avg.prototype).toBeLessThanOrEqual(0.3);
     expect(avg.singularity).toBeGreaterThanOrEqual(0);
-    expect(avg.singularity).toBeLessThanOrEqual(0.15);
+    expect(avg.singularity).toBeLessThanOrEqual(0.2);
   });
 });
 

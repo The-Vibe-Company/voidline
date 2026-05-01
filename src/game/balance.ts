@@ -301,22 +301,22 @@ export const upgradeBalance = {
     prototypePerPressure: 0.9,
     singularityPerPressure: 0.8,
     perRank: {
-      standardPenalty: 4,
-      rare: 3,
-      prototype: 1.5,
-      singularity: 0.6,
+      standardPenalty: 6,
+      rare: 6,
+      prototype: 5,
+      singularity: 4,
     },
   },
   gates: {
-    rare: { minPressure: 1, rampPressures: 0 },
-    prototype: { minPressure: 5, rampPressures: 2, lockedWeight: 4 },
-    singularity: { minPressure: 8, rampPressures: 2, lockedWeight: 0 },
+    rare: { minPressure: 1, rampPressures: 0, minRank: 1 },
+    prototype: { minPressure: 5, rampPressures: 2, lockedWeight: 0, minRank: 2 },
+    singularity: { minPressure: 8, rampPressures: 2, lockedWeight: 0, minRank: 3 },
   },
   effects: {
-    fireRate: 0.15,
-    damage: 0.18,
+    fireRate: 0.17,
+    damage: 0.2,
     bulletSpeed: 0.04,
-    speed: 0.13,
+    speed: 0.16,
     shield: 18,
     shieldRegen: 1.6,
     maxHp: 14,
@@ -324,8 +324,9 @@ export const upgradeBalance = {
     pierceDamage: 0.07,
     critChance: 0.06,
     lifesteal: 1.4,
-    pickupRadius: 0.28,
-    bulletRadius: 0.18,
+    pickupRadius: 0.36,
+    bulletRadius: 0.24,
+    projectileDamageFactor: 0.7,
     droneExtraThreshold: 1.65,
   },
 };
@@ -619,6 +620,9 @@ export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTi
   const perRank = weights.perRank;
   const protoRamp = gateRampMultiplier(pressure, gates.prototype);
   const singularityRamp = gateRampMultiplier(pressure, gates.singularity);
+  const rareUnlocked = rank >= gates.rare.minRank;
+  const prototypeUnlocked = rank >= gates.prototype.minRank;
+  const singularityUnlocked = rank >= gates.singularity.minRank;
   return [
     {
       tier: upgradeTiers[0]!,
@@ -631,12 +635,15 @@ export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTi
     },
     {
       tier: upgradeTiers[1]!,
-      weight: weights.rareBase + pressure * weights.rarePerPressure + rank * perRank.rare,
+      weight: rareUnlocked
+        ? weights.rareBase + pressure * weights.rarePerPressure + rank * perRank.rare
+        : 0,
     },
     {
       tier: upgradeTiers[2]!,
-      weight:
-        protoRamp > 0
+      weight: !prototypeUnlocked
+        ? 0
+        : protoRamp > 0
           ? (weights.prototypeBase +
               pressure * weights.prototypePerPressure +
               rank * perRank.prototype) *
@@ -645,8 +652,9 @@ export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTi
     },
     {
       tier: upgradeTiers[3]!,
-      weight:
-        singularityRamp > 0
+      weight: !singularityUnlocked
+        ? 0
+        : singularityRamp > 0
           ? (pressure * weights.singularityPerPressure + rank * perRank.singularity) *
             singularityRamp
           : gates.singularity.lockedWeight,

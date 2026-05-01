@@ -132,12 +132,17 @@ pub fn upgrade_tier_weights<'a>(
     let weights = &balance.upgrade.tier_weights;
     let gates = &balance.upgrade.gates;
     let per_rank = &weights.per_rank;
-    let rank = rarity_rank.min(3) as f64;
+    let rank_clamped = rarity_rank.min(3);
+    let rank = rank_clamped as f64;
     let w = pressure as f64;
 
     let proto_ramp = gate_ramp_multiplier(w, gates.prototype.min_pressure, gates.prototype.ramp_pressures);
     let sing_ramp =
         gate_ramp_multiplier(w, gates.singularity.min_pressure, gates.singularity.ramp_pressures);
+
+    let rare_unlocked = rank_clamped >= gates.rare.min_rank;
+    let prototype_unlocked = rank_clamped >= gates.prototype.min_rank;
+    let singularity_unlocked = rank_clamped >= gates.singularity.min_rank;
 
     vec![
         WeightedTier {
@@ -150,11 +155,17 @@ pub fn upgrade_tier_weights<'a>(
         },
         WeightedTier {
             tier: &balance.tiers[1],
-            weight: weights.rare_base + w * weights.rare_per_pressure + rank * per_rank.rare,
+            weight: if rare_unlocked {
+                weights.rare_base + w * weights.rare_per_pressure + rank * per_rank.rare
+            } else {
+                0.0
+            },
         },
         WeightedTier {
             tier: &balance.tiers[2],
-            weight: if proto_ramp > 0.0 {
+            weight: if !prototype_unlocked {
+                0.0
+            } else if proto_ramp > 0.0 {
                 (weights.prototype_base
                     + w * weights.prototype_per_pressure
                     + rank * per_rank.prototype)
@@ -165,7 +176,9 @@ pub fn upgrade_tier_weights<'a>(
         },
         WeightedTier {
             tier: &balance.tiers[3],
-            weight: if sing_ramp > 0.0 {
+            weight: if !singularity_unlocked {
+                0.0
+            } else if sing_ramp > 0.0 {
                 (w * weights.singularity_per_pressure + rank * per_rank.singularity) * sing_ramp
             } else {
                 gates.singularity.locked_weight
@@ -282,8 +295,9 @@ mod tests {
     fn singularity_unlocks_at_configured_gate() {
         let b = balance();
         let gate = b.upgrade.gates.singularity.min_pressure as u32;
-        let before = upgrade_tier_weights(&b, gate - 1, 0);
-        let at_gate = upgrade_tier_weights(&b, gate, 0);
+        let rank = b.upgrade.gates.singularity.min_rank;
+        let before = upgrade_tier_weights(&b, gate - 1, rank);
+        let at_gate = upgrade_tier_weights(&b, gate, rank);
         assert_eq!(before[3].weight, 0.0);
         assert!(at_gate[3].weight > 0.0);
     }
@@ -321,20 +335,64 @@ mod tests {
     fn prototype_locked_until_gate() {
         let b = balance();
         let gate = b.upgrade.gates.prototype.min_pressure as u32;
+        let min_rank = b.upgrade.gates.prototype.min_rank;
         for w in 1..gate {
-            let weights = upgrade_tier_weights(&b, w, 0);
+            let weights = upgrade_tier_weights(&b, w, min_rank);
             assert_eq!(
                 tier_weight(&weights, "prototype"),
                 b.upgrade.gates.prototype.locked_weight,
                 "prototype must show locked weight before gate (pressure {w})",
             );
         }
-        for rank in 0..=3 {
+        for rank in min_rank..=3 {
             let weights = upgrade_tier_weights(&b, gate, rank);
             assert!(
                 tier_weight(&weights, "prototype") > 0.0,
                 "prototype must unlock at its gate (rank {rank})",
             );
+        }
+    }
+
+    #[test]
+    fn higher_tiers_locked_below_min_rank() {
+        let b = balance();
+        for pressure in 1..=40 {
+            for rank in 0..=3 {
+                let weights = upgrade_tier_weights(&b, pressure, rank);
+                if rank < b.upgrade.gates.rare.min_rank {
+                    assert_eq!(
+                        tier_weight(&weights, "rare"),
+                        0.0,
+                        "rare must be 0 below its min_rank (pressure={pressure}, rank={rank})",
+                    );
+                }
+                if rank < b.upgrade.gates.prototype.min_rank {
+                    assert_eq!(
+                        tier_weight(&weights, "prototype"),
+                        0.0,
+                        "prototype must be 0 below its min_rank (pressure={pressure}, rank={rank})",
+                    );
+                }
+                if rank < b.upgrade.gates.singularity.min_rank {
+                    assert_eq!(
+                        tier_weight(&weights, "singularity"),
+                        0.0,
+                        "singularity must be 0 below its min_rank (pressure={pressure}, rank={rank})",
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rank_zero_yields_only_standard() {
+        let b = balance();
+        for pressure in 1..=40 {
+            let weights = upgrade_tier_weights(&b, pressure, 0);
+            assert!(tier_weight(&weights, "standard") > 0.0);
+            assert_eq!(tier_weight(&weights, "rare"), 0.0);
+            assert_eq!(tier_weight(&weights, "prototype"), 0.0);
+            assert_eq!(tier_weight(&weights, "singularity"), 0.0);
         }
     }
 
@@ -359,10 +417,11 @@ mod tests {
         let b = balance();
         let proto_gate = b.upgrade.gates.prototype.min_pressure as u32;
         let ramp = b.upgrade.gates.prototype.ramp_pressures;
+        let rank = b.upgrade.gates.prototype.min_rank;
         if ramp > 0.0 {
-            let at_gate = tier_weight(&upgrade_tier_weights(&b, proto_gate, 0), "prototype");
+            let at_gate = tier_weight(&upgrade_tier_weights(&b, proto_gate, rank), "prototype");
             let after_ramp = tier_weight(
-                &upgrade_tier_weights(&b, proto_gate + ramp as u32 + 2, 0),
+                &upgrade_tier_weights(&b, proto_gate + ramp as u32 + 2, rank),
                 "prototype",
             );
             assert!(at_gate > 0.0);
@@ -422,15 +481,14 @@ mod tests {
     }
 
     #[test]
-    fn singularity_share_below_8pct_at_phase1_unranked() {
-        // Phase 1 boss = pressure 10 boss. Fresh player (rank 0) should rarely see singularity.
+    fn singularity_zero_at_phase1_unranked() {
+        // Phase 1 boss = pressure 10. A fresh player (rank 0) must never see singularity.
         let b = balance();
         let weights = upgrade_tier_weights(&b, 10, 0);
-        let total: f64 = weights.iter().map(|w| w.weight.max(0.0)).sum();
-        let sing = tier_weight(&weights, "singularity") / total;
-        assert!(
-            sing < 0.08,
-            "singularity probability at pressure 10 / rank 0 = {sing}, expected <8%",
+        assert_eq!(
+            tier_weight(&weights, "singularity"),
+            0.0,
+            "singularity must be hard-gated at rank 0",
         );
     }
 

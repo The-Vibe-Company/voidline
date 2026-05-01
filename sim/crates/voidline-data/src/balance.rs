@@ -226,6 +226,8 @@ pub struct TierGate {
     pub ramp_pressures: f64,
     #[serde(default)]
     pub locked_weight: f64,
+    #[serde(default)]
+    pub min_rank: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -244,6 +246,7 @@ pub struct UpgradeEffects {
     pub lifesteal: f64,
     pub pickup_radius: f64,
     pub bullet_radius: f64,
+    pub projectile_damage_factor: f64,
     pub drone_extra_threshold: f64,
 }
 

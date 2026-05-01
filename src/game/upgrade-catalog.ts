@@ -14,6 +14,10 @@ function percent(value: number): string {
   return `${Math.round(value * 100)}%`;
 }
 
+function factor(value: number): string {
+  return `x${value.toFixed(2)}`;
+}
+
 type UpgradeSpec = Omit<Upgrade, "apply"> & { effects: readonly EffectOp[] };
 
 function defineUpgrade(spec: UpgradeSpec): Upgrade {
@@ -40,9 +44,16 @@ export const upgradePool: Upgrade[] = [
         cap: "projectiles",
         gainCurve: "stepped",
       },
+      {
+        type: "scaleCurrentPct",
+        stat: "damage",
+        factor: balance.upgrade.effects.projectileDamageFactor,
+      },
     ],
     effect(tier) {
-      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve`;
+      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve, degats actuels ${factor(
+        balance.upgrade.effects.projectileDamageFactor,
+      )}`;
     },
   }),
   defineUpgrade({
@@ -174,11 +185,11 @@ export const upgradePool: Upgrade[] = [
     description: "Level-up du Pulse Rifle: cadence et degats stables.",
     tags: ["cannon"],
     effects: [
-      { type: "addPct", stat: "fireRate", amount: 0.15 },
-      { type: "addPct", stat: "damage", amount: 0.12 },
+      { type: "addPct", stat: "fireRate", amount: 0.2 },
+      { type: "addPct", stat: "damage", amount: 0.16 },
     ],
     effect(tier) {
-      return `+${percent(0.15 * tier.power)} cadence, +${percent(0.12 * tier.power)} degats`;
+      return `+${percent(0.2 * tier.power)} cadence, +${percent(0.16 * tier.power)} degats`;
     },
   }),
   defineUpgrade({
@@ -198,10 +209,17 @@ export const upgradePool: Upgrade[] = [
         cap: "projectiles",
         gainCurve: "stepped",
       },
+      {
+        type: "scaleCurrentPct",
+        stat: "damage",
+        factor: balance.upgrade.effects.projectileDamageFactor,
+      },
       { type: "addPct", stat: "damage", amount: 0.08 },
     ],
     effect(tier) {
-      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, +${percent(
+      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, degats actuels ${factor(
+        balance.upgrade.effects.projectileDamageFactor,
+      )}, +${percent(
         0.08 * tier.power,
       )} degats`;
     },

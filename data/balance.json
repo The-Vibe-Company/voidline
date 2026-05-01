@@ -165,33 +165,36 @@
         "prototypePerPressure": 0.9,
         "singularityPerPressure": 0.8,
         "perRank": {
-          "standardPenalty": 4,
-          "rare": 3,
-          "prototype": 1.5,
-          "singularity": 0.6
+          "standardPenalty": 6,
+          "rare": 6,
+          "prototype": 5,
+          "singularity": 4
         }
       },
       "gates": {
         "rare": {
           "minPressure": 1,
-          "rampPressures": 0
+          "rampPressures": 0,
+          "minRank": 1
         },
         "prototype": {
           "minPressure": 5,
           "rampPressures": 2,
-          "lockedWeight": 4
+          "lockedWeight": 0,
+          "minRank": 2
         },
         "singularity": {
           "minPressure": 8,
           "rampPressures": 2,
-          "lockedWeight": 0
+          "lockedWeight": 0,
+          "minRank": 3
         }
       },
       "effects": {
-        "fireRate": 0.15,
-        "damage": 0.18,
+        "fireRate": 0.17,
+        "damage": 0.2,
         "bulletSpeed": 0.04,
-        "speed": 0.13,
+        "speed": 0.16,
         "shield": 18,
         "shieldRegen": 1.6,
         "maxHp": 14,
@@ -199,8 +202,9 @@
         "pierceDamage": 0.07,
         "critChance": 0.06,
         "lifesteal": 1.4,
-        "pickupRadius": 0.28,
-        "bulletRadius": 0.18,
+        "pickupRadius": 0.36,
+        "bulletRadius": 0.24,
+        "projectileDamageFactor": 0.7,
         "droneExtraThreshold": 1.65
       }
     },
@@ -384,6 +388,11 @@
           "amount": 1,
           "cap": "projectiles",
           "gainCurve": "stepped"
+        },
+        {
+          "type": "scaleCurrentPct",
+          "stat": "damage",
+          "factor": 0.7
         }
       ],
       "softCap": {
@@ -404,7 +413,7 @@
         {
           "type": "addCappedPctBonus",
           "stat": "fireRate",
-          "amount": 0.15,
+          "amount": 0.17,
           "cap": "fireRateMul"
         }
       ]
@@ -423,7 +432,7 @@
         {
           "type": "addCappedPctBonus",
           "stat": "damage",
-          "amount": 0.18,
+          "amount": 0.2,
           "cap": "damageMul"
         },
         {
@@ -446,7 +455,7 @@
         {
           "type": "addPct",
           "stat": "speed",
-          "amount": 0.13
+          "amount": 0.16
         }
       ]
     },
@@ -463,7 +472,7 @@
         {
           "type": "addPct",
           "stat": "pickupRadius",
-          "amount": 0.28
+          "amount": 0.36
         }
       ]
     },
@@ -518,7 +527,7 @@
         {
           "type": "addPct",
           "stat": "bulletRadius",
-          "amount": 0.18
+          "amount": 0.24
         }
       ]
     },
@@ -536,12 +545,12 @@
         {
           "type": "addPct",
           "stat": "fireRate",
-          "amount": 0.15
+          "amount": 0.2
         },
         {
           "type": "addPct",
           "stat": "damage",
-          "amount": 0.12
+          "amount": 0.16
         }
       ]
     },
@@ -563,6 +572,11 @@
           "amount": 1,
           "cap": "projectiles",
           "gainCurve": "stepped"
+        },
+        {
+          "type": "scaleCurrentPct",
+          "stat": "damage",
+          "factor": 0.7
         },
         {
           "type": "addPct",
@@ -1225,7 +1239,7 @@
       "id": "scatter",
       "name": "Scatter Cannon",
       "icon": "SCT",
-      "description": "Plus de projectiles, impacts plus legers.",
+      "description": "Plus de projectiles, degats actuels x0.70 et impacts plus legers.",
       "tags": [
         "cannon",
         "crit"
@@ -1238,10 +1252,9 @@
           "cap": "projectiles"
         },
         {
-          "type": "addPct",
+          "type": "scaleCurrentPct",
           "stat": "damage",
-          "amount": -0.16,
-          "scale": 1
+          "factor": 0.7
         },
         {
           "type": "addPct",

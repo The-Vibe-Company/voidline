@@ -383,6 +383,13 @@ fn base_upgrade_score(upgrade: &Upgrade, profile: PlayerProfileId) -> f64 {
                 44.0
             }
         }
+        "pulse-overdrive" => {
+            if optimizer {
+                52.0
+            } else {
+                44.0
+            }
+        }
         "scatter-loader" => {
             if optimizer {
                 55.0
@@ -408,35 +415,35 @@ fn base_upgrade_score(upgrade: &Upgrade, profile: PlayerProfileId) -> f64 {
             if optimizer {
                 36.0
             } else {
-                42.0
+                38.0
             }
         }
         "magnet-array" => {
             if optimizer {
-                28.0
+                40.0
             } else {
-                34.0
+                36.0
             }
         }
         "crit-array" => {
             if optimizer {
-                42.0
+                44.0
             } else {
-                32.0
+                36.0
             }
         }
         "heavy-caliber" => {
             if optimizer {
-                36.0
+                40.0
             } else {
-                25.0
+                35.0
             }
         }
         "ion-engine" => {
             if optimizer {
-                22.0
+                42.0
             } else {
-                30.0
+                36.0
             }
         }
         _ => 20.0,
@@ -490,16 +497,16 @@ fn base_relic_score(relic: &Relic, profile: PlayerProfileId) -> f64 {
         }
         "emergency-nanites" => {
             if optimizer {
-                30.0
+                34.0
             } else {
                 36.0
             }
         }
         "magnetized-map" => {
             if optimizer {
-                24.0
+                36.0
             } else {
-                32.0
+                36.0
             }
         }
         "field-repair" => 24.0,
