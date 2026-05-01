@@ -1,0 +1,96 @@
+src/game/upgrade-catalog.ts
+  bc670c8a3904a89d 188-189,192
+src/game/balance.test.ts
+  d044c11710119aff 173-177,181,183-185,188-190,195-226,228,230,232-234,236-240
+src/game/effect-dsl.test.ts
+  d044c11710119aff 1-49
+sim/crates/voidline-sim/src/balance_curves.rs
+  d044c11710119aff 135-136,143-146,158-162,166-168,179-181,298-300,338,340,347,356-398,420,422,424,484-485,488-491
+sim/crates/voidline-sim/src/effects.rs
+  bc670c8a3904a89d 88-91,237-243,344-443
+data/balance.json
+  d044c11710119aff 168-171,177-178,183-184,189-190
+  bc670c8a3904a89d 194-195,197,205-207,391-395,416,435,458,475,530,548,553,576-580,1242,1255,1257
+src/game/balance-curves.test.ts
+  d044c11710119aff 104-137,155,165,186
+sim/crates/voidline-data/src/balance.rs
+  d044c11710119aff 229-230
+sim/crates/voidline-cli/src/main.rs
+  bc670c8a3904a89d 76-97,153-156,289,313-314,724-729,740-752,765-771,798,1023,1169,1182,1192,1262,1312-1314,1351
+scripts/balance-profile.sh
+  d044c11710119aff 33,35-40,44,49-65
+sim/crates/voidline-data/src/dsl.rs
+  d044c11710119aff 74-75
+src/game/weapon-catalog.test.ts
+  d044c11710119aff 21-23
+src/game/weapon-catalog.ts
+  d044c11710119aff 2,27,31-35
+src/game/effect-dsl.ts
+  d044c11710119aff 35-40,104,164-166
+conductor.json
+  28e712a876b71ce8 7
+sim/crates/voidline-meta/src/profiles.rs
+  d044c11710119aff 386-392,418,423,425,430,432,437,439,444,446,500,507,509
+src/game/balance.ts
+  d044c11710119aff 304-307,311-313,623-625,638-640,644-646,655-657
+  bc670c8a3904a89d 316-317,319,327-328
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2c7f4978ca3753d2fea6ea3958d1fdf2ab024bef",
+  "prompts": {
+    "01e2c54b37690643": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019ddfeb-52e1-7640-a7f0-90a2746c1783",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 13,
+      "overriden_lines": 0
+    },
+    "28e712a876b71ce8": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de013-3f5e-7763-984e-88757add0cd2",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    },
+    "bc670c8a3904a89d": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de015-cfe1-7ca0-95de-6fb527ddf47b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 264,
+      "total_deletions": 83,
+      "accepted_lines": 220,
+      "overriden_lines": 2
+    },
+    "d044c11710119aff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b1babae2-2f56-4783-89cc-5fedcd31896a",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1098,
+      "total_deletions": 122,
+      "accepted_lines": 327,
+      "overriden_lines": 0
+    }
+  }
+}
