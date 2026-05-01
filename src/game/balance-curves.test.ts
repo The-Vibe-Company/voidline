@@ -3,6 +3,7 @@ import {
   bossDamageAt,
   bossHpAt,
   bossSpeedAt,
+  bossStatsAt,
   enemyDamageAt,
   enemyHpAt,
   enemySpeedAt,
@@ -15,6 +16,7 @@ import {
   xpToNextLevelAt,
 } from "./balance-curves";
 import { balance } from "./balance";
+import { findBossDef } from "./boss-catalog";
 import type { EnemyKind } from "../types";
 
 const ENEMY_KINDS: readonly EnemyKind[] = ["scout", "hunter", "brute"];
@@ -51,8 +53,9 @@ describe("enemy stat curves", () => {
   it("starts boosting damage exactly at the late-pressure boundary", () => {
     const startPressure = balance.latePressure.startPressure;
     const baseDamage = balance.enemies.find((t) => t.id === "scout")!.damage;
-    expect(enemyDamageAt(startPressure - 1, "scout")).toBeCloseTo(baseDamage);
-    expect(enemyDamageAt(startPressure, "scout")).toBeGreaterThan(baseDamage);
+    const baseSwarmDamage = baseDamage * balance.enemy.swarmDamageScale;
+    expect(enemyDamageAt(startPressure - 1, "scout")).toBeCloseTo(baseSwarmDamage);
+    expect(enemyDamageAt(startPressure, "scout")).toBeGreaterThan(baseSwarmDamage);
     expect(enemyDamageAt(startPressure + 5, "scout")).toBeGreaterThan(
       enemyDamageAt(startPressure, "scout"),
     );
@@ -76,6 +79,18 @@ describe("boss stat curves", () => {
     );
     expect(bossSpeedAt(pressure, "miniBoss")).toBeCloseTo(
       base * balance.bosses.miniBoss.speedMultiplier,
+    );
+  });
+
+  it("uses dedicated post-stage2 boss HP knobs", () => {
+    const def = findBossDef("boss");
+    const stage2 = bossStatsAt(def, 2);
+    const stage3 = bossStatsAt(def, 3);
+    const cfg = balance.bosses.stageScaling;
+
+    expect(stage2.hpMultiplier).toBeCloseTo(def.stats.hpMultiplier * (1 + cfg.hpPerStage));
+    expect(stage3.hpMultiplier).toBeCloseTo(
+      def.stats.hpMultiplier * (1 + cfg.hpPerStage * cfg.postStage2HpOffsetBase),
     );
   });
 });
@@ -206,7 +221,9 @@ describe("pressure & xp curves", () => {
     for (let pressure = 2; pressure <= 60; pressure += 1) {
       const gap = spawnGapAt(pressure);
       expect(gap).toBeLessThanOrEqual(prev + 1e-6);
-      expect(gap).toBeGreaterThanOrEqual(balance.latePressure.spawnGapMin);
+      expect(gap).toBeGreaterThanOrEqual(
+        balance.latePressure.spawnGapMin / balance.enemyDensityMultiplier,
+      );
       expect(gap).toBeLessThanOrEqual(balance.pressure.spawnGapStart);
       prev = gap;
     }

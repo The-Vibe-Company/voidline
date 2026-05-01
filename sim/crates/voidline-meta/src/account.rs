@@ -4,16 +4,20 @@
 
 use std::collections::{HashMap, HashSet};
 
+use serde::{Deserialize, Serialize};
 use voidline_data::catalogs::{MetaUpgrade, ShopItem};
 use voidline_data::DataBundle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MetaUpgradeKind {
     Unique,
-    Category,
+    Card,
+    Rarity,
+    Utility,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountRecords {
     pub best_stage: u32,
     pub best_time_seconds: u32,
@@ -22,7 +26,8 @@ pub struct AccountRecords {
     pub boss_kills: u32,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountSnapshot {
     pub crystals: u64,
     pub spent_crystals: u64,
@@ -64,12 +69,22 @@ impl AccountSnapshot {
 pub fn meta_upgrade_kind(meta: &MetaUpgrade) -> MetaUpgradeKind {
     match meta.kind.as_str() {
         "unique" => MetaUpgradeKind::Unique,
-        _ => MetaUpgradeKind::Category,
+        "card" => MetaUpgradeKind::Card,
+        "rarity" => MetaUpgradeKind::Rarity,
+        "utility" => MetaUpgradeKind::Utility,
+        _ => MetaUpgradeKind::Utility,
     }
 }
 
+pub fn meta_level(account: &AccountSnapshot, meta: &MetaUpgrade) -> u32 {
+    account
+        .level_of(&meta.id)
+        .max(meta.base_level.unwrap_or(0))
+        .min(meta.max_level)
+}
+
 pub fn next_level_cost(account: &AccountSnapshot, meta: &MetaUpgrade) -> Option<u64> {
-    let current = account.level_of(&meta.id);
+    let current = meta_level(account, meta);
     if current >= meta.max_level {
         return None;
     }
@@ -91,6 +106,7 @@ pub fn requirement_met(account: &AccountSnapshot, requirement: &str) -> bool {
         "available" => true,
         "reach-10m" => account.records.best_time_seconds >= 600,
         "clear-stage-1" => account.highest_stage_cleared >= 1,
+        "clear-stage-2" => account.highest_stage_cleared >= 2,
         "reach-stage-2" => {
             account.records.best_stage >= 2 || account.highest_start_stage_unlocked >= 2
         }
@@ -114,7 +130,8 @@ pub fn purchase(account: &mut AccountSnapshot, meta: &MetaUpgrade) -> Result<u64
     let cost = can_purchase(account, meta)?;
     account.crystals -= cost;
     account.spent_crystals += cost;
-    *account.upgrade_levels.entry(meta.id.clone()).or_insert(0) += 1;
+    let next_level = meta_level(account, meta) + 1;
+    account.upgrade_levels.insert(meta.id.clone(), next_level);
     if let Some(weapon_id) = &meta.weapon_id {
         if matches!(meta_upgrade_kind(meta), MetaUpgradeKind::Unique) {
             account.selected_weapon_id = weapon_id.clone();
@@ -129,36 +146,42 @@ pub fn purchase(account: &mut AccountSnapshot, meta: &MetaUpgrade) -> Result<u64
 }
 
 pub fn current_rarity_rank(account: &AccountSnapshot) -> u32 {
-    // Mirrors `currentRarityRank` in src/systems/account.ts: max raw level
-    // across the 4 category upgrades, capped at 3.
-    let categories = [
-        "category:attack",
-        "category:defense",
-        "category:salvage",
-        "category:tempo",
-    ];
-    let max = categories
-        .iter()
-        .map(|c| account.level_of(c))
-        .max()
-        .unwrap_or(0);
-    max.min(3)
+    if account.level_of("rarity:singularity-core") > 0 {
+        3
+    } else if account.level_of("rarity:prototype-lab") > 0 {
+        2
+    } else if account.level_of("rarity:rare-signal") > 0 {
+        1
+    } else {
+        0
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RarityProfile {
+    pub rare: u32,
+    pub prototype: u32,
+    pub singularity: u32,
+}
+
+pub fn current_rarity_profile(account: &AccountSnapshot) -> RarityProfile {
+    RarityProfile {
+        rare: account.level_of("rarity:rare-signal").min(3),
+        prototype: account.level_of("rarity:prototype-lab").min(3),
+        singularity: account.level_of("rarity:singularity-core").min(3),
+    }
 }
 
 pub fn crystal_reward_multiplier(account: &AccountSnapshot) -> f64 {
-    let salvage = account.level_of("category:salvage");
-    if salvage >= 2 {
-        1.10
-    } else {
-        1.0
-    }
+    let contract = account.level_of("utility:crystal-contract").min(3);
+    1.0 + contract as f64 * 0.05
 }
 
 pub fn unlocked_technology_ids(bundle: &DataBundle, account: &AccountSnapshot) -> HashSet<String> {
     let mut ids: HashSet<String> = bundle.starter_technology_ids.iter().cloned().collect();
     for meta in &bundle.meta_upgrades {
         if let Some(tech_id) = &meta.technology_id {
-            if account.level_of(&meta.id) >= 1 {
+            if meta_level(account, meta) >= 1 {
                 ids.insert(tech_id.clone());
             }
         }
@@ -170,7 +193,7 @@ pub fn unlocked_build_tags(bundle: &DataBundle, account: &AccountSnapshot) -> Ha
     let mut tags: HashSet<String> = bundle.starter_build_tags.iter().cloned().collect();
     for meta in &bundle.meta_upgrades {
         if let Some(tag) = &meta.tag {
-            if account.level_of(&meta.id) >= 1 {
+            if meta_level(account, meta) >= 1 {
                 tags.insert(tag.clone());
             }
         }
@@ -337,44 +360,38 @@ mod tests {
         let mut account = fresh();
         account
             .upgrade_levels
-            .insert("category:attack".to_string(), 4);
+            .insert("rarity:singularity-core".to_string(), 4);
         assert_eq!(current_rarity_rank(&account), 3);
     }
 
     #[test]
-    fn rarity_rank_takes_max_across_categories() {
+    fn rarity_profile_tracks_dedicated_cards() {
         let mut account = fresh();
         account
             .upgrade_levels
-            .insert("category:attack".to_string(), 1);
+            .insert("rarity:rare-signal".to_string(), 2);
         account
             .upgrade_levels
-            .insert("category:defense".to_string(), 2);
-        account
-            .upgrade_levels
-            .insert("category:salvage".to_string(), 3);
-        account
-            .upgrade_levels
-            .insert("category:tempo".to_string(), 1);
-        assert_eq!(current_rarity_rank(&account), 3);
+            .insert("rarity:prototype-lab".to_string(), 1);
+        let profile = current_rarity_profile(&account);
+        assert_eq!(current_rarity_rank(&account), 2);
+        assert_eq!(profile.rare, 2);
+        assert_eq!(profile.prototype, 1);
+        assert_eq!(profile.singularity, 0);
     }
 
     #[test]
-    fn crystal_multiplier_unlocks_at_salvage_level_2() {
+    fn crystal_multiplier_uses_contract_levels() {
         let mut account = fresh();
         assert_eq!(crystal_reward_multiplier(&account), 1.0);
         account
             .upgrade_levels
-            .insert("category:salvage".to_string(), 1);
-        assert_eq!(crystal_reward_multiplier(&account), 1.0);
+            .insert("utility:crystal-contract".to_string(), 1);
+        assert!((crystal_reward_multiplier(&account) - 1.05).abs() < 1e-12);
         account
             .upgrade_levels
-            .insert("category:salvage".to_string(), 2);
-        assert!((crystal_reward_multiplier(&account) - 1.10).abs() < 1e-12);
-        account
-            .upgrade_levels
-            .insert("category:salvage".to_string(), 4);
-        assert!((crystal_reward_multiplier(&account) - 1.10).abs() < 1e-12);
+            .insert("utility:crystal-contract".to_string(), 3);
+        assert!((crystal_reward_multiplier(&account) - 1.15).abs() < 1e-12);
     }
 
     #[test]
@@ -397,24 +414,24 @@ mod tests {
     fn purchase_consumes_crystals_and_advances_level() {
         let bundle = load_default().unwrap();
         let mut account = fresh();
-        let attack = meta(&bundle, "category:attack");
-        let cost = next_level_cost(&account, attack).expect("cost defined");
+        let salves = meta(&bundle, "card:twin-cannon");
+        let cost = next_level_cost(&account, salves).expect("cost defined");
         account.crystals = cost + 5;
-        let spent = purchase(&mut account, attack).expect("purchase ok");
+        let spent = purchase(&mut account, salves).expect("purchase ok");
         assert_eq!(spent, cost);
         assert_eq!(account.crystals, 5);
         assert_eq!(account.spent_crystals, cost);
-        assert_eq!(account.level_of("category:attack"), 1);
+        assert_eq!(account.level_of("card:twin-cannon"), 1);
     }
 
     #[test]
     fn purchase_fails_without_funds() {
         let bundle = load_default().unwrap();
         let mut account = fresh();
-        let attack = meta(&bundle, "category:attack");
-        let res = purchase(&mut account, attack);
+        let salves = meta(&bundle, "card:twin-cannon");
+        let res = purchase(&mut account, salves);
         assert!(res.is_err(), "expected failure without crystals");
-        assert_eq!(account.level_of("category:attack"), 0);
+        assert_eq!(account.level_of("card:twin-cannon"), 0);
     }
 
     #[test]
@@ -432,10 +449,9 @@ mod tests {
         let bundle = load_default().unwrap();
         let mut account = fresh();
         let baseline_techs = unlocked_technology_ids(&bundle, &account).len();
-        // category:attack carries technologyId in catalogs.
         account
             .upgrade_levels
-            .insert("category:attack".to_string(), 1);
+            .insert("card:twin-cannon".to_string(), 1);
         let after = unlocked_technology_ids(&bundle, &account).len();
         assert!(after >= baseline_techs);
     }

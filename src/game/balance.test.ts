@@ -102,7 +102,7 @@ describe("balance curves", () => {
         latePressure(pressure) > 0
           ? balance.latePressure.spawnGapMin
           : balance.pressure.spawnGapMin;
-      expect(gap).toBeGreaterThanOrEqual(minGap);
+      expect(gap).toBeGreaterThanOrEqual(minGap / balance.enemyDensityMultiplier);
       expect(gap).toBeLessThanOrEqual(balance.pressure.spawnGapStart);
       expect(gap).toBeLessThanOrEqual(previousGap);
       previousGap = gap;
@@ -110,8 +110,8 @@ describe("balance curves", () => {
   });
 
   it("front-loads the first pressure tempo", () => {
-    expect(pressureTarget(1)).toBe(27);
-    expect(spawnGap(1)).toBeCloseTo(0.385);
+    expect(pressureTarget(1)).toBe(81);
+    expect(spawnGap(1)).toBeCloseTo(0.12833333333333333);
     expect(spawnPackChance(1)).toBeCloseTo(0.12);
     expect(balance.pressure.spawnTimerStart).toBeCloseTo(0.1);
   });
@@ -129,19 +129,21 @@ describe("balance curves", () => {
     expect(latePressure(20)).toBe(20 - startPressure + 1);
 
     expect(pressureTarget(startPressure) - pressureTarget(startPressure - 1)).toBeGreaterThan(0);
-    expect(spawnGap(20)).toBe(balance.latePressure.spawnGapMin);
+    expect(spawnGap(20)).toBe(balance.latePressure.spawnGapMin / balance.enemyDensityMultiplier);
     expect(spawnPackChance(20)).toBeCloseTo(balance.latePressure.packChanceMax);
 
-    expect(beforeStart.damage).toBe(scout.damage);
-    expect(atStart.damage).toBeGreaterThan(scout.damage);
-    expect(pressure10.hp).toBeGreaterThan(scout.hp);
+    expect(beforeStart.damage).toBe(scout.damage * balance.enemy.swarmDamageScale);
+    expect(atStart.damage).toBeGreaterThan(beforeStart.damage);
+    expect(pressure10.hp).toBeGreaterThan(scaledEnemyStats(scout, 1).hp);
     expect(pressure10.speed).toBeGreaterThan(scout.speed);
-    expect(pressure10.damage).toBeGreaterThan(scout.damage);
+    expect(pressure10.damage).toBeGreaterThan(beforeStart.damage);
     expect(pressure40.speed).toBeCloseTo(
-      scout.speed * (1 + balance.enemy.speedScaleMax + balance.latePressure.speedScaleMax),
+      scout.speed *
+        (1 + balance.enemy.speedScaleMax + balance.latePressure.speedScaleMax) *
+        balance.enemy.swarmSpeedScale,
     );
     expect(pressure40.damage).toBeCloseTo(
-      scout.damage * (1 + balance.latePressure.damageScaleMax),
+      scout.damage * (1 + balance.latePressure.damageScaleMax) * balance.enemy.swarmDamageScale,
     );
   });
 
@@ -152,6 +154,10 @@ describe("balance curves", () => {
     expect(scout).toMatchObject({ hp: 42, speed: 132, damage: 25 });
     expect(hunter).toMatchObject({ hp: 64, speed: 112, damage: 29 });
     expect(brute).toMatchObject({ hp: 130, speed: 72, damage: 40 });
+    expect(balance.enemy.swarmHpScale).toBeCloseTo(0.25);
+    expect(balance.enemy.swarmDamageScale).toBeCloseTo(0.27);
+    expect(balance.enemy.contactBackoff).toBeCloseTo(0.65);
+    expect(balance.enemy.pursuitLane.maxTurn).toBeCloseTo(0.22);
     expect(balance.enemy.hunterChancePerPressure).toBeCloseTo(0.07);
     expect(balance.enemy.bruteChancePerPressure).toBeCloseTo(0.05);
     expect(balance.enemy.bruteChanceOffsetPressure).toBe(2);
@@ -160,10 +166,9 @@ describe("balance curves", () => {
   it("awards more visible score as pressures advance", () => {
     const baseScore = balance.enemies[0]!.score;
 
-    expect(scoreAward(baseScore, 1)).toBe(47);
-    expect(scoreAward(baseScore, 6)).toBe(65);
-    expect(scoreAward(baseScore, 20)).toBe(114);
-    expect(scoreAward(baseScore, 1)).toBeGreaterThan(baseScore);
+    expect(scoreAward(baseScore, 1)).toBe(16);
+    expect(scoreAward(baseScore, 6)).toBe(22);
+    expect(scoreAward(baseScore, 20)).toBe(38);
     expect(scoreAward(baseScore, 6)).toBeGreaterThan(scoreAward(baseScore, 1));
     expect(scoreAward(baseScore, 20)).toBeGreaterThan(scoreAward(baseScore, 6));
   });
@@ -248,10 +253,10 @@ describe("balance curves", () => {
     }
 
     const scout = balance.enemies[0]!;
-    expect(scaledEnemyStats(scout, 10).hp).toBeGreaterThan(scout.hp);
+    expect(scaledEnemyStats(scout, 10).hp).toBeGreaterThan(scaledEnemyStats(scout, 1).hp);
     expect(scaledEnemyStats(scout, 10).speed).toBeGreaterThan(scout.speed);
-    expect(scaledEnemyStats(scout, 10).damage).toBeGreaterThan(scout.damage);
-    expect(experienceDropTotal(scout.score, 10)).toBeGreaterThan(
+    expect(scaledEnemyStats(scout, 10).damage).toBeGreaterThan(scaledEnemyStats(scout, 1).damage);
+    expect(experienceDropTotal(scout.score, 20)).toBeGreaterThan(
       experienceDropTotal(scout.score, 1),
     );
     expect(experienceOrbRadius(999)).toBe(

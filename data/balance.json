@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "balance": {
+    "enemyDensityMultiplier": 3,
     "player": {
       "stats": {
         "radius": 18,
@@ -88,6 +89,9 @@
       "damageScaleMax": 0.55
     },
     "enemy": {
+      "swarmHpScale": 0.25,
+      "swarmDamageScale": 0.27,
+      "swarmSpeedScale": 0.92,
       "hpScalePerPressure": 0.065,
       "speedScalePerPressure": 0.022,
       "speedScaleMax": 0.4,
@@ -96,6 +100,12 @@
       "bruteChanceOffsetPressure": 2,
       "bruteChancePerPressure": 0.05,
       "bruteChanceMax": 0.25,
+      "contactBackoff": 0.65,
+      "pursuitLane": {
+        "startDistance": 120,
+        "maxTurn": 0.22,
+        "goldenAngleTurn": 0.61803398875
+      },
       "wobble": {
         "scout": 0.18,
         "hunter": 0.18,
@@ -204,7 +214,7 @@
         "lifesteal": 1.4,
         "pickupRadius": 0.36,
         "bulletRadius": 0.24,
-        "projectileDamageFactor": 0.7,
+        "projectileDamageFactor": 0.6,
         "droneExtraThreshold": 1.65
       }
     },
@@ -244,12 +254,15 @@
     ],
     "bosses": {
       "stageDurationSeconds": 600,
-      "pressureOffsetPerStage": 9,
+      "pressureOffsetPerStage": 4,
+      "postStage2PressureOffsetRatio": 0.25,
       "contactBackoff": 0.45,
       "stageScaling": {
-        "hpPerStage": 0,
-        "damagePerStage": 0,
-        "speedPerStage": 0
+        "hpPerStage": 120,
+        "damagePerStage": 0.25,
+        "speedPerStage": 0.04,
+        "postStage2HpOffsetBase": 1,
+        "postStage2HpOffsetPerStage": 0.08
       },
       "wobble": {
         "boss": {
@@ -275,7 +288,7 @@
         }
       },
       "boss": {
-        "hpMultiplier": 24,
+        "hpMultiplier": 12,
         "speedMultiplier": 0.54,
         "damageMultiplier": 1.8,
         "radiusMultiplier": 2.15,
@@ -343,9 +356,9 @@
       "pullStrength": 380,
       "velocityDamping": 1.6,
       "dropChance": {
-        "scout": 0.012,
-        "hunter": 0.03,
-        "brute": 0.09
+        "scout": 0.004,
+        "hunter": 0.01,
+        "brute": 0.03
       }
     },
     "progression": {
@@ -392,7 +405,7 @@
         {
           "type": "scaleCurrentPct",
           "stat": "damage",
-          "factor": 0.7
+          "factor": 0.6
         }
       ],
       "softCap": {
@@ -576,7 +589,7 @@
         {
           "type": "scaleCurrentPct",
           "stat": "damage",
-          "factor": 0.7
+          "factor": 0.6
         },
         {
           "type": "addPct",
@@ -920,10 +933,22 @@
       "characterId": "tank"
     },
     {
+      "id": "unique:char-engineer",
+      "kind": "unique",
+      "name": "Ingénieur",
+      "description": "Pilote drone/récolte, fort en contrôle de zone mais moins explosif.",
+      "maxLevel": 1,
+      "costs": [
+        110
+      ],
+      "requirement": "boss-kill",
+      "characterId": "engineer"
+    },
+    {
       "id": "unique:extra-choice",
       "kind": "unique",
       "name": "Banque tactique",
-      "description": "+1 choix à chaque level-up.",
+      "description": "+1 choix à chaque level-up. Ne se cumule avec aucun autre bonus de choix.",
       "maxLevel": 1,
       "costs": [
         120
@@ -931,121 +956,353 @@
       "requirement": "available"
     },
     {
-      "id": "category:attack",
-      "kind": "category",
-      "name": "Attaque",
-      "description": "Augmente la qualité des upgrades offensifs.",
+      "id": "card:plasma-core",
+      "kind": "card",
+      "name": "Carte cadence",
+      "description": "Débloque Technologie cadence et ses tiers supérieurs.",
       "maxLevel": 4,
       "costs": [
-        40,
-        75,
-        130,
-        220
+        0,
+        80,
+        320,
+        420
       ],
       "requirement": "available",
       "tag": "cannon",
-      "technologyId": "heavy-caliber",
+      "technologyId": "plasma-core",
+      "upgradeId": "plasma-core",
+      "baseLevel": 1,
       "levels": [
         {
-          "summary": "Débloque la tech Calibre et les rares offensifs."
+          "summary": "Débloque Technologie cadence en Standard."
         },
         {
-          "summary": "+25% chance de rare globale."
+          "summary": "Technologie cadence peut apparaître en Rare."
         },
         {
-          "summary": "Débloque les prototypes."
+          "summary": "Technologie cadence peut apparaître en Prototype."
         },
         {
-          "summary": "Augmente la chance de singularité."
+          "summary": "Technologie cadence peut apparaître en Singularity."
         }
       ]
     },
     {
-      "id": "category:defense",
-      "kind": "category",
-      "name": "Défense",
-      "description": "Renforce la coque et les builds défensifs.",
+      "id": "card:rail-slug",
+      "kind": "card",
+      "name": "Carte dégâts",
+      "description": "Débloque Technologie dégâts et ses tiers supérieurs.",
       "maxLevel": 4,
       "costs": [
-        40,
-        75,
-        130,
-        220
+        0,
+        80,
+        320,
+        420
       ],
       "requirement": "available",
-      "tag": "shield",
-      "technologyId": "kinetic-shield",
+      "tag": "cannon",
+      "technologyId": "rail-slug",
+      "upgradeId": "rail-slug",
+      "baseLevel": 1,
       "levels": [
         {
-          "summary": "Débloque la tech Bouclier et les rares défensifs."
+          "summary": "Débloque Technologie dégâts en Standard."
         },
         {
-          "summary": "+1 charge de bouclier au départ."
+          "summary": "Technologie dégâts peut apparaître en Rare."
         },
         {
-          "summary": "Débloque les prototypes."
+          "summary": "Technologie dégâts peut apparaître en Prototype."
         },
         {
-          "summary": "+0.5 régénération HP au départ."
+          "summary": "Technologie dégâts peut apparaître en Singularity."
         }
       ]
     },
     {
-      "id": "category:salvage",
-      "kind": "category",
-      "name": "Récolte",
-      "description": "Optimise la collecte d'XP et les récompenses de run.",
+      "id": "card:ion-engine",
+      "kind": "card",
+      "name": "Carte moteurs",
+      "description": "Débloque Technologie moteurs et ses tiers supérieurs.",
       "maxLevel": 4,
       "costs": [
-        40,
-        75,
-        130,
-        220
+        0,
+        80,
+        320,
+        420
       ],
       "requirement": "available",
       "tag": "salvage",
+      "technologyId": "ion-engine",
+      "upgradeId": "ion-engine",
+      "baseLevel": 1,
       "levels": [
         {
-          "summary": "Débloque les rares de récolte."
+          "summary": "Débloque Technologie moteurs en Standard."
         },
         {
-          "summary": "+10% multiplicateur de cristaux par run."
+          "summary": "Technologie moteurs peut apparaître en Rare."
         },
         {
-          "summary": "+5% rayon de collecte."
+          "summary": "Technologie moteurs peut apparaître en Prototype."
         },
         {
-          "summary": "Débloque les prototypes."
+          "summary": "Technologie moteurs peut apparaître en Singularity."
         }
       ]
     },
     {
-      "id": "category:tempo",
-      "kind": "category",
-      "name": "Tempo",
-      "description": "Cadence, précision et flexibilité de build.",
+      "id": "card:magnet-array",
+      "kind": "card",
+      "name": "Carte aimant",
+      "description": "Débloque Technologie aimant et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        0,
+        80,
+        320,
+        420
+      ],
+      "requirement": "available",
+      "tag": "magnet",
+      "technologyId": "magnet-array",
+      "upgradeId": "magnet-array",
+      "baseLevel": 1,
+      "levels": [
+        {
+          "summary": "Débloque Technologie aimant en Standard."
+        },
+        {
+          "summary": "Technologie aimant peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie aimant peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie aimant peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:twin-cannon",
+      "kind": "card",
+      "name": "Carte salves",
+      "description": "Débloque le +1 tir, puis les tiers qui ajoutent plus de projectiles.",
       "maxLevel": 4,
       "costs": [
         40,
-        75,
-        130,
-        220
+        85,
+        360,
+        460
+      ],
+      "requirement": "available",
+      "tag": "cannon",
+      "technologyId": "twin-cannon",
+      "upgradeId": "twin-cannon",
+      "levels": [
+        {
+          "summary": "Débloque Technologie salves en Standard."
+        },
+        {
+          "summary": "Technologie salves peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie salves peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie salves peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:kinetic-shield",
+      "kind": "card",
+      "name": "Carte bouclier",
+      "description": "Débloque Technologie défense et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        85,
+        360,
+        460
+      ],
+      "requirement": "reach-10m",
+      "tag": "shield",
+      "technologyId": "kinetic-shield",
+      "upgradeId": "kinetic-shield",
+      "levels": [
+        {
+          "summary": "Débloque Technologie défense en Standard."
+        },
+        {
+          "summary": "Technologie défense peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie défense peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie défense peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:crit-array",
+      "kind": "card",
+      "name": "Carte critique",
+      "description": "Débloque les coups critiques et leurs tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        85,
+        360,
+        460
       ],
       "requirement": "available",
       "tag": "crit",
       "technologyId": "crit-array",
+      "upgradeId": "crit-array",
       "levels": [
         {
-          "summary": "Débloque la tech Critique et les rares de précision."
+          "summary": "Débloque Technologie critique en Standard."
         },
         {
-          "summary": "+25% chance de rare globale."
+          "summary": "Technologie critique peut apparaître en Rare."
         },
         {
-          "summary": "Débloque les prototypes."
+          "summary": "Technologie critique peut apparaître en Prototype."
         },
         {
-          "summary": "+1 choix au level-up."
+          "summary": "Technologie critique peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:heavy-caliber",
+      "kind": "card",
+      "name": "Carte calibre",
+      "description": "Débloque Technologie calibre et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        85,
+        360,
+        460
+      ],
+      "requirement": "reach-stage-2",
+      "tag": "cannon",
+      "technologyId": "heavy-caliber",
+      "upgradeId": "heavy-caliber",
+      "levels": [
+        {
+          "summary": "Débloque Technologie calibre en Standard."
+        },
+        {
+          "summary": "Technologie calibre peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie calibre peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie calibre peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "rarity:rare-signal",
+      "kind": "rarity",
+      "name": "Signal rare",
+      "description": "Autorise les cartes montées à proposer du Rare et augmente son apparition.",
+      "maxLevel": 3,
+      "costs": [
+        50,
+        105,
+        180
+      ],
+      "requirement": "available",
+      "rarityTier": "rare",
+      "levels": [
+        {
+          "summary": "Débloque le tier Rare pour les cartes compatibles."
+        },
+        {
+          "summary": "Augmente encore la fréquence du Rare."
+        },
+        {
+          "summary": "Stabilise fortement les propositions Rare."
+        }
+      ]
+    },
+    {
+      "id": "rarity:prototype-lab",
+      "kind": "rarity",
+      "name": "Laboratoire prototype",
+      "description": "Autorise les cartes montées à proposer du Prototype.",
+      "maxLevel": 3,
+      "costs": [
+        220,
+        420,
+        750
+      ],
+      "requirement": "reach-stage-2",
+      "rarityTier": "prototype",
+      "levels": [
+        {
+          "summary": "Débloque le tier Prototype pour les cartes compatibles."
+        },
+        {
+          "summary": "Augmente la fréquence du Prototype après sa gate."
+        },
+        {
+          "summary": "Rend les prototypes plus réguliers en mid-game."
+        }
+      ]
+    },
+    {
+      "id": "rarity:singularity-core",
+      "kind": "rarity",
+      "name": "Noyau singularité",
+      "description": "Autorise les cartes montées à proposer du Singularity.",
+      "maxLevel": 3,
+      "costs": [
+        120,
+        220,
+        360
+      ],
+      "requirement": "clear-stage-2",
+      "rarityTier": "singularity",
+      "levels": [
+        {
+          "summary": "Débloque le tier Singularity pour les cartes compatibles."
+        },
+        {
+          "summary": "Augmente la fréquence du Singularity en late game."
+        },
+        {
+          "summary": "Donne une vraie chance aux pics Singularity sans les garantir."
+        }
+      ]
+    },
+    {
+      "id": "utility:crystal-contract",
+      "kind": "utility",
+      "name": "Contrat cristal",
+      "description": "Augmente les cristaux gagnés sans ajouter de puissance directe.",
+      "maxLevel": 3,
+      "costs": [
+        65,
+        125,
+        210
+      ],
+      "requirement": "available",
+      "levels": [
+        {
+          "summary": "+5% cristaux gagnés en fin de run."
+        },
+        {
+          "summary": "+10% cristaux gagnés en fin de run."
+        },
+        {
+          "summary": "+15% cristaux gagnés en fin de run."
         }
       ]
     }
@@ -1076,6 +1333,20 @@
       ],
       "requirement": "clear-stage-1",
       "characterId": "tank"
+    },
+    {
+      "id": "character:engineer",
+      "kind": "character",
+      "name": "Ingénieur",
+      "description": "Pilote drone/recolte, fort en controle de zone mais moins explosif.",
+      "cost": 110,
+      "tags": [
+        "drone",
+        "salvage",
+        "magnet"
+      ],
+      "requirement": "boss-kill",
+      "characterId": "engineer"
     },
     {
       "id": "weapon:scatter",
@@ -1222,6 +1493,38 @@
           "scale": 1
         }
       ]
+    },
+    {
+      "id": "engineer",
+      "name": "Ingénieur",
+      "icon": "ENG",
+      "description": "Pilote drone/recolte, fort en controle de zone mais moins explosif.",
+      "bonusLabel": "+1 drone, +12% aimant, -12% degats, -5% vitesse",
+      "effects": [
+        {
+          "type": "setMin",
+          "stat": "drones",
+          "value": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "pickupRadius",
+          "amount": 0.12,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "damage",
+          "amount": -0.12,
+          "scale": 1
+        },
+        {
+          "type": "addPct",
+          "stat": "speed",
+          "amount": -0.05,
+          "scale": 1
+        }
+      ]
     }
   ],
   "weapons": [
@@ -1239,7 +1542,7 @@
       "id": "scatter",
       "name": "Scatter Cannon",
       "icon": "SCT",
-      "description": "Plus de projectiles, degats actuels x0.70 et impacts plus legers.",
+      "description": "Plus de projectiles, degats actuels x0.60 et impacts plus legers.",
       "tags": [
         "cannon",
         "crit"
@@ -1254,7 +1557,7 @@
         {
           "type": "scaleCurrentPct",
           "stat": "damage",
-          "factor": 0.7
+          "factor": 0.6
         },
         {
           "type": "addPct",
@@ -1353,7 +1656,7 @@
       "role": "boss",
       "label": "BOSS",
       "stats": {
-        "hpMultiplier": 24,
+        "hpMultiplier": 12,
         "speedMultiplier": 0.54,
         "damageMultiplier": 1.8,
         "radiusMultiplier": 2.15,
@@ -1368,17 +1671,14 @@
     }
   ],
   "starterTechnologyIds": [
-    "twin-cannon",
     "plasma-core",
     "rail-slug",
     "ion-engine",
-    "magnet-array",
-    "crit-array"
+    "magnet-array"
   ],
   "starterBuildTags": [
     "cannon",
     "salvage",
-    "magnet",
-    "crit"
+    "magnet"
   ]
 }

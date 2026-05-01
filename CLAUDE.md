@@ -29,14 +29,26 @@ La boucle principale est volontairement simple:
 1. **Run**: le vaisseau tire automatiquement sur l'ennemi le plus proche; le joueur se concentre sur le deplacement, le positionnement, les choix d'upgrades et les reliques temporaires.
 2. **Objectif**: chaque niveau dure 10 minutes; a la fin du timer, un boss apparait. Le battre fait passer au niveau suivant dans la meme run.
 3. **Resultat**: a la mort, l'ecran de recap montre temps, niveau atteint, niveau de run, boss battus, records et cristaux gagnes.
-4. **Hangar**: les cristaux achetent des unlocks permanents: personnages, armes de depart et technologies.
+4. **Hangar**: les cristaux achetent des unlocks permanents: personnages, armes de depart, cartes de run, cartes de rarete et options controlees.
 5. **Nouvelle run**: les achats ouvrent de nouveaux chemins de build; battre le boss du niveau 1 debloque gratuitement le depart direct niveau 2, avec bonus de cristaux mais sans puissance gratuite.
 
 Le fun doit venir du buildcraft, pas d'une inflation brute de stats permanentes. Les synergies de `src/systems/synergies.ts` sont le coeur du jeu: armes, technologies et reliques portent des tags de build (`cannon`, `salvage`, `magnet`, `shield`, `pierce`, `drone`, `crit`) qui orientent les drafts. Une nouvelle feature doit donc, par defaut, renforcer des chemins de build lisibles plutot qu'ajouter une ressource ou un systeme parallele.
 
 Les challenges ne donnent pas de bonus permanents directs. Ils servent d'objectifs lisibles et de gates d'unlocks; les cristaux restent la seule monnaie meta. Les reliques restent des rewards temporaires de run, mais leur disponibilite passe par les tags de build et les unlocks de boss.
 
-La home est un hangar jouable, pas une landing page: le premier ecran doit permettre de lancer une run, voir les cristaux, choisir personnage/arme/niveau de depart, acheter des technologies et lire les objectifs. L'ecran de mort doit aider le joueur a comprendre ce qu'il a gagne et quoi acheter ensuite.
+La home est un hangar jouable, pas une landing page: le premier ecran doit permettre de lancer une run, voir les cristaux, choisir personnage/arme/niveau de depart, acheter des cartes et lire les objectifs. L'ecran de mort doit aider le joueur a comprendre ce qu'il a gagne et quoi acheter ensuite.
+
+### Objectifs de progression et balance
+
+Les phases de progression correspondent aux boss de stage:
+
+- **Phase 1 / stage 1**: un bon joueur doit pouvoir clear le boss stage 1 en 10-20 runs.
+- **Phase 2 / stage 2**: un bon joueur doit pouvoir clear le boss stage 2 autour de 50 runs cumulees.
+- **Phase 3 / stage 3**: un bon joueur doit pouvoir clear le boss stage 3 autour de 100 runs cumulees.
+
+Aucun pilote, arme, carte, upgrade, relique ou synergie ne doit creer un build dominant qui trivialise ces fenetres. Si un changement ajoute de la puissance, il doit passer par `npm run balance:profile:check` et ne doit pas generer de warning `op-pick`.
+
+La densite cible est environ **3x plus d'ennemis vivants a l'ecran** que le baseline historique. Ce multiplicateur doit venir des knobs centraux de balance, avec XP, score, powerups et economie reequilibres pour que la progression meta ne soit pas acceleree gratuitement.
 
 ## Sim Rust (parité TS↔Rust pour balance massif)
 
@@ -52,6 +64,8 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 - `npm run balance:profile:quick` — diagnostic balance rapide avec profils actifs skilled (`expert-human`, `optimizer`)
 - `npm run balance:profile` — diagnostic balance plus profond, assez long pour aller au-delà de la phase 1
 - `npm run balance:profile:check` — check opt-in qui échoue si le jeu devient trop facile pour les profils skilled
+- `npm run balance:sweep:quick` / `:check` — teste plusieurs knobs via `--sweep path=v1,v2` sans modifier `data/balance.json`
+- `npm run balance:phase2:quick` / `balance:phase3:quick` — tuning rapide depuis checkpoints caches dans `.context/balance-checkpoints`
 - `npm run balance:meta-report:quick` — profil méta-progression/économie rapide (idle, comparaisons relatives)
 - `npm run balance:meta-report` — profil méta-progression/économie profond
 - `npm run data:export` — régénère `data/balance.json`
@@ -79,7 +93,7 @@ La home est un **flux jeu vidéo à trois écrans** dans l'overlay `#hangarOverl
 
 1. **Title** (`[data-screen="title"]`) — branding VOIDLINE plein écran, menu vertical (JOUER · Loadout · Boutique), reward chip, records repliables, raccourcis.
 2. **Loadout** (`[data-screen="loadout"]`) — cartes Pilote / Arme + Stage de départ, footer collant avec récap + bouton "Lancer la run".
-3. **Shop** (`[data-screen="shop"]`) — onglets Armes / Pilotes / Spécialisations / Options qui filtrent la grille de méta-upgrades.
+3. **Shop** (`[data-screen="shop"]`) — onglets Armes / Pilotes / Cartes / Rareté / Options qui filtrent la grille de méta-upgrades.
 
 Chrome flottant fixe (haut-droite cristaux, bas-droite cog réglages, haut-gauche bouton retour visible uniquement sur les subscreens). Les écrans inactifs portent `inert` pour sortir du tab order. Raccourcis : `L` → Loadout, `B` → Boutique, `Espace`/`Entrée` → JOUER, `Échap` → retour au titre.
 
@@ -131,29 +145,37 @@ Le wrapper utilise `--player-profile skilled`, soit `expert-human` + `optimizer`
 
 Le CLI garde des options avancées (`--player-profile`, `--campaigns`, `--runs`, `--max-pressure`, `--trial-seconds`, `--seed`) uniquement pour rejouer un historique ou faire une investigation ponctuelle. Ne pas les ajouter aux scripts npm sans vraie raison.
 
+Sweeps : `--set path=value` applique un override en mémoire, `--sweep path=v1,v2` produit des variations avec `variations[]` et `summaryTable[]`. Ces runs ne modifient pas `data/balance.json` et servent à choisir un candidat; exporter ensuite le knob retenu via `npm run data:export`.
+
+Checkpoints : `--phase stage2` démarre depuis checkpoints post-stage 1, `--phase stage3` depuis checkpoints post-stage 2. Les checkpoints vivent par défaut dans `.context/balance-checkpoints` et sont un accélérateur de tuning, pas une validation finale. Toujours terminer par `npm run balance:profile:check` sans phase isolée.
+
 Historique : `--record-history` ajoute une entrée JSONL dans `data/balance-profile-history.jsonl` avec commit, branch, dirty flag, hash de `data/balance.json`, commande de replay, inputs résolus et output agrégé. Par défaut, l'écriture d'historique refuse un worktree dirty ; utiliser `--allow-dirty-history` seulement pour une capture de travail approximative.
 
-Le rapport balance expose notamment : `runs_to_stage1_clear`, `runs_to_stage2_clear`, `stage1_clear_rate`, `stage2_clear_rate`, `deaths_rate_per_run`, pick rates upgrades/reliques, warnings `op-pick` / `dead-pick`, et snapshots de stats. Pour valider un changement de balance : exécuter avant/après, lire les deltas, et garder un historique si le résultat doit être comparé en PR.
+Le rapport balance expose notamment : `runs_to_stage1_clear`, `runs_to_stage2_clear`, `runs_to_stage3_clear`, `cumulative_runs_to_stage*_clear`, clear rates, deaths rate, pick rates upgrades/reliques, warnings `op-pick` / `dead-pick`, et snapshots de stats. Pour valider un changement de balance : exécuter avant/après, lire les deltas, et garder un historique si le résultat doit être comparé en PR.
 
 ### Méta-progression — catalogue unique
 
-Source de vérité: `src/game/meta-upgrade-catalog.ts`. Deux types d'upgrade:
+Source de vérité: `src/game/meta-upgrade-catalog.ts`. Quatre types d'upgrade:
 
 - **Uniques** (`kind: "unique"`, `maxLevel: 1`): unlocks one-shot — armes (`scatter`, `lance`, `drone`), personnages (`runner`, `tank`), et bonus définitifs (`extra-choice` = +1 choix au level-up).
-- **Categories** (`kind: "category"`, `maxLevel: 4`): chemins paliers — `attack` (cannon), `defense` (shield), `salvage`, `tempo` (crit). Coûts par niveau: `[40, 75, 130, 220]`. Une catégorie qui porte un `technologyId` injecte automatiquement cette tech dans le pool des tech débloquées dès le niveau 1.
+- **Cards** (`kind: "card"`, `maxLevel: 4`): cartes individuelles de run. Le niveau 1 debloque l'upgrade, puis les niveaux 2/3/4 debloquent les tiers Rare/Prototype/Singularity pour cette carte. Les cartes starter peuvent avoir `baseLevel: 1`.
+- **Rarity** (`kind: "rarity"`, `maxLevel: 3`): cartes globales qui augmentent les poids Rare/Prototype/Singularity, sans bypasser le cap de tier propre a chaque carte.
+- **Utility** (`kind: "utility"`): options meta sans puissance directe excessive, par exemple le multiplicateur de cristaux.
 
 Helpers exposés: `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPurchaseLevel`, `unlockedTechnologyIdsFromMeta`, `unlockedBuildTagsFromMeta`. Achat via `purchaseMetaUpgradeLevel(id)` dans `src/systems/account.ts`.
 
 Hooks runtime branchés sur le catalogue (dans `src/systems/account.ts`):
-- `currentRarityRank()` = `min(3, max(level over 4 categories))` → alimente `upgradeTierWeights(pressure, rarityRank)` dans `src/game/balance.ts`.
-- `currentLevelUpChoiceCount()` = `3 + (extra-choice OR tempo>=4 ? 1 : 0)` (clamped à base+1, jamais cumulés) → consommé par `pickUpgrades(...)` dans `src/render/hud.ts`.
-- `currentCrystalRewardMultiplier()` = `1 + (salvage>=2 ? 0.10 : 0)` → appliqué dans `applyCrystalReward` (`src/game/account-progression.ts`).
+- `currentUpgradeTierCaps()` = cap Standard/Rare/Prototype/Singularity par `upgradeId`, derive des niveaux de cartes.
+- `currentRarityProfile()` = niveaux des cartes Rare/Prototype/Singularity → alimente les poids de tiers dans le moteur Rust.
+- `currentLevelUpChoiceCount()` = `3 + (extra-choice ? 1 : 0)`; aucun autre bonus de choix ne doit se cumuler.
+- `currentCrystalRewardMultiplier()` = contrat cristal, plafonne a +15% → appliqué dans `applyCrystalReward` (`src/game/account-progression.ts`).
 
 #### Migration legacy
 
 `AccountProgress.upgradeLevels: Partial<Record<MetaUpgradeId, number>>` est la nouvelle structure. Le champ `purchasedUnlockIds: ShopItemId[]` reste dans le type pour rétro-compat et est migré au load par `sanitizeAccountProgress` → `migrateLegacyUnlocks` (`src/systems/account.ts`):
 - `weapon:scatter|lance|drone`, `character:runner|tank` → `upgradeLevels["unique:..."] = 1`.
-- `technology:heavy-caliber|kinetic-shield|crit-array` → **refundés** (crystals += cost, spentCrystals -= cost), aucune entrée ajoutée; les catégories les possèdent désormais.
+- `technology:heavy-caliber|kinetic-shield|crit-array` → **refundés** (crystals += cost, spentCrystals -= cost), aucune entrée ajoutée; les cartes les remplacent.
+- `category:*` et `unique:reroll` → **refundés et supprimés**; ne pas les recreer.
 - `purchasedUnlockIds` est ensuite vidé → migration idempotente.
 
 Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress` réinitialise `upgradeLevels` à `{}`. Ne pas recréer cette migration: elle s'exécute au load et est idempotente.
@@ -174,6 +196,8 @@ Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress
 - `npm run balance:profile:quick` — diagnostic balance rapide (`expert-human` + `optimizer`)
 - `npm run balance:profile` — diagnostic balance approfondi
 - `npm run balance:profile:check` — check opt-in "pas trop facile"
+- `npm run balance:sweep:quick` / `balance:sweep:check` — variations rapides de knobs via `--sweep`
+- `npm run balance:phase2:quick` / `balance:phase3:quick` — phases isolées depuis checkpoints
 - `npm run balance:meta-report` / `:quick` — Rust sim (voir section "Sim Rust")
 
 Lancer un test isolé (par fichier ou par nom):

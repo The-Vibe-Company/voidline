@@ -10,6 +10,7 @@ export const unlockPredicates: Record<UnlockRequirement, (progress: AccountProgr
   available: () => true,
   "reach-10m": (progress) => progress.records.bestTimeSeconds >= 600,
   "clear-stage-1": (progress) => progress.highestStageCleared >= 1,
+  "clear-stage-2": (progress) => progress.highestStageCleared >= 2,
   "reach-stage-2": (progress) =>
     progress.records.bestStage >= 2 || progress.highestStartStageUnlocked >= 2,
   "boss-kill": (progress) => progress.records.bossKills > 0,
@@ -23,15 +24,13 @@ export function isUnlockRequirementMet(
 }
 
 export const STARTER_TECHNOLOGY_IDS = [
-  "twin-cannon",
   "plasma-core",
   "rail-slug",
   "ion-engine",
   "magnet-array",
-  "crit-array",
 ] as const;
 
-export const STARTER_BUILD_TAGS = ["cannon", "salvage", "magnet", "crit"] as const satisfies BuildTag[];
+export const STARTER_BUILD_TAGS = ["cannon", "salvage", "magnet"] as const satisfies BuildTag[];
 
 export const shopCatalog: readonly ShopItem[] = [
   {
@@ -53,6 +52,16 @@ export const shopCatalog: readonly ShopItem[] = [
     tags: ["shield", "salvage"],
     requirement: "clear-stage-1",
     characterId: "tank",
+  },
+  {
+    id: "character:engineer",
+    kind: "character",
+    name: "Ingénieur",
+    description: "Pilote drone/recolte, fort en controle de zone mais moins explosif.",
+    cost: 110,
+    tags: ["drone", "salvage", "magnet"],
+    requirement: "boss-kill",
+    characterId: "engineer",
   },
   {
     id: "weapon:scatter",

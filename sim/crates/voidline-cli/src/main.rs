@@ -4,17 +4,20 @@
 use std::collections::HashMap;
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use clap::{Parser, ValueEnum};
+use clap::{ArgAction, Parser, ValueEnum};
 use rayon::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
-use voidline_data::{load_bundle, load_default, DataBundle};
-use voidline_meta::campaign::{run_meta_campaign, CampaignOptions, CampaignResult};
+use voidline_data::DataBundle;
+use voidline_meta::campaign::{
+    run_meta_campaign, CampaignCheckpoint, CampaignOptions, CampaignResult,
+};
 use voidline_meta::policies::{
     FocusedAttackPolicy, GreedyCheapPolicy, HoarderPolicy, MetaPolicy, PolicyId, RandomPolicy,
 };
@@ -95,6 +98,37 @@ impl PolicySetArg {
     }
 }
 
+#[derive(Clone, Debug, ValueEnum, PartialEq, Eq)]
+enum PhaseArg {
+    Full,
+    Stage1,
+    Stage2,
+    Stage3,
+}
+
+impl PhaseArg {
+    fn as_str(&self) -> &'static str {
+        match self {
+            PhaseArg::Full => "full",
+            PhaseArg::Stage1 => "stage1",
+            PhaseArg::Stage2 => "stage2",
+            PhaseArg::Stage3 => "stage3",
+        }
+    }
+
+    fn checkpoint_stage(&self) -> Option<u32> {
+        match self {
+            PhaseArg::Full | PhaseArg::Stage1 => None,
+            PhaseArg::Stage2 => Some(1),
+            PhaseArg::Stage3 => Some(2),
+        }
+    }
+
+    fn is_isolated(&self) -> bool {
+        matches!(self, PhaseArg::Stage2 | PhaseArg::Stage3)
+    }
+}
+
 #[derive(Parser, Debug)]
 #[command(name = "voidline-cli", about = "Voidline meta-progression report")]
 struct Args {
@@ -153,6 +187,42 @@ struct Args {
     /// Policy set to simulate. Balance checks only need focused-attack.
     #[arg(long, value_enum, default_value = "all")]
     policy_set: PolicySetArg,
+
+    /// Fixed in-memory override, e.g. balance.bosses.stageScaling.hpPerStage=120
+    #[arg(long = "set")]
+    set_overrides: Vec<String>,
+
+    /// Sweep an in-memory override over comma-separated values.
+    #[arg(long = "sweep")]
+    sweeps: Vec<String>,
+
+    /// Include a baseline row when running a sweep.
+    #[arg(long, default_value_t = true, action = ArgAction::Set)]
+    include_baseline: bool,
+
+    /// Max number of generated variations, including baseline.
+    #[arg(long, default_value_t = 48)]
+    max_variations: usize,
+
+    /// Phase mode. full is the validating path; stage2/stage3 use checkpoints.
+    #[arg(long, value_enum, default_value = "full")]
+    phase: PhaseArg,
+
+    /// Write captured checkpoints to this file.
+    #[arg(long)]
+    checkpoint_out: Option<PathBuf>,
+
+    /// Read phase checkpoints from this file.
+    #[arg(long)]
+    checkpoint_in: Option<PathBuf>,
+
+    /// Directory for automatic phase checkpoints.
+    #[arg(long, default_value = ".context/balance-checkpoints")]
+    checkpoint_dir: PathBuf,
+
+    /// Rebuild automatic checkpoints even when cached files exist.
+    #[arg(long)]
+    refresh_checkpoints: bool,
 
     /// Append a compact replayable snapshot to the history JSONL file
     #[arg(long)]
@@ -226,14 +296,20 @@ struct PolicySection {
     median_pressure_at_run_index: HashMap<String, f64>,
     median_first_stage1_clear: Option<f64>,
     median_first_stage2_clear: Option<f64>,
+    median_first_stage3_clear: Option<f64>,
     median_first_boss_kill: Option<f64>,
     median_final_crystals: f64,
     deaths_rate_per_run: f64,
     runs_to_stage1_clear: PercentileSummary,
     runs_to_first_boss_kill: PercentileSummary,
     runs_to_stage2_clear: PercentileSummary,
+    runs_to_stage3_clear: PercentileSummary,
+    cumulative_runs_to_stage1_clear: PercentileSummary,
+    cumulative_runs_to_stage2_clear: PercentileSummary,
+    cumulative_runs_to_stage3_clear: PercentileSummary,
     stage1_clear_rate: f64,
     stage2_clear_rate: f64,
+    stage3_clear_rate: f64,
     boss_kill_rate: f64,
     median_run_level: Option<f64>,
     median_elapsed_seconds: Option<f64>,
@@ -262,13 +338,73 @@ struct Report {
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+struct SweepReport {
+    generated_at: String,
+    config: SweepConfig,
+    variations: Vec<VariationResult>,
+    summary_table: Vec<VariationSummaryRow>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SweepConfig {
+    include_baseline: bool,
+    max_variations: usize,
+    axes: Vec<SweepAxisSummary>,
+    fixed_overrides: Vec<OverrideSpec>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SweepAxisSummary {
+    path: String,
+    values: Vec<Value>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VariationResult {
+    name: String,
+    overrides: Vec<OverrideSpec>,
+    report: Report,
+    check_errors: Vec<String>,
+    passed: bool,
+    elapsed_seconds: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct VariationSummaryRow {
+    variation: String,
+    overrides: Vec<OverrideSpec>,
+    expert_human_stage1_p50: Option<f64>,
+    expert_human_stage2_p50: Option<f64>,
+    expert_human_stage3_p50: Option<f64>,
+    optimizer_stage1_p50: Option<f64>,
+    optimizer_stage2_p50: Option<f64>,
+    optimizer_stage3_p50: Option<f64>,
+    stage1_clear_rate: Option<f64>,
+    stage2_clear_rate: Option<f64>,
+    stage3_clear_rate: Option<f64>,
+    warning_count: usize,
+    op_pick_count: usize,
+    passed: bool,
+    check_errors: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct Phase1Thresholds {
     expert_human_stage1_p50_min: f64,
     expert_human_stage1_p50_max: f64,
     expert_human_stage1_p75_max: f64,
     optimizer_stage1_p50_min: f64,
     expert_human_stage2_p50_min: f64,
+    expert_human_stage2_p50_max: f64,
     optimizer_stage2_p50_min: f64,
+    expert_human_stage3_p50_min: f64,
+    expert_human_stage3_p50_max: f64,
+    optimizer_stage3_p50_min: f64,
     min_campaigns_for_check: u32,
     min_runs_for_check: u32,
     min_trial_seconds_for_check: f64,
@@ -287,6 +423,10 @@ struct ReportConfig {
     player_profile_arg: String,
     player_profiles: Vec<String>,
     policy_set: String,
+    phase: String,
+    phase_isolated: bool,
+    checkpoint_in: Option<String>,
+    checkpoint_out: Option<String>,
     check_target: Option<String>,
     thresholds: Phase1Thresholds,
     threads: usize,
@@ -301,17 +441,62 @@ struct ReportProfile {
     trial_seconds: f64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "camelCase")]
+struct OverrideSpec {
+    path: String,
+    value: Value,
+}
+
+#[derive(Debug, Clone)]
+struct SweepAxis {
+    path: String,
+    values: Vec<Value>,
+}
+
+#[derive(Debug, Clone)]
+struct VariationSpec {
+    name: String,
+    overrides: Vec<OverrideSpec>,
+}
+
+#[derive(Debug, Clone)]
+struct RunSettings {
+    campaigns: u32,
+    runs: u32,
+    max_pressure: u32,
+    trial_seconds: f64,
+    player_profiles: Vec<PlayerProfileId>,
+    thresholds: Phase1Thresholds,
+    base_options: CampaignOptions,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct CheckpointFile {
+    schema_version: u32,
+    base_data_hash: String,
+    profile: String,
+    policy: String,
+    checkpoint_stage: u32,
+    checkpoints: Vec<CampaignCheckpoint>,
+}
+
 impl Default for Phase1Thresholds {
     fn default() -> Self {
         Self {
-            expert_human_stage1_p50_min: 6.0,
-            expert_human_stage1_p50_max: 16.0,
-            expert_human_stage1_p75_max: 20.0,
-            optimizer_stage1_p50_min: 3.0,
-            expert_human_stage2_p50_min: 10.0,
-            optimizer_stage2_p50_min: 5.0,
-            min_campaigns_for_check: 30,
-            min_runs_for_check: 80,
+            expert_human_stage1_p50_min: 10.0,
+            expert_human_stage1_p50_max: 20.0,
+            expert_human_stage1_p75_max: 45.0,
+            optimizer_stage1_p50_min: 5.0,
+            expert_human_stage2_p50_min: 40.0,
+            expert_human_stage2_p50_max: 60.0,
+            optimizer_stage2_p50_min: 20.0,
+            expert_human_stage3_p50_min: 85.0,
+            expert_human_stage3_p50_max: 115.0,
+            optimizer_stage3_p50_min: 45.0,
+            min_campaigns_for_check: 12,
+            min_runs_for_check: 120,
             min_trial_seconds_for_check: 660.0,
             min_min_max_pressure_for_check: 50,
         }
@@ -336,6 +521,189 @@ impl ReportProfile {
             trial_seconds: 240.0,
         }
     }
+}
+
+fn parse_override(raw: &str) -> Result<OverrideSpec, String> {
+    let (path, value) = raw
+        .split_once('=')
+        .ok_or_else(|| format!("override must be path=value: {raw}"))?;
+    validate_override_path(path)?;
+    Ok(OverrideSpec {
+        path: path.to_string(),
+        value: parse_override_value(value),
+    })
+}
+
+fn parse_sweep(raw: &str) -> Result<SweepAxis, String> {
+    let (path, values) = raw
+        .split_once('=')
+        .ok_or_else(|| format!("sweep must be path=v1,v2: {raw}"))?;
+    validate_override_path(path)?;
+    let values: Vec<Value> = values.split(',').map(parse_override_value).collect();
+    if values.is_empty() {
+        return Err(format!("sweep has no values: {raw}"));
+    }
+    Ok(SweepAxis {
+        path: path.to_string(),
+        values,
+    })
+}
+
+fn validate_override_path(path: &str) -> Result<(), String> {
+    if path.is_empty() {
+        return Err("override path cannot be empty".to_string());
+    }
+    if path.contains('[') || path.contains(']') {
+        return Err(format!("array paths are not supported yet: {path}"));
+    }
+    if path.split('.').any(|part| part.is_empty()) {
+        return Err(format!("override path contains an empty segment: {path}"));
+    }
+    Ok(())
+}
+
+fn parse_override_value(raw: &str) -> Value {
+    serde_json::from_str(raw).unwrap_or_else(|_| Value::String(raw.to_string()))
+}
+
+fn build_variations(
+    fixed: &[OverrideSpec],
+    axes: &[SweepAxis],
+    include_baseline: bool,
+    max_variations: usize,
+) -> Result<Vec<VariationSpec>, String> {
+    let mut out = Vec::new();
+    if include_baseline {
+        out.push(VariationSpec {
+            name: "baseline".to_string(),
+            overrides: fixed.to_vec(),
+        });
+    }
+    if axes.is_empty() {
+        if out.is_empty() {
+            out.push(VariationSpec {
+                name: "override".to_string(),
+                overrides: fixed.to_vec(),
+            });
+        }
+        return Ok(out);
+    }
+    let mut combinations: Vec<Vec<OverrideSpec>> = vec![Vec::new()];
+    for axis in axes {
+        let mut next = Vec::new();
+        for combo in &combinations {
+            for value in &axis.values {
+                let mut item = combo.clone();
+                item.push(OverrideSpec {
+                    path: axis.path.clone(),
+                    value: value.clone(),
+                });
+                next.push(item);
+            }
+        }
+        combinations = next;
+    }
+    for combo in combinations {
+        let mut overrides = fixed.to_vec();
+        overrides.extend(combo);
+        out.push(VariationSpec {
+            name: variation_name(&overrides, fixed.len()),
+            overrides,
+        });
+    }
+    if out.len() > max_variations {
+        return Err(format!(
+            "sweep generated {} variations, above --max-variations {max_variations}",
+            out.len()
+        ));
+    }
+    Ok(out)
+}
+
+fn variation_name(overrides: &[OverrideSpec], fixed_count: usize) -> String {
+    let dynamic = overrides.iter().skip(fixed_count).collect::<Vec<_>>();
+    if dynamic.is_empty() {
+        return "override".to_string();
+    }
+    dynamic
+        .iter()
+        .map(|item| format!("{}={}", item.path, value_label(&item.value)))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+fn value_label(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.clone(),
+        _ => value.to_string(),
+    }
+}
+
+fn apply_overrides(base: &Value, overrides: &[OverrideSpec]) -> Result<Value, String> {
+    let mut value = base.clone();
+    for override_spec in overrides {
+        apply_override(&mut value, override_spec)?;
+    }
+    Ok(value)
+}
+
+fn apply_override(root: &mut Value, override_spec: &OverrideSpec) -> Result<(), String> {
+    let mut current = root;
+    let mut segments = override_spec.path.split('.').peekable();
+    while let Some(segment) = segments.next() {
+        let is_last = segments.peek().is_none();
+        let object = current
+            .as_object_mut()
+            .ok_or_else(|| format!("{} reaches a non-object at {segment}", override_spec.path))?;
+        let Some(next) = object.get_mut(segment) else {
+            return Err(format!(
+                "override path does not exist: {}",
+                override_spec.path
+            ));
+        };
+        if is_last {
+            if !override_type_compatible(next, &override_spec.value) {
+                return Err(format!(
+                    "override type mismatch at {}: existing {}, new {}",
+                    override_spec.path,
+                    value_type(next),
+                    value_type(&override_spec.value)
+                ));
+            }
+            *next = override_spec.value.clone();
+            return Ok(());
+        }
+        current = next;
+    }
+    Err(format!(
+        "override path cannot be empty: {}",
+        override_spec.path
+    ))
+}
+
+fn override_type_compatible(existing: &Value, next: &Value) -> bool {
+    matches!(
+        (existing, next),
+        (Value::Number(_), Value::Number(_))
+            | (Value::Bool(_), Value::Bool(_))
+            | (Value::String(_), Value::String(_))
+    )
+}
+
+fn value_type(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "bool",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
+
+fn bundle_from_value(value: Value) -> Result<DataBundle, String> {
+    serde_json::from_value(value)
+        .map_err(|err| format!("balance JSON does not match schema: {err}"))
 }
 
 fn percentile(mut values: Vec<f64>, p: f64) -> Option<f64> {
@@ -517,6 +885,7 @@ fn run_policy_campaigns<P: MetaPolicy + Send>(
     options: CampaignOptions,
     campaigns_count: u32,
     new_policy: impl Fn(u64) -> P + Sync + Send,
+    initial_checkpoints: Option<&[CampaignCheckpoint]>,
 ) -> Vec<CampaignResult> {
     let progress = Mutex::new(0u32);
     let total = campaigns_count;
@@ -524,8 +893,18 @@ fn run_policy_campaigns<P: MetaPolicy + Send>(
         .into_par_iter()
         .map(|i| {
             let mut policy = new_policy(i as u64 + 1);
-            let mut local = options;
+            let mut local = options.clone();
+            local.campaign_index = i;
             local.seed = options.seed.wrapping_add(i.wrapping_mul(0x9E3779B1));
+            if let Some(checkpoints) = initial_checkpoints {
+                let checkpoint = checkpoints
+                    .get(i as usize % checkpoints.len())
+                    .expect("non-empty checkpoints");
+                local.seed = checkpoint.seed;
+                local.initial_run_index = checkpoint.run_index;
+                local.initial_account = Some(checkpoint.account.clone());
+                local.initial_unlock_run_index = checkpoint.unlock_run_index.clone();
+            }
             let result = run_meta_campaign(bundle, local, &mut policy);
             let mut p = progress.lock().unwrap();
             *p += 1;
@@ -535,6 +914,242 @@ fn run_policy_campaigns<P: MetaPolicy + Send>(
             result
         })
         .collect()
+}
+
+fn checkpoints_from_results(results: &[CampaignResult], stage: u32) -> Vec<CampaignCheckpoint> {
+    results
+        .iter()
+        .filter_map(|result| match stage {
+            1 => result.stage1_checkpoint.clone(),
+            2 => result.stage2_checkpoint.clone(),
+            _ => None,
+        })
+        .collect()
+}
+
+fn run_policy_id(
+    policy: PolicyId,
+    bundle: &DataBundle,
+    options: CampaignOptions,
+    campaigns: u32,
+    initial_checkpoints: Option<&[CampaignCheckpoint]>,
+) -> Vec<CampaignResult> {
+    match policy {
+        PolicyId::Random => run_policy_campaigns(
+            bundle,
+            options,
+            campaigns,
+            |seed| RandomPolicy::new(seed),
+            initial_checkpoints,
+        ),
+        PolicyId::GreedyCheap => run_policy_campaigns(
+            bundle,
+            options,
+            campaigns,
+            |_| GreedyCheapPolicy,
+            initial_checkpoints,
+        ),
+        PolicyId::FocusedAttack => run_policy_campaigns(
+            bundle,
+            options,
+            campaigns,
+            |_| FocusedAttackPolicy::default(),
+            initial_checkpoints,
+        ),
+        PolicyId::Hoarder => run_policy_campaigns(
+            bundle,
+            options,
+            campaigns,
+            |_| HoarderPolicy,
+            initial_checkpoints,
+        ),
+    }
+}
+
+fn policy_ids(policy_set: &PolicySetArg) -> Vec<PolicyId> {
+    match policy_set {
+        PolicySetArg::All => vec![
+            PolicyId::Random,
+            PolicyId::GreedyCheap,
+            PolicyId::FocusedAttack,
+            PolicyId::Hoarder,
+        ],
+        PolicySetArg::Focused => vec![PolicyId::FocusedAttack],
+    }
+}
+
+fn load_checkpoint_file(path: &Path) -> Result<CheckpointFile, String> {
+    let raw = std::fs::read_to_string(path)
+        .map_err(|err| format!("failed to read checkpoint {}: {err}", path.display()))?;
+    serde_json::from_str(&raw)
+        .map_err(|err| format!("failed to parse checkpoint {}: {err}", path.display()))
+}
+
+fn write_checkpoint_file(path: &Path, file: &CheckpointFile) -> Result<(), String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|err| err.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(file).map_err(|err| err.to_string())?;
+    std::fs::write(path, json + "\n").map_err(|err| err.to_string())
+}
+
+fn checkpoint_cache_path(
+    dir: &Path,
+    data_hash: &str,
+    profile: PlayerProfileId,
+    policy: PolicyId,
+    checkpoint_stage: u32,
+) -> PathBuf {
+    let hash = data_hash.replace(':', "-");
+    dir.join(format!(
+        "stage{checkpoint_stage}-{}-{}-{hash}.json",
+        profile.as_str(),
+        policy.as_str()
+    ))
+}
+
+fn checkpoint_file_from_results(
+    data_hash: &str,
+    profile: PlayerProfileId,
+    policy: PolicyId,
+    checkpoint_stage: u32,
+    results: &[CampaignResult],
+) -> CheckpointFile {
+    CheckpointFile {
+        schema_version: 1,
+        base_data_hash: data_hash.to_string(),
+        profile: profile.as_str().to_string(),
+        policy: policy.as_str().to_string(),
+        checkpoint_stage,
+        checkpoints: checkpoints_from_results(results, checkpoint_stage),
+    }
+}
+
+fn validate_checkpoint_file(
+    file: &CheckpointFile,
+    data_hash: &str,
+    profile: PlayerProfileId,
+    policy: PolicyId,
+    checkpoint_stage: u32,
+) -> Result<(), String> {
+    if file.schema_version != 1 {
+        return Err(format!(
+            "unsupported checkpoint schemaVersion {}",
+            file.schema_version
+        ));
+    }
+    if file.base_data_hash != data_hash {
+        return Err(format!(
+            "checkpoint data hash mismatch: {} != {}",
+            file.base_data_hash, data_hash
+        ));
+    }
+    if file.profile != profile.as_str() {
+        return Err(format!(
+            "checkpoint profile mismatch: {} != {}",
+            file.profile,
+            profile.as_str()
+        ));
+    }
+    if file.policy != policy.as_str() {
+        return Err(format!(
+            "checkpoint policy mismatch: {} != {}",
+            file.policy,
+            policy.as_str()
+        ));
+    }
+    if file.checkpoint_stage != checkpoint_stage {
+        return Err(format!(
+            "checkpoint stage mismatch: {} != {}",
+            file.checkpoint_stage, checkpoint_stage
+        ));
+    }
+    if file.checkpoints.is_empty() {
+        return Err("checkpoint file contains no checkpoints".to_string());
+    }
+    Ok(())
+}
+
+fn load_or_generate_checkpoints(
+    args: &Args,
+    bundle: &DataBundle,
+    settings: &RunSettings,
+    data_hash: &str,
+    profile: PlayerProfileId,
+    policy: PolicyId,
+    checkpoint_stage: u32,
+) -> Result<Vec<CampaignCheckpoint>, String> {
+    let path = if let Some(path) = &args.checkpoint_in {
+        path.clone()
+    } else {
+        checkpoint_cache_path(
+            &resolve_output_path(&args.checkpoint_dir),
+            data_hash,
+            profile,
+            policy,
+            checkpoint_stage,
+        )
+    };
+
+    if path.exists() && !args.refresh_checkpoints {
+        let file = load_checkpoint_file(&path)?;
+        validate_checkpoint_file(&file, data_hash, profile, policy, checkpoint_stage)?;
+        return Ok(file.checkpoints);
+    }
+
+    if args.checkpoint_in.is_some() {
+        return Err(format!(
+            "checkpoint input does not exist or refresh was requested: {}",
+            path.display()
+        ));
+    }
+
+    eprintln!(
+        "[checkpoint:{}][profile:{}][policy:{}] generating {}",
+        checkpoint_stage,
+        profile.as_str(),
+        policy.as_str(),
+        path.display()
+    );
+    let mut options = settings.base_options.clone();
+    options.player_profile = profile;
+    let results = run_policy_id(policy, bundle, options, settings.campaigns, None);
+    let file = checkpoint_file_from_results(data_hash, profile, policy, checkpoint_stage, &results);
+    if file.checkpoints.is_empty() {
+        return Err(format!(
+            "could not generate stage {checkpoint_stage} checkpoints for {} {}",
+            profile.as_str(),
+            policy.as_str()
+        ));
+    }
+    write_checkpoint_file(&path, &file)?;
+    Ok(file.checkpoints)
+}
+
+fn write_checkpoint_out(
+    args: &Args,
+    data_hash: &str,
+    report_profiles: &[(PlayerProfileId, Vec<(PolicyId, Vec<CampaignResult>)>)],
+) -> Result<(), String> {
+    let Some(path) = &args.checkpoint_out else {
+        return Ok(());
+    };
+    if report_profiles.len() != 1 || report_profiles[0].1.len() != 1 {
+        return Err(
+            "--checkpoint-out requires exactly one player profile and one policy; use --checkpoint-dir for automatic multi-profile caches"
+                .to_string(),
+        );
+    }
+    let Some((profile, policies)) = report_profiles.first() else {
+        return Err("no profiles available for checkpoint output".to_string());
+    };
+    let Some((policy, results)) = policies.first() else {
+        return Err("no policies available for checkpoint output".to_string());
+    };
+    let checkpoint_stage = args.phase.checkpoint_stage().unwrap_or(1);
+    let file =
+        checkpoint_file_from_results(data_hash, *profile, *policy, checkpoint_stage, results);
+    write_checkpoint_file(path, &file)
 }
 
 fn build_section(
@@ -577,6 +1192,15 @@ fn build_section(
 
     let final_crystals: Vec<f64> = results.iter().map(|r| r.final_crystals as f64).collect();
     let median_final_crystals = percentile(final_crystals, 0.5).unwrap_or(0.0);
+    let local_runs_to_clear = |result: &CampaignResult, clear: Option<u32>| -> Option<f64> {
+        clear.map(|v| v.saturating_sub(result.initial_run_index) as f64)
+    };
+    let local_censor = |result: &CampaignResult| -> f64 {
+        result
+            .final_run_index
+            .saturating_sub(result.initial_run_index)
+            .saturating_add(1) as f64
+    };
 
     let stage1_success: Vec<f64> = results
         .iter()
@@ -587,8 +1211,12 @@ fn build_section(
         .map(|r| {
             r.first_stage1_clear
                 .map(|v| v as f64)
-                .unwrap_or(runs_per_campaign as f64 + 1.0)
+                .unwrap_or(r.final_run_index as f64 + 1.0)
         })
+        .collect();
+    let stage1_local_censored: Vec<f64> = results
+        .iter()
+        .map(|r| local_runs_to_clear(r, r.first_stage1_clear).unwrap_or_else(|| local_censor(r)))
         .collect();
     let stage2: Vec<f64> = results
         .iter()
@@ -599,8 +1227,28 @@ fn build_section(
         .map(|r| {
             r.first_stage2_clear
                 .map(|v| v as f64)
-                .unwrap_or(runs_per_campaign as f64 + 1.0)
+                .unwrap_or(r.final_run_index as f64 + 1.0)
         })
+        .collect();
+    let stage2_local_censored: Vec<f64> = results
+        .iter()
+        .map(|r| local_runs_to_clear(r, r.first_stage2_clear).unwrap_or_else(|| local_censor(r)))
+        .collect();
+    let stage3: Vec<f64> = results
+        .iter()
+        .filter_map(|r| r.first_stage3_clear.map(|v| v as f64))
+        .collect();
+    let stage3_censored: Vec<f64> = results
+        .iter()
+        .map(|r| {
+            r.first_stage3_clear
+                .map(|v| v as f64)
+                .unwrap_or(r.final_run_index as f64 + 1.0)
+        })
+        .collect();
+    let stage3_local_censored: Vec<f64> = results
+        .iter()
+        .map(|r| local_runs_to_clear(r, r.first_stage3_clear).unwrap_or_else(|| local_censor(r)))
         .collect();
     let boss_success: Vec<f64> = results
         .iter()
@@ -611,7 +1259,7 @@ fn build_section(
         .map(|r| {
             r.first_boss_kill
                 .map(|v| v as f64)
-                .unwrap_or(runs_per_campaign as f64 + 1.0)
+                .unwrap_or(r.final_run_index as f64 + 1.0)
         })
         .collect();
     let upgrade_pick_rates = aggregate_pick_rates(
@@ -638,6 +1286,12 @@ fn build_section(
             .collect(),
     );
 
+    let runs_to_stage1_clear = percentiles(stage1_local_censored);
+    let runs_to_stage2_clear = percentiles(stage2_local_censored);
+    let runs_to_stage3_clear = percentiles(stage3_local_censored);
+    let cumulative_runs_to_stage1_clear = percentiles(stage1_censored);
+    let cumulative_runs_to_stage2_clear = percentiles(stage2_censored);
+    let cumulative_runs_to_stage3_clear = percentiles(stage3_censored);
     PolicySection {
         policy: policy.as_str().to_string(),
         campaigns: results.len() as u32,
@@ -648,6 +1302,7 @@ fn build_section(
         median_pressure_at_run_index,
         median_first_stage1_clear: percentile(stage1_success, 0.5),
         median_first_stage2_clear: percentile(stage2, 0.5),
+        median_first_stage3_clear: percentile(stage3, 0.5),
         median_first_boss_kill: percentile(boss_success, 0.5),
         median_final_crystals,
         deaths_rate_per_run: if runs_total > 0.0 {
@@ -655,9 +1310,13 @@ fn build_section(
         } else {
             0.0
         },
-        runs_to_stage1_clear: percentiles(stage1_censored),
+        runs_to_stage1_clear: runs_to_stage1_clear.clone(),
         runs_to_first_boss_kill: percentiles(boss_censored),
-        runs_to_stage2_clear: percentiles(stage2_censored),
+        runs_to_stage2_clear: runs_to_stage2_clear.clone(),
+        runs_to_stage3_clear: runs_to_stage3_clear.clone(),
+        cumulative_runs_to_stage1_clear,
+        cumulative_runs_to_stage2_clear,
+        cumulative_runs_to_stage3_clear,
         stage1_clear_rate: results
             .iter()
             .filter(|result| result.first_stage1_clear.is_some())
@@ -666,6 +1325,11 @@ fn build_section(
         stage2_clear_rate: results
             .iter()
             .filter(|result| result.first_stage2_clear.is_some())
+            .count() as f64
+            / (results.len().max(1) as f64),
+        stage3_clear_rate: results
+            .iter()
+            .filter(|result| result.first_stage3_clear.is_some())
             .count() as f64
             / (results.len().max(1) as f64),
         boss_kill_rate: results
@@ -683,21 +1347,7 @@ fn build_section(
     }
 }
 
-fn main() {
-    let args = Args::parse();
-
-    if let Some(threads) = args.threads {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build_global()
-            .expect("rayon thread pool");
-    }
-
-    let bundle = match &args.balance {
-        Some(p) => load_bundle(p).expect("balance.json"),
-        None => load_default().expect("balance.json"),
-    };
-
+fn resolve_settings(args: &Args) -> RunSettings {
     let profile = if args.quick {
         ReportProfile::quick()
     } else {
@@ -712,61 +1362,84 @@ fn main() {
     let thresholds = Phase1Thresholds::default();
     let base_options = CampaignOptions {
         seed: args.seed,
+        campaign_index: 0,
         runs_count: runs,
         max_seconds: trial_seconds,
         max_pressure,
         step_seconds: 1.0 / 60.0,
         max_decisions_per_run: 16,
         player_profile: PlayerProfileId::Idle,
+        initial_account: None,
+        initial_run_index: 0,
+        initial_unlock_run_index: HashMap::new(),
     };
-
-    eprintln!(
-        "voidline-cli: {} profile(s) × {} policy/policies × {campaigns} campaigns × {runs} runs (max_pressure={}, trial_seconds={}s, budget={}s)",
-        player_profiles.len(),
-        args.policy_set.policy_count(),
+    RunSettings {
+        campaigns,
+        runs,
         max_pressure,
         trial_seconds,
+        player_profiles,
+        thresholds,
+        base_options,
+    }
+}
+
+#[derive(Debug)]
+struct ReportRunOutput {
+    report: Report,
+    policy_results: Vec<(PlayerProfileId, Vec<(PolicyId, Vec<CampaignResult>)>)>,
+}
+
+fn run_report(
+    args: &Args,
+    bundle: &DataBundle,
+    settings: &RunSettings,
+    data_hash: &str,
+) -> Result<ReportRunOutput, String> {
+    eprintln!(
+        "voidline-cli: {} profile(s) × {} policy/policies × {campaigns} campaigns × {runs} runs (max_pressure={}, trial_seconds={}s, budget={}s)",
+        settings.player_profiles.len(),
+        args.policy_set.policy_count(),
+        settings.max_pressure,
+        settings.trial_seconds,
         args.max_seconds,
+        campaigns = settings.campaigns,
+        runs = settings.runs,
     );
 
     let start = Instant::now();
     let mut profiles = Vec::new();
+    let mut policy_results_by_profile = Vec::new();
 
-    for player_profile in &player_profiles {
-        let mut options = base_options;
+    for player_profile in &settings.player_profiles {
+        let mut options = settings.base_options.clone();
         options.player_profile = *player_profile;
         let mut sections = Vec::new();
+        let mut policy_results = Vec::new();
 
-        if matches!(args.policy_set, PolicySetArg::All) {
-            eprintln!("[profile:{}][random]", player_profile.as_str());
-            let random_results =
-                run_policy_campaigns(&bundle, options, campaigns, |seed| RandomPolicy::new(seed));
-            sections.push(build_section(PolicyId::Random, runs, &random_results));
-            check_budget(&start, args.max_seconds);
-
-            eprintln!("[profile:{}][greedy-cheap]", player_profile.as_str());
-            let greedy_results =
-                run_policy_campaigns(&bundle, options, campaigns, |_| GreedyCheapPolicy);
-            sections.push(build_section(PolicyId::GreedyCheap, runs, &greedy_results));
-            check_budget(&start, args.max_seconds);
-        }
-
-        eprintln!("[profile:{}][focused-attack]", player_profile.as_str());
-        let focused_results = run_policy_campaigns(&bundle, options, campaigns, |_| {
-            FocusedAttackPolicy::default()
-        });
-        sections.push(build_section(
-            PolicyId::FocusedAttack,
-            runs,
-            &focused_results,
-        ));
-        check_budget(&start, args.max_seconds);
-
-        if matches!(args.policy_set, PolicySetArg::All) {
-            eprintln!("[profile:{}][hoarder]", player_profile.as_str());
-            let hoarder_results =
-                run_policy_campaigns(&bundle, options, campaigns, |_| HoarderPolicy);
-            sections.push(build_section(PolicyId::Hoarder, runs, &hoarder_results));
+        for policy in policy_ids(&args.policy_set) {
+            eprintln!("[profile:{}][{}]", player_profile.as_str(), policy.as_str());
+            let initial_checkpoints = match args.phase.checkpoint_stage() {
+                Some(stage) => Some(load_or_generate_checkpoints(
+                    args,
+                    bundle,
+                    settings,
+                    data_hash,
+                    *player_profile,
+                    policy,
+                    stage,
+                )?),
+                None => None,
+            };
+            let results = run_policy_id(
+                policy,
+                bundle,
+                options.clone(),
+                settings.campaigns,
+                initial_checkpoints.as_deref(),
+            );
+            sections.push(build_section(policy, settings.runs, &results));
+            policy_results.push((policy, results));
             check_budget(&start, args.max_seconds);
         }
 
@@ -774,6 +1447,7 @@ fn main() {
             player_profile: player_profile.as_str().to_string(),
             policies: sections,
         });
+        policy_results_by_profile.push((*player_profile, policy_results));
     }
 
     let elapsed = start.elapsed();
@@ -785,22 +1459,33 @@ fn main() {
         generated_at: chrono_now_utc(),
         config: ReportConfig {
             quick: args.quick,
-            campaigns,
-            runs_per_campaign: runs,
-            max_pressure,
-            trial_seconds,
+            campaigns: settings.campaigns,
+            runs_per_campaign: settings.runs,
+            max_pressure: settings.max_pressure,
+            trial_seconds: settings.trial_seconds,
             seed: args.seed,
             player_profile_arg: args.player_profile.as_str().to_string(),
-            player_profiles: player_profiles
+            player_profiles: settings
+                .player_profiles
                 .iter()
                 .map(|profile| profile.as_str().to_string())
                 .collect(),
             policy_set: args.policy_set.as_str().to_string(),
+            phase: args.phase.as_str().to_string(),
+            phase_isolated: args.phase.is_isolated(),
+            checkpoint_in: args
+                .checkpoint_in
+                .as_ref()
+                .map(|path| path.display().to_string()),
+            checkpoint_out: args
+                .checkpoint_out
+                .as_ref()
+                .map(|path| path.display().to_string()),
             check_target: args
                 .check_target
                 .as_ref()
                 .map(|target| target.as_str().to_string()),
-            thresholds,
+            thresholds: settings.thresholds.clone(),
             threads: rayon::current_num_threads(),
             elapsed_seconds: elapsed.as_secs_f64(),
         },
@@ -808,8 +1493,15 @@ fn main() {
         policies: compatibility_policies,
     };
 
-    let json = serde_json::to_string_pretty(&report).expect("serialize report");
-    let output_path = resolve_output_path(&args.output);
+    Ok(ReportRunOutput {
+        report,
+        policy_results: policy_results_by_profile,
+    })
+}
+
+fn write_json_report<T: Serialize>(path: &PathBuf, report: &T) {
+    let json = serde_json::to_string_pretty(report).expect("serialize report");
+    let output_path = resolve_output_path(path);
     std::fs::create_dir_all(
         output_path
             .parent()
@@ -817,23 +1509,205 @@ fn main() {
     )
     .ok();
     std::fs::write(&output_path, json + "\n").expect("write report");
+}
 
-    eprintln!(
-        "wrote {} ({:.1}s on {} threads)",
-        output_path.display(),
-        elapsed.as_secs_f64(),
-        rayon::current_num_threads(),
-    );
+fn focused_section<'a>(report: &'a Report, profile_name: &str) -> Option<&'a PolicySection> {
+    report
+        .profiles
+        .iter()
+        .find(|profile| profile.player_profile == profile_name)
+        .and_then(|profile| {
+            profile
+                .policies
+                .iter()
+                .find(|policy| policy.policy == "focused-attack")
+        })
+}
+
+fn summary_row(
+    variation: &str,
+    overrides: &[OverrideSpec],
+    report: &Report,
+    passed: bool,
+    check_errors: &[String],
+) -> VariationSummaryRow {
+    let expert = focused_section(report, "expert-human");
+    let optimizer = focused_section(report, "optimizer");
+    let warning_count = report
+        .profiles
+        .iter()
+        .flat_map(|profile| &profile.policies)
+        .map(|policy| policy.warnings.len())
+        .sum();
+    let op_pick_count = report
+        .profiles
+        .iter()
+        .flat_map(|profile| &profile.policies)
+        .flat_map(|policy| &policy.warnings)
+        .filter(|warning| warning.kind == "op-pick")
+        .count();
+    VariationSummaryRow {
+        variation: variation.to_string(),
+        overrides: overrides.to_vec(),
+        expert_human_stage1_p50: expert.and_then(|section| section.runs_to_stage1_clear.p50),
+        expert_human_stage2_p50: expert.and_then(|section| section.runs_to_stage2_clear.p50),
+        expert_human_stage3_p50: expert.and_then(|section| section.runs_to_stage3_clear.p50),
+        optimizer_stage1_p50: optimizer.and_then(|section| section.runs_to_stage1_clear.p50),
+        optimizer_stage2_p50: optimizer.and_then(|section| section.runs_to_stage2_clear.p50),
+        optimizer_stage3_p50: optimizer.and_then(|section| section.runs_to_stage3_clear.p50),
+        stage1_clear_rate: expert.map(|section| section.stage1_clear_rate),
+        stage2_clear_rate: expert.map(|section| section.stage2_clear_rate),
+        stage3_clear_rate: expert.map(|section| section.stage3_clear_rate),
+        warning_count,
+        op_pick_count,
+        passed,
+        check_errors: check_errors.to_vec(),
+    }
+}
+
+fn main() {
+    let args = Args::parse();
+
+    if let Some(threads) = args.threads {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build_global()
+            .expect("rayon thread pool");
+    }
+
+    let (base_value, _balance_path, base_hash) = load_data_value(args.balance.as_ref())
+        .unwrap_or_else(|err| {
+            eprintln!("{err}");
+            std::process::exit(2);
+        });
+    let fixed_overrides = args
+        .set_overrides
+        .iter()
+        .map(|raw| parse_override(raw))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_or_else(|err| {
+            eprintln!("{err}");
+            std::process::exit(2);
+        });
+    let sweep_axes = args
+        .sweeps
+        .iter()
+        .map(|raw| parse_sweep(raw))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap_or_else(|err| {
+            eprintln!("{err}");
+            std::process::exit(2);
+        });
+
+    let settings = resolve_settings(&args);
+    let variation_mode = !fixed_overrides.is_empty() || !sweep_axes.is_empty();
+    if variation_mode {
+        if args.record_history {
+            eprintln!("--record-history is not supported with --set/--sweep");
+            std::process::exit(2);
+        }
+        if args.checkpoint_out.is_some() {
+            eprintln!("--checkpoint-out is not supported with --set/--sweep; use --checkpoint-dir");
+            std::process::exit(2);
+        }
+        let variations = build_variations(
+            &fixed_overrides,
+            &sweep_axes,
+            args.include_baseline,
+            args.max_variations,
+        )
+        .unwrap_or_else(|err| {
+            eprintln!("{err}");
+            std::process::exit(2);
+        });
+        let mut results = Vec::new();
+        let mut summary_table = Vec::new();
+        for variation in variations {
+            eprintln!("[variation:{}]", variation.name);
+            let value = apply_overrides(&base_value, &variation.overrides).unwrap_or_else(|err| {
+                eprintln!("{err}");
+                std::process::exit(2);
+            });
+            let data_hash = hash_bytes(value.to_string().as_bytes());
+            let bundle = bundle_from_value(value).unwrap_or_else(|err| {
+                eprintln!("{err}");
+                std::process::exit(2);
+            });
+            let start = Instant::now();
+            let output = run_report(&args, &bundle, &settings, &data_hash).unwrap_or_else(|err| {
+                eprintln!("{err}");
+                std::process::exit(2);
+            });
+            let check_errors = args
+                .check_target
+                .as_ref()
+                .and_then(|target| run_balance_checks(&output.report, target).err())
+                .unwrap_or_default();
+            let passed = check_errors.is_empty();
+            summary_table.push(summary_row(
+                &variation.name,
+                &variation.overrides,
+                &output.report,
+                passed,
+                &check_errors,
+            ));
+            results.push(VariationResult {
+                name: variation.name,
+                overrides: variation.overrides,
+                report: output.report,
+                check_errors,
+                passed,
+                elapsed_seconds: start.elapsed().as_secs_f64(),
+            });
+        }
+        let sweep_report = SweepReport {
+            generated_at: chrono_now_utc(),
+            config: SweepConfig {
+                include_baseline: args.include_baseline,
+                max_variations: args.max_variations,
+                axes: sweep_axes
+                    .iter()
+                    .map(|axis| SweepAxisSummary {
+                        path: axis.path.clone(),
+                        values: axis.values.clone(),
+                    })
+                    .collect(),
+                fixed_overrides,
+            },
+            variations: results,
+            summary_table,
+        };
+        write_json_report(&args.output, &sweep_report);
+        eprintln!("wrote {}", resolve_output_path(&args.output).display());
+        return;
+    }
+
+    let bundle = bundle_from_value(base_value).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        std::process::exit(2);
+    });
+    let output = run_report(&args, &bundle, &settings, &base_hash).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        std::process::exit(2);
+    });
+    write_checkpoint_out(&args, &base_hash, &output.policy_results).unwrap_or_else(|err| {
+        eprintln!("{err}");
+        std::process::exit(2);
+    });
+    write_json_report(&args.output, &output.report);
+
+    eprintln!("wrote {}", resolve_output_path(&args.output).display());
 
     if args.record_history {
-        if let Err(err) = record_history(&args, &report, &output_path) {
+        let output_path = resolve_output_path(&args.output);
+        if let Err(err) = record_history(&args, &output.report, &output_path) {
             eprintln!("history error: {err}");
             std::process::exit(2);
         }
     }
 
     if let Some(check_target) = &args.check_target {
-        if let Err(errors) = run_balance_checks(&report, check_target) {
+        if let Err(errors) = run_balance_checks(&output.report, check_target) {
             for error in errors {
                 eprintln!("CHECK FAILED: {error}");
             }
@@ -916,12 +1790,17 @@ fn run_balance_checks(report: &Report, check_target: &CheckTargetArg) -> Result<
 
     if matches!(check_target, CheckTargetArg::Balance) {
         match focused("expert-human").and_then(|section| section.runs_to_stage2_clear.p50) {
-            Some(p50) if p50 >= thresholds.expert_human_stage2_p50_min => {}
+            Some(p50)
+                if p50 >= thresholds.expert_human_stage2_p50_min
+                    && p50 <= thresholds.expert_human_stage2_p50_max => {}
             Some(p50) => errors.push(format!(
-                "expert-human focused-attack p50 runsToStage2Clear {p50:.1} below post-phase floor {:.1}",
-                thresholds.expert_human_stage2_p50_min
+                "expert-human focused-attack p50 runsToStage2Clear {p50:.1} outside {:.1}-{:.1}",
+                thresholds.expert_human_stage2_p50_min, thresholds.expert_human_stage2_p50_max
             )),
-            None => {}
+            None => errors.push(
+                "expert-human focused-attack never cleared phase 2 in sampled campaigns"
+                    .to_string(),
+            ),
         }
 
         match focused("optimizer").and_then(|section| section.runs_to_stage2_clear.p50) {
@@ -931,6 +1810,42 @@ fn run_balance_checks(report: &Report, check_target: &CheckTargetArg) -> Result<
                 thresholds.optimizer_stage2_p50_min
             )),
             None => {}
+        }
+
+        match focused("expert-human").and_then(|section| section.runs_to_stage3_clear.p50) {
+            Some(p50)
+                if p50 >= thresholds.expert_human_stage3_p50_min
+                    && p50 <= thresholds.expert_human_stage3_p50_max => {}
+            Some(p50) => errors.push(format!(
+                "expert-human focused-attack p50 runsToStage3Clear {p50:.1} outside {:.1}-{:.1}",
+                thresholds.expert_human_stage3_p50_min, thresholds.expert_human_stage3_p50_max
+            )),
+            None => errors.push(
+                "expert-human focused-attack never cleared phase 3 in sampled campaigns"
+                    .to_string(),
+            ),
+        }
+
+        match focused("optimizer").and_then(|section| section.runs_to_stage3_clear.p50) {
+            Some(p50) if p50 >= thresholds.optimizer_stage3_p50_min => {}
+            Some(p50) => errors.push(format!(
+                "optimizer focused-attack p50 runsToStage3Clear {p50:.1} below phase 3 exploit floor {:.1}",
+                thresholds.optimizer_stage3_p50_min
+            )),
+            None => {}
+        }
+
+        for profile in &report.profiles {
+            for policy in &profile.policies {
+                for warning in &policy.warnings {
+                    if warning.kind == "op-pick" {
+                        errors.push(format!(
+                            "{} {} has op-pick warning for {}: {}",
+                            profile.player_profile, policy.policy, warning.subject, warning.message
+                        ));
+                    }
+                }
+            }
         }
     }
 
@@ -1021,6 +1936,7 @@ fn build_replay_command(args: &Args, output_path: &PathBuf) -> String {
     ));
     parts.push(format!("--player-profile {}", args.player_profile.as_str()));
     parts.push(format!("--policy-set {}", args.policy_set.as_str()));
+    parts.push(format!("--phase {}", args.phase.as_str()));
     parts.push(format!("--seed {}", args.seed));
     if args.quick {
         parts.push("--quick".to_string());
@@ -1045,6 +1961,39 @@ fn build_replay_command(args: &Args, output_path: &PathBuf) -> String {
     }
     if let Some(check_target) = &args.check_target {
         parts.push(format!("--check-target {}", check_target.as_str()));
+    }
+    for item in &args.set_overrides {
+        parts.push(format!("--set {}", shell_word(item)));
+    }
+    for item in &args.sweeps {
+        parts.push(format!("--sweep {}", shell_word(item)));
+    }
+    if !args.include_baseline {
+        parts.push("--include-baseline false".to_string());
+    }
+    if args.max_variations != 48 {
+        parts.push(format!("--max-variations {}", args.max_variations));
+    }
+    if let Some(path) = &args.checkpoint_in {
+        parts.push(format!(
+            "--checkpoint-in {}",
+            shell_word(&path.display().to_string())
+        ));
+    }
+    if let Some(path) = &args.checkpoint_out {
+        parts.push(format!(
+            "--checkpoint-out {}",
+            shell_word(&path.display().to_string())
+        ));
+    }
+    if args.checkpoint_dir != PathBuf::from(".context/balance-checkpoints") {
+        parts.push(format!(
+            "--checkpoint-dir {}",
+            shell_word(&args.checkpoint_dir.display().to_string())
+        ));
+    }
+    if args.refresh_checkpoints {
+        parts.push("--refresh-checkpoints".to_string());
     }
     parts.join(" ")
 }
@@ -1089,6 +2038,35 @@ fn git_stdout(args: &[&str]) -> Option<String> {
 
 fn file_hash(path: &PathBuf) -> Option<String> {
     std::fs::read(path).ok().map(|bytes| hash_bytes(&bytes))
+}
+
+fn load_data_value(path: Option<&PathBuf>) -> Result<(Value, PathBuf, String), String> {
+    let path = match path {
+        Some(path) => path.clone(),
+        None => find_default_balance_path()?,
+    };
+    let raw = std::fs::read_to_string(&path)
+        .map_err(|err| format!("failed to read {}: {err}", path.display()))?;
+    let value: Value = serde_json::from_str(&raw)
+        .map_err(|err| format!("failed to parse {}: {err}", path.display()))?;
+    let hash = hash_bytes(raw.as_bytes());
+    Ok((value, path, hash))
+}
+
+fn find_default_balance_path() -> Result<PathBuf, String> {
+    let candidates = [
+        PathBuf::from("data/balance.json"),
+        PathBuf::from("../data/balance.json"),
+        PathBuf::from("../../data/balance.json"),
+        PathBuf::from("../../../data/balance.json"),
+        PathBuf::from("../../../../data/balance.json"),
+    ];
+    for candidate in candidates {
+        if candidate.exists() {
+            return Ok(candidate);
+        }
+    }
+    Err("could not find data/balance.json".to_string())
 }
 
 fn hash_bytes(bytes: &[u8]) -> String {
@@ -1150,6 +2128,7 @@ fn chrono_now_utc() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use voidline_meta::account::AccountSnapshot;
 
     fn test_args() -> Args {
         Args {
@@ -1167,6 +2146,15 @@ mod tests {
             seed: 1234,
             check_target: Some(CheckTargetArg::Balance),
             policy_set: PolicySetArg::Focused,
+            set_overrides: Vec::new(),
+            sweeps: Vec::new(),
+            include_baseline: true,
+            max_variations: 48,
+            phase: PhaseArg::Full,
+            checkpoint_out: None,
+            checkpoint_in: None,
+            checkpoint_dir: PathBuf::from(".context/balance-checkpoints"),
+            refresh_checkpoints: false,
             record_history: true,
             history_path: PathBuf::from("data/balance-profile-history.jsonl"),
             allow_dirty_history: false,
@@ -1197,6 +2185,7 @@ mod tests {
         stage1_p50: Option<f64>,
         stage1_p75: Option<f64>,
         stage2_p50: Option<f64>,
+        stage3_p50: Option<f64>,
     ) -> PolicySection {
         PolicySection {
             policy: policy.to_string(),
@@ -1208,14 +2197,20 @@ mod tests {
             median_pressure_at_run_index: HashMap::new(),
             median_first_stage1_clear: stage1_p50,
             median_first_stage2_clear: stage2_p50,
+            median_first_stage3_clear: stage3_p50,
             median_first_boss_kill: stage1_p50,
             median_final_crystals: 0.0,
             deaths_rate_per_run: 0.0,
             runs_to_stage1_clear: percentile_summary(stage1_p50, stage1_p75),
             runs_to_first_boss_kill: percentile_summary(stage1_p50, stage1_p75),
             runs_to_stage2_clear: percentile_summary(stage2_p50, stage2_p50),
+            runs_to_stage3_clear: percentile_summary(stage3_p50, stage3_p50),
+            cumulative_runs_to_stage1_clear: percentile_summary(stage1_p50, stage1_p75),
+            cumulative_runs_to_stage2_clear: percentile_summary(stage2_p50, stage2_p50),
+            cumulative_runs_to_stage3_clear: percentile_summary(stage3_p50, stage3_p50),
             stage1_clear_rate: 1.0,
             stage2_clear_rate: if stage2_p50.is_some() { 1.0 } else { 0.0 },
+            stage3_clear_rate: if stage3_p50.is_some() { 1.0 } else { 0.0 },
             boss_kill_rate: 1.0,
             median_run_level: Some(1.0),
             median_elapsed_seconds: Some(60.0),
@@ -1241,12 +2236,14 @@ mod tests {
             Some(thresholds.expert_human_stage1_p50_min),
             Some(thresholds.expert_human_stage1_p75_max),
             Some(thresholds.expert_human_stage2_p50_min),
+            Some(thresholds.expert_human_stage3_p50_min),
         );
         let optimizer = policy_section(
             "focused-attack",
             Some(thresholds.optimizer_stage1_p50_min),
             Some(thresholds.optimizer_stage1_p50_min),
             Some(thresholds.optimizer_stage2_p50_min),
+            Some(thresholds.optimizer_stage3_p50_min),
         );
         Report {
             generated_at: "epoch:0".to_string(),
@@ -1260,6 +2257,10 @@ mod tests {
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
                 policy_set: "focused".to_string(),
+                phase: "full".to_string(),
+                phase_isolated: false,
+                checkpoint_in: None,
+                checkpoint_out: None,
                 check_target: Some("balance".to_string()),
                 thresholds,
                 threads: 1,
@@ -1301,6 +2302,8 @@ mod tests {
         let mut report = checkable_report();
         report.profiles[0].policies[0].runs_to_stage2_clear.p50 = Some(1.0);
         report.profiles[1].policies[0].runs_to_stage2_clear.p50 = Some(1.0);
+        report.profiles[0].policies[0].runs_to_stage3_clear.p50 = Some(1.0);
+        report.profiles[1].policies[0].runs_to_stage3_clear.p50 = Some(1.0);
 
         assert!(run_balance_checks(&report, &CheckTargetArg::Phase1).is_ok());
         assert!(run_balance_checks(&report, &CheckTargetArg::Balance).is_err());
@@ -1318,6 +2321,117 @@ mod tests {
         assert!(errors
             .iter()
             .any(|error| error.contains("expert-human focused-attack never cleared")));
+    }
+
+    #[test]
+    fn parse_set_and_sweep_specs() {
+        let set = parse_override("balance.bosses.stageScaling.hpPerStage=120").unwrap();
+        assert_eq!(set.path, "balance.bosses.stageScaling.hpPerStage");
+        assert_eq!(set.value, serde_json::json!(120));
+
+        let sweep = parse_sweep("balance.enemyDensityMultiplier=2,3").unwrap();
+        assert_eq!(sweep.path, "balance.enemyDensityMultiplier");
+        assert_eq!(
+            sweep.values,
+            vec![serde_json::json!(2), serde_json::json!(3)]
+        );
+    }
+
+    #[test]
+    fn sweep_variations_are_cartesian_and_keep_baseline() {
+        let fixed = vec![parse_override("balance.enemyDensityMultiplier=3").unwrap()];
+        let axes = vec![
+            parse_sweep("balance.bosses.stageScaling.hpPerStage=110,120").unwrap(),
+            parse_sweep("balance.bosses.stageScaling.postStage2HpOffsetBase=0.45,0.5").unwrap(),
+        ];
+
+        let variations = build_variations(&fixed, &axes, true, 8).unwrap();
+
+        assert_eq!(variations.len(), 5);
+        assert_eq!(variations[0].name, "baseline");
+        assert!(variations
+            .iter()
+            .any(|v| v.name.contains("hpPerStage=110")
+                && v.name.contains("postStage2HpOffsetBase=0.45")));
+    }
+
+    #[test]
+    fn apply_override_rejects_unknown_path_and_type_mismatch() {
+        let base = serde_json::json!({"balance": {"enemyDensityMultiplier": 3}});
+        let changed = apply_overrides(
+            &base,
+            &[parse_override("balance.enemyDensityMultiplier=2").unwrap()],
+        )
+        .unwrap();
+        assert_eq!(
+            changed["balance"]["enemyDensityMultiplier"],
+            serde_json::json!(2)
+        );
+
+        assert!(apply_overrides(&base, &[parse_override("balance.missing=2").unwrap()],).is_err());
+        assert!(apply_overrides(
+            &base,
+            &[parse_override("balance.enemyDensityMultiplier=false").unwrap()],
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn checkpoint_file_roundtrips_account_snapshot() {
+        let mut account = AccountSnapshot::default();
+        account.crystals = 123;
+        account.highest_stage_cleared = 2;
+        let checkpoint = CampaignCheckpoint {
+            checkpoint_stage: 2,
+            campaign_index: 4,
+            seed: 77,
+            run_index: 50,
+            account,
+            unlock_run_index: HashMap::from([("card:twin-cannon".to_string(), 1)]),
+        };
+        let file = CheckpointFile {
+            schema_version: 1,
+            base_data_hash: "fnv1a64:test".to_string(),
+            profile: "expert-human".to_string(),
+            policy: "focused-attack".to_string(),
+            checkpoint_stage: 2,
+            checkpoints: vec![checkpoint],
+        };
+
+        let json = serde_json::to_string(&file).unwrap();
+        let decoded: CheckpointFile = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(decoded.checkpoints[0].run_index, 50);
+        assert_eq!(decoded.checkpoints[0].account.crystals, 123);
+        assert_eq!(decoded.checkpoints[0].account.highest_stage_cleared, 2);
+    }
+
+    #[test]
+    fn isolated_phase_section_reports_local_and_cumulative_runs() {
+        let result = CampaignResult {
+            policy: PolicyId::FocusedAttack,
+            seed: 77,
+            timeline: Vec::new(),
+            unlock_run_index: HashMap::new(),
+            first_stage1_clear: Some(50),
+            first_stage2_clear: Some(53),
+            first_stage3_clear: None,
+            first_boss_kill: Some(53),
+            final_crystals: 0,
+            final_run_index: 55,
+            initial_run_index: 50,
+            stage1_checkpoint: None,
+            stage2_checkpoint: None,
+        };
+
+        let section = build_section(PolicyId::FocusedAttack, 5, &[result]);
+
+        assert_eq!(section.runs_to_stage1_clear.p50, Some(0.0));
+        assert_eq!(section.cumulative_runs_to_stage1_clear.p50, Some(50.0));
+        assert_eq!(section.runs_to_stage2_clear.p50, Some(3.0));
+        assert_eq!(section.cumulative_runs_to_stage2_clear.p50, Some(53.0));
+        assert_eq!(section.runs_to_stage3_clear.p50, Some(6.0));
+        assert_eq!(section.cumulative_runs_to_stage3_clear.p50, Some(56.0));
     }
 
     #[test]
@@ -1349,6 +2463,10 @@ mod tests {
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
                 policy_set: "all".to_string(),
+                phase: "full".to_string(),
+                phase_isolated: false,
+                checkpoint_in: None,
+                checkpoint_out: None,
                 check_target: None,
                 thresholds: Phase1Thresholds::default(),
                 threads: 1,

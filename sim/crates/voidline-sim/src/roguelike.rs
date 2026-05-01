@@ -3,7 +3,16 @@
 use voidline_data::balance::Balance;
 
 pub fn base_pressure_for_stage(balance: &Balance, stage: u32) -> u32 {
-    1 + (stage.saturating_sub(1)) * (balance.bosses.pressure_offset_per_stage as u32)
+    let stage_offset = stage.saturating_sub(1);
+    let pressure_offset = balance.bosses.pressure_offset_per_stage as u32;
+    if stage_offset <= 1 {
+        return 1 + stage_offset * pressure_offset;
+    }
+    let post_stage2_offset = (pressure_offset as f64
+        * balance.bosses.post_stage2_pressure_offset_ratio)
+        .round()
+        .max(1.0) as u32;
+    1 + pressure_offset + (stage_offset - 1) * post_stage2_offset
 }
 
 pub fn pressure_for_stage_elapsed(balance: &Balance, stage: u32, elapsed_seconds: f64) -> u32 {
@@ -60,6 +69,14 @@ mod tests {
         assert_eq!(
             base_pressure_for_stage(balance, 2),
             1 + balance.bosses.pressure_offset_per_stage as u32
+        );
+        assert_eq!(
+            base_pressure_for_stage(balance, 3),
+            1 + balance.bosses.pressure_offset_per_stage as u32
+                + (balance.bosses.pressure_offset_per_stage
+                    * balance.bosses.post_stage2_pressure_offset_ratio)
+                    .round()
+                    .max(1.0) as u32
         );
         assert_eq!(pressure_for_stage_elapsed(balance, 1, 0.0), 1);
         assert_eq!(pressure_for_stage_elapsed(balance, 1, 179.9), 3);

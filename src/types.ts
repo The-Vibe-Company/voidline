@@ -14,7 +14,7 @@ export type EnemyRole = "normal" | "mini-boss" | "boss";
 
 export type TierId = "standard" | "rare" | "prototype" | "singularity";
 
-export type CharacterId = "pilot" | "runner" | "tank";
+export type CharacterId = "pilot" | "runner" | "tank" | "engineer";
 
 export type WeaponId = "pulse" | "scatter" | "lance" | "drone";
 
@@ -22,12 +22,14 @@ export type UnlockRequirement =
   | "available"
   | "reach-10m"
   | "clear-stage-1"
+  | "clear-stage-2"
   | "reach-stage-2"
   | "boss-kill";
 
 export type ShopItemId =
   | "character:runner"
   | "character:tank"
+  | "character:engineer"
   | "weapon:scatter"
   | "weapon:lance"
   | "weapon:drone"
@@ -41,13 +43,22 @@ export type MetaUpgradeId =
   | "unique:weapon-drone"
   | "unique:char-runner"
   | "unique:char-tank"
+  | "unique:char-engineer"
   | "unique:extra-choice"
-  | "category:attack"
-  | "category:defense"
-  | "category:salvage"
-  | "category:tempo";
+  | "card:twin-cannon"
+  | "card:plasma-core"
+  | "card:rail-slug"
+  | "card:ion-engine"
+  | "card:magnet-array"
+  | "card:kinetic-shield"
+  | "card:crit-array"
+  | "card:heavy-caliber"
+  | "rarity:rare-signal"
+  | "rarity:prototype-lab"
+  | "rarity:singularity-core"
+  | "utility:crystal-contract";
 
-export type MetaUpgradeKind = "unique" | "category";
+export type MetaUpgradeKind = "unique" | "card" | "rarity" | "utility";
 
 export interface MetaUpgrade {
   id: MetaUpgradeId;
@@ -61,6 +72,9 @@ export interface MetaUpgrade {
   weaponId?: WeaponId;
   characterId?: CharacterId;
   technologyId?: string;
+  upgradeId?: string;
+  rarityTier?: Exclude<TierId, "standard">;
+  baseLevel?: number;
   levels?: ReadonlyArray<{ summary: string }>;
 }
 

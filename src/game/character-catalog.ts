@@ -45,6 +45,19 @@ export const characterCatalog: readonly Character[] = [
       { type: "addPct", stat: "fireRate", amount: -0.06, scale: 1 },
     ],
   }),
+  defineCharacter({
+    id: "engineer",
+    name: "Ingénieur",
+    icon: "ENG",
+    description: "Pilote drone/recolte, fort en controle de zone mais moins explosif.",
+    bonusLabel: "+1 drone, +12% aimant, -12% degats, -5% vitesse",
+    effects: [
+      { type: "setMin", stat: "drones", value: 1 },
+      { type: "addPct", stat: "pickupRadius", amount: 0.12, scale: 1 },
+      { type: "addPct", stat: "damage", amount: -0.12, scale: 1 },
+      { type: "addPct", stat: "speed", amount: -0.05, scale: 1 },
+    ],
+  }),
 ];
 
 export function findCharacter(id: CharacterId): Character {

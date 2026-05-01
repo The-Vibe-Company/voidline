@@ -9,8 +9,12 @@ import {
   findMetaUpgrade,
   metaUpgradeCatalog,
   metaUpgradeLevel,
+  rarityProfileFromMeta,
   unlockedBuildTagsFromMeta,
   unlockedTechnologyIdsFromMeta,
+  upgradeTierCapsFromMeta,
+  type RarityProfile,
+  type UpgradeTierCaps,
 } from "../game/meta-upgrade-catalog";
 import {
   canPurchaseShopItem,
@@ -38,6 +42,7 @@ const SHOP_ITEM_TO_META: Partial<Record<ShopItemId, MetaUpgradeId>> = {
   "weapon:drone": "unique:weapon-drone",
   "character:runner": "unique:char-runner",
   "character:tank": "unique:char-tank",
+  "character:engineer": "unique:char-engineer",
 };
 
 const REFUND_SHOP_ITEMS: ReadonlyArray<{ id: ShopItemId; cost: number }> = [
@@ -46,8 +51,12 @@ const REFUND_SHOP_ITEMS: ReadonlyArray<{ id: ShopItemId; cost: number }> = [
   { id: "technology:crit-array", cost: 55 },
 ];
 
-const REMOVED_META_UPGRADE_REFUNDS: ReadonlyArray<{ id: string; cost: number }> = [
-  { id: "unique:reroll", cost: 100 },
+const REMOVED_META_UPGRADE_REFUNDS: ReadonlyArray<{ id: string; costs: readonly number[] }> = [
+  { id: "unique:reroll", costs: [100] },
+  { id: "category:attack", costs: [40, 75, 130, 220] },
+  { id: "category:defense", costs: [40, 75, 130, 220] },
+  { id: "category:salvage", costs: [40, 75, 130, 220] },
+  { id: "category:tempo", costs: [40, 75, 130, 220] },
 ];
 
 const STORAGE_KEY = "voidline:metaProgress:v1";
@@ -164,7 +173,7 @@ function sanitizeUpgradeLevels(
     const value = (raw as Record<string, unknown>)[upgrade.id];
     if (typeof value !== "number" || !Number.isFinite(value)) continue;
     const clamped = Math.max(0, Math.min(upgrade.maxLevel, Math.floor(value)));
-    if (clamped > 0) result[upgrade.id] = clamped;
+    if (clamped > (upgrade.baseLevel ?? 0)) result[upgrade.id] = clamped;
   }
   return result;
 }
@@ -194,8 +203,11 @@ function refundRemovedMetaUpgrades(
   for (const refund of REMOVED_META_UPGRADE_REFUNDS) {
     const level = source[refund.id];
     if (typeof level !== "number" || !Number.isFinite(level) || level < 1) continue;
-    progress.crystals += refund.cost;
-    progress.spentCrystals = Math.max(0, progress.spentCrystals - refund.cost);
+    const refunded = refund.costs
+      .slice(0, Math.min(refund.costs.length, Math.floor(level)))
+      .reduce((sum, cost) => sum + cost, 0);
+    progress.crystals += refunded;
+    progress.spentCrystals = Math.max(0, progress.spentCrystals - refunded);
   }
 }
 
@@ -416,24 +428,28 @@ export function currentUnlockedTechnologyIds(): Set<string> {
 }
 
 export function currentRarityRank(): number {
-  const lvls = accountProgress.upgradeLevels;
-  const max = Math.max(
-    lvls["category:attack"] ?? 0,
-    lvls["category:defense"] ?? 0,
-    lvls["category:salvage"] ?? 0,
-    lvls["category:tempo"] ?? 0,
-  );
-  return Math.max(0, Math.min(3, max));
+  const profile = currentRarityProfile();
+  if (profile.singularity > 0) return 3;
+  if (profile.prototype > 0) return 2;
+  if (profile.rare > 0) return 1;
+  return 0;
+}
+
+export function currentRarityProfile(): RarityProfile {
+  return rarityProfileFromMeta(accountProgress);
+}
+
+export function currentUpgradeTierCaps(): UpgradeTierCaps {
+  return upgradeTierCapsFromMeta(accountProgress);
 }
 
 export function currentLevelUpChoiceCount(): number {
   const lvls = accountProgress.upgradeLevels;
   const hasExtra = (lvls["unique:extra-choice"] ?? 0) >= 1;
-  const hasTempo = (lvls["category:tempo"] ?? 0) >= 4;
-  return 3 + (hasExtra || hasTempo ? 1 : 0);
+  return 3 + (hasExtra ? 1 : 0);
 }
 
 export function currentCrystalRewardMultiplier(): number {
-  const salvage = accountProgress.upgradeLevels["category:salvage"] ?? 0;
-  return 1 + (salvage >= 2 ? 0.10 : 0);
+  const contract = accountProgress.upgradeLevels["utility:crystal-contract"] ?? 0;
+  return 1 + Math.max(0, Math.min(3, contract)) * 0.05;
 }

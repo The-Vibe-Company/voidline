@@ -7,6 +7,7 @@ import {
   metaUpgradeLevel,
   nextLevelCost,
 } from "../game/meta-upgrade-catalog";
+import { upgradePool } from "../game/upgrade-catalog";
 import { weaponCatalog, findWeapon } from "../game/weapon-catalog";
 import {
   accountProgress,
@@ -28,7 +29,7 @@ import type {
 
 type ScreenId = "title" | "loadout" | "shop";
 
-type ShopGroupId = "weapons" | "pilots" | "specs" | "options";
+type ShopGroupId = "weapons" | "pilots" | "cards" | "rarity" | "options";
 
 interface ShopGroup {
   id: ShopGroupId;
@@ -38,7 +39,7 @@ interface ShopGroup {
   items: readonly MetaUpgrade[];
 }
 
-const SHOP_GROUP_IDS: readonly ShopGroupId[] = ["weapons", "pilots", "specs", "options"];
+const SHOP_GROUP_IDS: readonly ShopGroupId[] = ["weapons", "pilots", "cards", "rarity", "options"];
 
 const SHOP_GROUP_DEFS: Record<ShopGroupId, Omit<ShopGroup, "items"> & { match: (upgrade: MetaUpgrade) => boolean }> = {
   weapons: {
@@ -55,28 +56,38 @@ const SHOP_GROUP_DEFS: Record<ShopGroupId, Omit<ShopGroup, "items"> & { match: (
     accent: "mint",
     match: (u) => u.kind === "unique" && Boolean(u.characterId),
   },
-  specs: {
-    id: "specs",
-    title: "Spécialisations",
-    kicker: "4 chemins de build · niveaux 1 à 4 · 40 · 75 · 130 · 220",
+  cards: {
+    id: "cards",
+    title: "Cartes",
+    kicker: "Débloque une carte, puis monte ses tiers Standard · Rare · Prototype · Singularity",
     accent: "amber",
-    match: (u) => u.kind === "category",
+    match: (u) => u.kind === "card",
+  },
+  rarity: {
+    id: "rarity",
+    title: "Rareté",
+    kicker: "Augmente globalement les chances des tiers rares sans bypasser les niveaux de carte",
+    accent: "red",
+    match: (u) => u.kind === "rarity",
   },
   options: {
     id: "options",
     title: "Options",
-    kicker: "Bonus définitifs",
-    accent: "red",
-    match: (u) => u.kind === "unique" && !u.weaponId && !u.characterId,
+    kicker: "Bonus permanents contrôlés, sans puissance directe excessive",
+    accent: "mint",
+    match: (u) => (u.kind === "unique" && !u.weaponId && !u.characterId) || u.kind === "utility",
   },
 };
 
 const SHOP_TAG_LABEL: Record<ShopGroupId, string> = {
   weapons: "Arme",
   pilots: "Pilote",
-  specs: "Spécialisation",
+  cards: "Carte",
+  rarity: "Rareté",
   options: "Bonus",
 };
+
+const CARD_LEVEL_LABELS = ["STD", "RARE", "PROTO", "SING"] as const;
 
 const dom = {
   stage: () => document.querySelector<HTMLElement>("[data-screen-stage]"),
@@ -107,6 +118,7 @@ const dom = {
   summaryWeapon: () => document.querySelector<HTMLElement>("[data-summary-weapon]"),
   summaryStage: () => document.querySelector<HTMLElement>("[data-summary-stage]"),
   shopTabs: () => document.querySelector<HTMLElement>("[data-shop-tabs]"),
+  shopPanel: () => document.querySelector<HTMLElement>("[data-shop-panel]"),
   shopGrid: () => document.querySelector<HTMLElement>("[data-shop-grid]"),
   shopKicker: () => document.querySelector<HTMLElement>("[data-shop-kicker]"),
   toast: () => document.querySelector<HTMLElement>("[data-hangar-toast]"),
@@ -169,9 +181,47 @@ function bindShopTabs(): void {
     if (!button) return;
     const id = button.dataset.shopGroup as ShopGroupId | undefined;
     if (!id || !SHOP_GROUP_IDS.includes(id)) return;
-    activeShopGroup = id;
-    renderShop();
+    activateShopGroup(id, { focus: true });
   });
+  tabs.addEventListener("keydown", (event) => {
+    const current = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>(
+      "[data-shop-group]",
+    );
+    if (!current) return;
+    const currentId = current.dataset.shopGroup as ShopGroupId | undefined;
+    const index = currentId ? SHOP_GROUP_IDS.indexOf(currentId) : -1;
+    if (index < 0) return;
+
+    let nextIndex: number | null = null;
+    if (event.key === "ArrowRight") {
+      nextIndex = (index + 1) % SHOP_GROUP_IDS.length;
+    } else if (event.key === "ArrowLeft") {
+      nextIndex = (index - 1 + SHOP_GROUP_IDS.length) % SHOP_GROUP_IDS.length;
+    } else if (event.key === "Home") {
+      nextIndex = 0;
+    } else if (event.key === "End") {
+      nextIndex = SHOP_GROUP_IDS.length - 1;
+    }
+    if (nextIndex === null) return;
+
+    event.preventDefault();
+    activateShopGroup(SHOP_GROUP_IDS[nextIndex]!, { focus: true });
+  });
+}
+
+function activateShopGroup(id: ShopGroupId, options: { focus?: boolean } = {}): void {
+  activeShopGroup = id;
+  renderShop();
+  if (options.focus) focusActiveShopTab();
+}
+
+function focusActiveShopTab(): void {
+  requestAnimationFrame(() =>
+    dom
+      .shopTabs()
+      ?.querySelector<HTMLButtonElement>(".hangar-shop-tab[data-active='true']")
+      ?.focus({ preventScroll: true }),
+  );
 }
 
 function bindRewardDismiss(): void {
@@ -254,10 +304,13 @@ function renderLoadoutSummary(): void {
 function renderShopSummary(): void {
   const summary = dom.shopSummary();
   if (!summary) return;
-  const owned = metaUpgradeCatalog.filter(
+  const unlocked = metaUpgradeCatalog.filter(
+    (upgrade) => metaUpgradeLevel(accountProgress, upgrade.id) > 0,
+  ).length;
+  const maxed = metaUpgradeCatalog.filter(
     (upgrade) => metaUpgradeLevel(accountProgress, upgrade.id) >= upgrade.maxLevel,
   ).length;
-  summary.textContent = `${owned}/${metaUpgradeCatalog.length} acquis · ${formatNumber(
+  summary.textContent = `${unlocked}/${metaUpgradeCatalog.length} débloqués · ${maxed} maxés · ${formatNumber(
     accountProgress.crystals,
   )} ◆`;
 }
@@ -498,13 +551,15 @@ function renderLoadoutFooter(): void {
 
 function renderShop(): void {
   const groups = buildShopGroups();
-  renderShopTabs(groups);
   const group = groups.find((g) => g.id === activeShopGroup) ?? groups[0];
   if (!group) return;
   activeShopGroup = group.id;
+  renderShopTabs(groups);
   const grid = dom.shopGrid();
   const kicker = dom.shopKicker();
   if (kicker) kicker.textContent = group.kicker;
+  const panel = dom.shopPanel();
+  if (panel) panel.setAttribute("aria-labelledby", shopTabId(group.id));
   if (!grid) return;
   const cards = group.items.map((upgrade, i) => renderShopCard(upgrade, group, i));
   grid.replaceChildren(...cards);
@@ -526,8 +581,11 @@ function renderShopTabs(groups: readonly ShopGroup[]): void {
     button.className = "hangar-shop-tab";
     button.dataset.shopGroup = group.id;
     button.dataset.active = String(group.id === activeShopGroup);
+    button.id = shopTabId(group.id);
     button.setAttribute("role", "tab");
     button.setAttribute("aria-selected", String(group.id === activeShopGroup));
+    button.setAttribute("aria-controls", "shopPanel");
+    button.tabIndex = group.id === activeShopGroup ? 0 : -1;
     const owned = group.items.filter(
       (upgrade) => metaUpgradeLevel(accountProgress, upgrade.id) >= upgrade.maxLevel,
     ).length;
@@ -535,6 +593,10 @@ function renderShopTabs(groups: readonly ShopGroup[]): void {
     return button;
   });
   container.replaceChildren(...buttons);
+}
+
+function shopTabId(id: ShopGroupId): string {
+  return `shop-tab-${id}`;
 }
 
 function renderShopCard(upgrade: MetaUpgrade, group: ShopGroup, idx: number): HTMLElement {
@@ -548,14 +610,14 @@ function renderShopCard(upgrade: MetaUpgrade, group: ShopGroup, idx: number): HT
   const purchase = canPurchaseLevel(accountProgress, upgrade.id);
   const revealed = isMetaUpgradeRevealed(accountProgress, upgrade);
   const max = upgrade.maxLevel;
-  const isCategory = upgrade.kind === "category";
+  const hasLevels = upgrade.maxLevel > 1 || Boolean(upgrade.levels);
   const state = shopCardState(upgrade, level, purchase.ok, revealed);
   card.dataset.state = state;
 
   card.append(renderShopHead(upgrade, group));
   card.append(renderShopDesc(upgrade));
 
-  if (isCategory) {
+  if (hasLevels) {
     card.append(renderShopLevels(upgrade, level));
     card.append(renderShopSummaryLine(upgrade, level));
   } else {
@@ -605,6 +667,10 @@ function renderShopLevels(upgrade: MetaUpgrade, level: number): HTMLElement {
     const pip = document.createElement("span");
     pip.className = "hangar-shop-pip";
     pip.dataset.on = String(i < level);
+    pip.textContent =
+      upgrade.kind === "card" && upgrade.maxLevel === CARD_LEVEL_LABELS.length
+        ? CARD_LEVEL_LABELS[i]!
+        : String(i + 1);
     wrap.appendChild(pip);
   }
   return wrap;
@@ -664,7 +730,7 @@ function renderShopFoot(
   button.className = "hangar-buy-button";
   button.style.setProperty("--accent", `var(--${group.accent})`);
   button.disabled = !affordable;
-  button.textContent = upgrade.kind === "category" ? `Niveau ${level + 1}` : "Acheter";
+  button.textContent = upgrade.maxLevel > 1 ? `Niveau ${level + 1}` : "Acheter";
   button.addEventListener("click", () => {
     const result = purchaseMetaUpgradeLevel(upgrade.id);
     if (result.ok) {
@@ -722,7 +788,7 @@ function flashToast(message: string, ms = 2200): void {
 }
 
 function toastForPurchase(upgrade: MetaUpgrade, level: number, cost: number): string {
-  if (upgrade.kind === "category") {
+  if (upgrade.maxLevel > 1) {
     return `✓ ${upgrade.name} niveau ${level} · −${formatNumber(cost)} ◆`;
   }
   return `✓ ${upgrade.name} · −${formatNumber(cost)} ◆`;
@@ -736,6 +802,8 @@ function requirementLabel(requirement: UnlockRequirement): string {
       return "10 minutes de jeu";
     case "clear-stage-1":
       return "Battre le boss du stage 1";
+    case "clear-stage-2":
+      return "Battre le boss du stage 2";
     case "reach-stage-2":
       return "Atteindre le stage 2";
     case "boss-kill":
@@ -878,15 +946,19 @@ function upgradeIcon(upgrade: MetaUpgrade): string {
     const character = characterCatalog.find((c) => c.id === upgrade.characterId);
     if (character) return character.icon;
   }
+  if (upgrade.upgradeId) {
+    const runUpgrade = upgradePool.find((candidate) => candidate.id === upgrade.upgradeId);
+    if (runUpgrade) return runUpgrade.icon;
+  }
   switch (upgrade.id) {
-    case "category:attack":
-      return "ATK";
-    case "category:defense":
-      return "DEF";
-    case "category:salvage":
-      return "SLV";
-    case "category:tempo":
-      return "TMP";
+    case "rarity:rare-signal":
+      return "R+";
+    case "rarity:prototype-lab":
+      return "P+";
+    case "rarity:singularity-core":
+      return "S+";
+    case "utility:crystal-contract":
+      return "◆";
     case "unique:extra-choice":
       return "BNK";
     default:

@@ -97,8 +97,8 @@ export function totalCrystalBreakdown(breakdown: AccountRewardBreakdown): number
 }
 
 export function crystalRewardMultiplier(progress: AccountProgress): number {
-  const salvage = progress.upgradeLevels?.["category:salvage"] ?? 0;
-  return 1 + (salvage >= 2 ? 0.10 : 0);
+  const contract = Math.max(0, Math.min(3, progress.upgradeLevels?.["utility:crystal-contract"] ?? 0));
+  return 1 + contract * 0.05;
 }
 
 export function applyCrystalReward(

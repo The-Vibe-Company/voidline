@@ -8,6 +8,7 @@ import {
   spawnGap,
   spawnPackChance,
   upgradeTierWeights,
+  type RarityWeightProfile,
   pressureTarget,
   xpToNextLevel,
 } from "./balance";
@@ -59,12 +60,19 @@ export function bossStatsAt(def: BossDef, stage: number): BossDef["stats"] {
   if (stageOffset === 0 || (cfg.hpPerStage === 0 && cfg.damagePerStage === 0 && cfg.speedPerStage === 0)) {
     return def.stats;
   }
+  const scaledOffset = bossStageScaleOffset(stageOffset);
   return {
     ...def.stats,
-    hpMultiplier: def.stats.hpMultiplier * (1 + cfg.hpPerStage * stageOffset),
-    damageMultiplier: def.stats.damageMultiplier * (1 + cfg.damagePerStage * stageOffset),
-    speedMultiplier: def.stats.speedMultiplier * (1 + cfg.speedPerStage * stageOffset),
+    hpMultiplier: def.stats.hpMultiplier * (1 + cfg.hpPerStage * scaledOffset),
+    damageMultiplier: def.stats.damageMultiplier * (1 + cfg.damagePerStage * scaledOffset),
+    speedMultiplier: def.stats.speedMultiplier * (1 + cfg.speedPerStage * scaledOffset),
   };
+}
+
+function bossStageScaleOffset(stageOffset: number): number {
+  if (stageOffset <= 1) return stageOffset;
+  const cfg = balance.bosses.stageScaling;
+  return cfg.postStage2HpOffsetBase + (stageOffset - 2) * cfg.postStage2HpOffsetPerStage;
 }
 
 export interface WeightedTier {
@@ -72,14 +80,20 @@ export interface WeightedTier {
   weight: number;
 }
 
-export function rarityWeightsAt(pressure: number, rarityRank = 0): WeightedTier[] {
-  return upgradeTierWeights(pressure, rarityRank);
+export function rarityWeightsAt(
+  pressure: number,
+  rarity: number | RarityWeightProfile = 0,
+): WeightedTier[] {
+  return upgradeTierWeights(pressure, rarity);
 }
 
 export type RarityShare = Record<TierId, number>;
 
-export function rarityProbabilitiesAt(pressure: number, rarityRank = 0): RarityShare {
-  const weights = rarityWeightsAt(pressure, rarityRank);
+export function rarityProbabilitiesAt(
+  pressure: number,
+  rarity: number | RarityWeightProfile = 0,
+): RarityShare {
+  const weights = rarityWeightsAt(pressure, rarity);
   const total = weights.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   const out: Partial<RarityShare> = {};
   for (const item of weights) {
