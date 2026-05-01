@@ -18,7 +18,10 @@ REBUILD_MARKER_FILE="$TARGET_DIR/.voidline-rebuild-marker"
 mkdir -p "$TARGET_DIR"
 if [[ ! -f "$REBUILD_MARKER_FILE" ]] || [[ "$(cat "$REBUILD_MARKER_FILE" 2>/dev/null)" != "$REBUILD_MARKER_VALUE" ]]; then
   echo "[meta-progression-report] nuking cargo target release (marker $REBUILD_MARKER_VALUE)" >&2
-  rm -rf "$TARGET_DIR/release" "$TARGET_DIR/debug" 2>&1 | head -5 >&2 || true
+  if ! rm -rf "$TARGET_DIR/release" "$TARGET_DIR/debug"; then
+    echo "[meta-progression-report] cleanup failed; leaving marker unchanged so the next run retries" >&2
+    exit 1
+  fi
   echo "$REBUILD_MARKER_VALUE" > "$REBUILD_MARKER_FILE"
 fi
 cargo build --release --bin voidline-cli >&2

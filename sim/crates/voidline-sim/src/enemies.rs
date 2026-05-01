@@ -162,7 +162,10 @@ fn step_enemy(
         let dist_sq = dx * dx + dy * dy;
         let range = enemies[i].attack_range * 1.1;
         enemies[i].attack_timer = (enemies[i].attack_timer - dt).max(0.0);
-        if dist_sq <= range * range && enemies[i].attack_timer <= 0.0 {
+        if enemies[i].hp > 0.0
+            && dist_sq <= range * range
+            && enemies[i].attack_timer <= 0.0
+        {
             let aim = dy.atan2(dx);
             fire_enemy_projectile(pools, counters, bullets, &enemies[i], aim);
             enemies[i].attack_timer = enemies[i].attack_cooldown;
