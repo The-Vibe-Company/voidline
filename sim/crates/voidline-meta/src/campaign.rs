@@ -2,6 +2,7 @@
 //! (which meta-upgrade was unlocked at which run, what pressure each run reached).
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use voidline_data::DataBundle;
@@ -61,6 +62,7 @@ pub struct CampaignOptions {
     pub step_seconds: f64,
     pub max_decisions_per_run: u32,
     pub player_profile: PlayerProfileId,
+    pub learned_model_dir: Option<PathBuf>,
     pub initial_account: Option<AccountSnapshot>,
     pub initial_run_index: u32,
     pub initial_unlock_run_index: HashMap<String, u32>,
@@ -77,6 +79,7 @@ impl Default for CampaignOptions {
             step_seconds: 1.0 / 60.0,
             max_decisions_per_run: 16,
             player_profile: PlayerProfileId::Idle,
+            learned_model_dir: None,
             initial_account: None,
             initial_run_index: 0,
             initial_unlock_run_index: HashMap::new(),
@@ -93,7 +96,8 @@ pub fn run_meta_campaign<P: MetaPolicy>(
     env.max_seconds = options.max_seconds;
     env.max_pressure = options.max_pressure;
     env.step_seconds = options.step_seconds;
-    env.player_profile = options.player_profile;
+    env.player_profile = options.player_profile.clone();
+    env.learned_model_dir = options.learned_model_dir.clone();
     env.max_decisions_per_run = options.max_decisions_per_run;
     if let Some(account) = options.initial_account.clone() {
         env.account = account;
@@ -122,7 +126,7 @@ pub fn run_meta_campaign<P: MetaPolicy>(
     let mut stage2_checkpoint: Option<CampaignCheckpoint> = None;
 
     let mut runs_done: u32 = 0;
-    while runs_done < options.runs_count {
+    'campaign: while runs_done < options.runs_count {
         // Allow up to N purchase decisions before forcing a run.
         let mut decisions = 0;
         loop {
@@ -211,6 +215,19 @@ pub fn run_meta_campaign<P: MetaPolicy>(
                     }
                     break;
                 }
+                StepKind::PolicyFailed(_) => {
+                    timeline.push(CampaignTimelineEntry {
+                        run_index,
+                        action: "policy-failed".to_string(),
+                        crystals_before,
+                        crystals_after: result.crystals_after,
+                        pressure_reached: None,
+                        purchased: None,
+                        died: None,
+                        profile: None,
+                    });
+                    break 'campaign;
+                }
             }
         }
     }
@@ -257,6 +274,7 @@ mod tests {
 
     use crate::account::AccountSnapshot;
     use crate::policies::FocusedAttackPolicy;
+    use crate::profiles::PlayerProfileId;
 
     use super::{run_meta_campaign, CampaignOptions};
 
@@ -303,5 +321,24 @@ mod tests {
         assert_eq!(result.initial_run_index, 37);
         assert_eq!(result.final_run_index, 37);
         assert_eq!(result.first_stage1_clear, None);
+    }
+
+    #[test]
+    fn campaign_aborts_on_policy_load_failure() {
+        let bundle = load_default().unwrap();
+        let options = CampaignOptions {
+            runs_count: 3,
+            player_profile: PlayerProfileId::LearnedHuman,
+            learned_model_dir: Some(std::env::temp_dir().join("voidline-missing-campaign-models")),
+            max_decisions_per_run: 1,
+            ..CampaignOptions::default()
+        };
+        let mut policy = FocusedAttackPolicy::default();
+
+        let result = run_meta_campaign(&bundle, options, &mut policy);
+
+        assert_eq!(result.final_run_index, 0);
+        assert_eq!(result.timeline.len(), 1);
+        assert_eq!(result.timeline[0].action, "policy-failed");
     }
 }

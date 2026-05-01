@@ -5,6 +5,8 @@
 //! relics, and snapshots stay close to the browser runtime.
 
 use std::collections::HashMap;
+use std::fmt;
+use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use voidline_data::catalogs::{Relic, Upgrade};
@@ -19,25 +21,188 @@ use crate::account::{
     unlocked_technology_ids, AccountSnapshot,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg(feature = "learned-policy")]
+use crate::learned_policy::LearnedPolicy;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PlayerProfileId {
     Idle,
     ExpertHuman,
     Optimizer,
+    LearnedHuman,
+    LearnedOptimizer,
+    LearnedExplorer,
+    LearnedNovice,
 }
 
 impl PlayerProfileId {
-    pub fn as_str(self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
             PlayerProfileId::Idle => "idle",
             PlayerProfileId::ExpertHuman => "expert-human",
             PlayerProfileId::Optimizer => "optimizer",
+            PlayerProfileId::LearnedHuman => "learned-human",
+            PlayerProfileId::LearnedOptimizer => "learned-optimizer",
+            PlayerProfileId::LearnedExplorer => "learned-explorer",
+            PlayerProfileId::LearnedNovice => "learned-novice",
         }
     }
 
-    pub fn is_active(self) -> bool {
+    pub fn is_active(&self) -> bool {
         !matches!(self, PlayerProfileId::Idle)
+    }
+
+    pub fn is_learned(&self) -> bool {
+        matches!(
+            self,
+            PlayerProfileId::LearnedHuman
+                | PlayerProfileId::LearnedOptimizer
+                | PlayerProfileId::LearnedExplorer
+                | PlayerProfileId::LearnedNovice
+        )
+    }
+
+    pub fn heuristic_fallback(&self) -> PlayerProfileId {
+        match self {
+            PlayerProfileId::LearnedOptimizer | PlayerProfileId::LearnedExplorer => {
+                PlayerProfileId::Optimizer
+            }
+            PlayerProfileId::LearnedHuman | PlayerProfileId::LearnedNovice => {
+                PlayerProfileId::ExpertHuman
+            }
+            other => other.clone(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum RunPolicyError {
+    MissingModel {
+        profile: String,
+        path: PathBuf,
+    },
+    ModelLoad {
+        profile: String,
+        path: PathBuf,
+        message: String,
+    },
+}
+
+impl fmt::Display for RunPolicyError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RunPolicyError::MissingModel { profile, path } => {
+                write!(f, "missing RL model for {profile}: {}", path.display())
+            }
+            RunPolicyError::ModelLoad {
+                profile,
+                path,
+                message,
+            } => write!(
+                f,
+                "failed to load RL model for {profile} at {}: {message}",
+                path.display()
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RunPolicyError {}
+
+pub trait RunPolicy {
+    fn movement_keys(&mut self, bundle: &DataBundle, snapshot: &EngineSnapshot) -> Vec<String>;
+    fn choose_upgrade(
+        &mut self,
+        bundle: &DataBundle,
+        snapshot: &EngineSnapshot,
+        choices: &[UpgradeChoiceRecord],
+    ) -> Option<UpgradeChoiceRecord>;
+    fn choose_relic(
+        &mut self,
+        bundle: &DataBundle,
+        snapshot: &EngineSnapshot,
+        choices: &[RelicChoiceRecord],
+    ) -> Option<RelicChoiceRecord>;
+}
+
+struct HeuristicRunPolicy {
+    profile: PlayerProfileId,
+}
+
+impl HeuristicRunPolicy {
+    fn new(profile: PlayerProfileId) -> Self {
+        Self {
+            profile: profile.heuristic_fallback(),
+        }
+    }
+}
+
+impl RunPolicy for HeuristicRunPolicy {
+    fn movement_keys(&mut self, _bundle: &DataBundle, snapshot: &EngineSnapshot) -> Vec<String> {
+        movement_keys(&self.profile, snapshot)
+    }
+
+    fn choose_upgrade(
+        &mut self,
+        bundle: &DataBundle,
+        snapshot: &EngineSnapshot,
+        choices: &[UpgradeChoiceRecord],
+    ) -> Option<UpgradeChoiceRecord> {
+        choose_upgrade(bundle, &self.profile, snapshot, choices)
+    }
+
+    fn choose_relic(
+        &mut self,
+        bundle: &DataBundle,
+        snapshot: &EngineSnapshot,
+        choices: &[RelicChoiceRecord],
+    ) -> Option<RelicChoiceRecord> {
+        choose_relic(bundle, &self.profile, snapshot, choices)
+    }
+}
+
+pub fn default_model_dir() -> PathBuf {
+    std::env::var_os("VOIDLINE_RL_MODEL_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from(".context/rl-models"))
+}
+
+pub fn model_path_for_profile(
+    profile: &PlayerProfileId,
+    model_dir: Option<&Path>,
+) -> Option<PathBuf> {
+    if !profile.is_learned() {
+        return None;
+    }
+    let dir = model_dir
+        .map(Path::to_path_buf)
+        .unwrap_or_else(default_model_dir);
+    Some(dir.join(format!("{}.onnx", profile.as_str())))
+}
+
+pub fn create_run_policy(
+    profile: PlayerProfileId,
+    model_dir: Option<&Path>,
+) -> Result<Box<dyn RunPolicy>, RunPolicyError> {
+    if profile.is_learned() {
+        let path = model_path_for_profile(&profile, model_dir).expect("learned profile path");
+        if cfg!(feature = "learned-policy") {
+            #[cfg(feature = "learned-policy")]
+            {
+                Ok(Box::new(LearnedPolicy::load(profile.as_str(), &path)?))
+            }
+            #[cfg(not(feature = "learned-policy"))]
+            unreachable!()
+        } else {
+            Err(RunPolicyError::ModelLoad {
+                profile: profile.as_str().to_string(),
+                path,
+                message: "voidline-meta was built without the learned-policy feature".to_string(),
+            })
+        }
+    } else {
+        Ok(Box::new(HeuristicRunPolicy::new(profile)))
     }
 }
 
@@ -76,13 +241,14 @@ pub struct ProfileRunSummary {
     pub final_stats: RunStatSnapshot,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ActiveRunOptions {
     pub seed: u32,
     pub max_seconds: f64,
     pub max_pressure: u32,
     pub step_seconds: f64,
     pub max_decisions_per_run: u32,
+    pub learned_model_dir: Option<PathBuf>,
 }
 
 pub fn run_active_profile_trial(
@@ -90,8 +256,9 @@ pub fn run_active_profile_trial(
     account: &AccountSnapshot,
     profile: PlayerProfileId,
     options: ActiveRunOptions,
-) -> ProfileRunSummary {
+) -> Result<ProfileRunSummary, RunPolicyError> {
     debug_assert!(profile.is_active());
+    let mut policy = create_run_policy(profile.clone(), options.learned_model_dir.as_deref())?;
     let mut engine = Engine::new(
         bundle.clone(),
         EngineConfig {
@@ -120,7 +287,7 @@ pub fn run_active_profile_trial(
         resolve_pending_decisions(
             bundle,
             &mut engine,
-            profile,
+            policy.as_mut(),
             level_up_choice_count,
             options.max_decisions_per_run,
             &mut summary,
@@ -132,7 +299,7 @@ pub fn run_active_profile_trial(
             boss_spawn_recorded = true;
         }
 
-        let keys = movement_keys(profile, &snapshot);
+        let keys = policy.movement_keys(bundle, &snapshot);
         engine.set_input(EngineInput {
             keys,
             pointer_x: 0.0,
@@ -145,7 +312,7 @@ pub fn run_active_profile_trial(
         steps += 1;
     }
 
-    finish_summary(summary, &snapshot)
+    Ok(finish_summary(summary, &snapshot))
 }
 
 pub fn engine_account_context(
@@ -234,7 +401,7 @@ pub fn finish_summary(
 fn resolve_pending_decisions(
     bundle: &DataBundle,
     engine: &mut Engine,
-    profile: PlayerProfileId,
+    policy: &mut dyn RunPolicy,
     level_up_choice_count: u32,
     max_decisions: u32,
     summary: &mut ProfileRunSummary,
@@ -253,7 +420,7 @@ fn resolve_pending_decisions(
                     .entry(choice.upgrade_id.clone())
                     .or_insert(0) += 1;
             }
-            if let Some(choice) = choose_upgrade(bundle, profile, &snapshot, &choices) {
+            if let Some(choice) = policy.choose_upgrade(bundle, &snapshot, &choices) {
                 *summary
                     .upgrade_picks
                     .entry(choice.upgrade_id.clone())
@@ -271,7 +438,7 @@ fn resolve_pending_decisions(
                     .entry(choice.relic_id.clone())
                     .or_insert(0) += 1;
             }
-            if let Some(choice) = choose_relic(bundle, profile, &snapshot, &choices) {
+            if let Some(choice) = policy.choose_relic(bundle, &snapshot, &choices) {
                 *summary
                     .relic_picks
                     .entry(choice.relic_id.clone())
@@ -287,7 +454,7 @@ fn resolve_pending_decisions(
 
 fn choose_upgrade(
     bundle: &DataBundle,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choices: &[UpgradeChoiceRecord],
 ) -> Option<UpgradeChoiceRecord> {
@@ -305,7 +472,7 @@ fn choose_upgrade(
 
 fn choose_relic(
     bundle: &DataBundle,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choices: &[RelicChoiceRecord],
 ) -> Option<RelicChoiceRecord> {
@@ -323,7 +490,7 @@ fn choose_relic(
 
 fn upgrade_score(
     bundle: &DataBundle,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choice: &UpgradeChoiceRecord,
 ) -> f64 {
@@ -343,20 +510,20 @@ fn upgrade_score(
     score *= tier_power;
     score += synergy_completion_bonus(bundle, snapshot, &upgrade.tags, profile);
     if upgrade.tags.iter().any(|tag| tag == "shield") && hp_ratio < 0.45 {
-        score += if profile == PlayerProfileId::Optimizer {
+        score += if *profile == PlayerProfileId::Optimizer {
             16.0
         } else {
             26.0
         };
     }
     if upgrade.tags.iter().any(|tag| tag == "magnet") && snapshot.state.level <= 4 {
-        score += if profile == PlayerProfileId::Optimizer {
+        score += if *profile == PlayerProfileId::Optimizer {
             10.0
         } else {
             16.0
         };
     }
-    if profile == PlayerProfileId::Optimizer && upgrade.tags.iter().any(|tag| tag == "cannon") {
+    if *profile == PlayerProfileId::Optimizer && upgrade.tags.iter().any(|tag| tag == "cannon") {
         score += 8.0;
     }
     score
@@ -364,7 +531,7 @@ fn upgrade_score(
 
 fn relic_score(
     bundle: &DataBundle,
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choice: &RelicChoiceRecord,
 ) -> f64 {
@@ -382,20 +549,20 @@ fn relic_score(
         .any(|tag| tag == "shield" || tag == "salvage")
         && hp_ratio < 0.45
     {
-        score += if profile == PlayerProfileId::Optimizer {
+        score += if *profile == PlayerProfileId::Optimizer {
             10.0
         } else {
             20.0
         };
     }
-    if profile == PlayerProfileId::Optimizer && relic.tags.iter().any(|tag| tag == "cannon") {
+    if *profile == PlayerProfileId::Optimizer && relic.tags.iter().any(|tag| tag == "cannon") {
         score += 7.0;
     }
     score
 }
 
-fn base_upgrade_score(upgrade: &Upgrade, profile: PlayerProfileId) -> f64 {
-    let optimizer = profile == PlayerProfileId::Optimizer;
+fn base_upgrade_score(upgrade: &Upgrade, profile: &PlayerProfileId) -> f64 {
+    let optimizer = *profile == PlayerProfileId::Optimizer;
     match upgrade.id.as_str() {
         "twin-cannon" => {
             if optimizer {
@@ -485,8 +652,8 @@ fn base_upgrade_score(upgrade: &Upgrade, profile: PlayerProfileId) -> f64 {
     }
 }
 
-fn base_relic_score(relic: &Relic, profile: PlayerProfileId) -> f64 {
-    let optimizer = profile == PlayerProfileId::Optimizer;
+fn base_relic_score(relic: &Relic, profile: &PlayerProfileId) -> f64 {
+    let optimizer = *profile == PlayerProfileId::Optimizer;
     match relic.id.as_str() {
         "splitter-matrix" => {
             if optimizer {
@@ -553,10 +720,10 @@ fn synergy_completion_bonus(
     bundle: &DataBundle,
     snapshot: &EngineSnapshot,
     tags: &[String],
-    profile: PlayerProfileId,
+    profile: &PlayerProfileId,
 ) -> f64 {
     let counts = build_tag_counts(bundle, snapshot);
-    let bonus = if profile == PlayerProfileId::Optimizer {
+    let bonus = if *profile == PlayerProfileId::Optimizer {
         34.0
     } else {
         22.0
@@ -627,7 +794,7 @@ fn build_tag_counts(bundle: &DataBundle, snapshot: &EngineSnapshot) -> HashMap<S
     counts
 }
 
-fn movement_keys(profile: PlayerProfileId, snapshot: &EngineSnapshot) -> Vec<String> {
+fn movement_keys(profile: &PlayerProfileId, snapshot: &EngineSnapshot) -> Vec<String> {
     let (dx, dy) = movement_vector(profile, snapshot);
     let mut keys = Vec::new();
     if dx > 0.2 {
@@ -643,7 +810,7 @@ fn movement_keys(profile: PlayerProfileId, snapshot: &EngineSnapshot) -> Vec<Str
     keys
 }
 
-fn movement_vector(profile: PlayerProfileId, snapshot: &EngineSnapshot) -> (f64, f64) {
+fn movement_vector(profile: &PlayerProfileId, snapshot: &EngineSnapshot) -> (f64, f64) {
     let px = snapshot.player.x;
     let py = snapshot.player.y;
     let mut vx = 0.0;
@@ -667,7 +834,7 @@ fn movement_vector(profile: PlayerProfileId, snapshot: &EngineSnapshot) -> (f64,
             vy += away_y / dist * weight;
         }
         if is_boss && dist > 300.0 && dist < 760.0 {
-            let tangent = if profile == PlayerProfileId::Optimizer {
+            let tangent = if *profile == PlayerProfileId::Optimizer {
                 0.35
             } else {
                 0.55
@@ -691,7 +858,7 @@ fn movement_vector(profile: PlayerProfileId, snapshot: &EngineSnapshot) -> (f64,
         vy -= (py - (snapshot.world.arena_height - margin)) / margin;
     }
 
-    let collect_threshold = if profile == PlayerProfileId::Optimizer {
+    let collect_threshold = if *profile == PlayerProfileId::Optimizer {
         220.0
     } else {
         320.0
@@ -701,7 +868,7 @@ fn movement_vector(profile: PlayerProfileId, snapshot: &EngineSnapshot) -> (f64,
             let to_x = tx - px;
             let to_y = ty - py;
             let dist = (to_x * to_x + to_y * to_y).sqrt().max(1.0);
-            let pull = if profile == PlayerProfileId::Optimizer {
+            let pull = if *profile == PlayerProfileId::Optimizer {
                 1.1
             } else {
                 0.8
@@ -804,15 +971,43 @@ mod tests {
             max_pressure: 3,
             step_seconds: 1.0 / 60.0,
             max_decisions_per_run: 8,
+            learned_model_dir: None,
         };
 
-        let a = run_active_profile_trial(&bundle, &account, PlayerProfileId::ExpertHuman, options);
-        let b = run_active_profile_trial(&bundle, &account, PlayerProfileId::ExpertHuman, options);
+        let a = run_active_profile_trial(
+            &bundle,
+            &account,
+            PlayerProfileId::ExpertHuman,
+            options.clone(),
+        )
+        .unwrap();
+        let b = run_active_profile_trial(&bundle, &account, PlayerProfileId::ExpertHuman, options)
+            .unwrap();
 
         assert_eq!(a.final_pressure, b.final_pressure);
         assert_eq!(a.run_level, b.run_level);
         assert_eq!(a.upgrade_picks, b.upgrade_picks);
         assert_eq!(a.relic_picks, b.relic_picks);
         assert!((a.final_stats.hp - b.final_stats.hp).abs() < 1e-9);
+    }
+
+    #[test]
+    fn learned_profile_trial_surfaces_missing_model_error() {
+        let bundle = load_default().unwrap();
+        let account = AccountSnapshot::default();
+        let options = ActiveRunOptions {
+            seed: 42,
+            max_seconds: 1.0,
+            max_pressure: 1,
+            step_seconds: 1.0 / 60.0,
+            max_decisions_per_run: 1,
+            learned_model_dir: Some(std::env::temp_dir().join("voidline-missing-rl-models")),
+        };
+
+        let err =
+            run_active_profile_trial(&bundle, &account, PlayerProfileId::LearnedHuman, options)
+                .unwrap_err();
+
+        assert!(matches!(err, RunPolicyError::MissingModel { .. }));
     }
 }

@@ -1,0 +1,22 @@
+[package]
+name = "voidline-py"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "PyO3 bindings for Voidline RL balance training."
+
+[lib]
+name = "voidline_py"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+extension-module = ["dep:pyo3", "pyo3/extension-module"]
+
+[dependencies]
+voidline-data = { path = "../voidline-data" }
+voidline-sim = { path = "../voidline-sim" }
+voidline-meta = { path = "../voidline-meta" }
+rayon = { workspace = true }
+pyo3 = { version = "0.28.3", optional = true }
