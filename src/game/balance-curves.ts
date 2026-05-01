@@ -60,16 +60,16 @@ export function bossStatsAt(def: BossDef, stage: number): BossDef["stats"] {
   if (stageOffset === 0 || (cfg.hpPerStage === 0 && cfg.damagePerStage === 0 && cfg.speedPerStage === 0)) {
     return def.stats;
   }
-  const scaledOffset = bossStageScaleOffset(stageOffset);
+  const hpOffset = bossStageHpScaleOffset(stageOffset);
   return {
     ...def.stats,
-    hpMultiplier: def.stats.hpMultiplier * (1 + cfg.hpPerStage * scaledOffset),
-    damageMultiplier: def.stats.damageMultiplier * (1 + cfg.damagePerStage * scaledOffset),
-    speedMultiplier: def.stats.speedMultiplier * (1 + cfg.speedPerStage * scaledOffset),
+    hpMultiplier: def.stats.hpMultiplier * (1 + cfg.hpPerStage * hpOffset),
+    damageMultiplier: def.stats.damageMultiplier * (1 + cfg.damagePerStage * stageOffset),
+    speedMultiplier: def.stats.speedMultiplier * (1 + cfg.speedPerStage * stageOffset),
   };
 }
 
-function bossStageScaleOffset(stageOffset: number): number {
+function bossStageHpScaleOffset(stageOffset: number): number {
   if (stageOffset <= 1) return stageOffset;
   const cfg = balance.bosses.stageScaling;
   return cfg.postStage2HpOffsetBase + (stageOffset - 2) * cfg.postStage2HpOffsetPerStage;

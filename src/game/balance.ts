@@ -147,9 +147,9 @@ export const bossBalance = {
   contactBackoff: 0.45,
   stageScaling: {
     hpPerStage: 120,
-    damagePerStage: 0.25,
+    damagePerStage: 0.2,
     speedPerStage: 0.04,
-    postStage2HpOffsetBase: 1,
+    postStage2HpOffsetBase: 0.65,
     postStage2HpOffsetPerStage: 0.08,
   },
   wobble: {

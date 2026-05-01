@@ -4,17 +4,18 @@ export { bossBalance };
 
 export function basePressureForStage(stage: number): number {
   const stageOffset = Math.max(0, Math.floor(stage) - 1);
+  const pressureOffset = bossBalance.pressureOffsetPerStage;
   if (stageOffset <= 1) {
-    return 1 + stageOffset * bossBalance.pressureOffsetPerStage;
+    return Math.max(1, Math.round(1 + stageOffset * pressureOffset));
   }
   const postStage2Offset = Math.max(
     1,
-    Math.round(bossBalance.pressureOffsetPerStage * bossBalance.postStage2PressureOffsetRatio),
+    Math.round(pressureOffset * bossBalance.postStage2PressureOffsetRatio),
   );
-  return (
+  return Math.max(
     1 +
-    bossBalance.pressureOffsetPerStage +
-    (stageOffset - 1) * postStage2Offset
+      Math.round(pressureOffset) +
+      (stageOffset - 1) * postStage2Offset,
   );
 }
 

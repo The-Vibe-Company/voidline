@@ -86,11 +86,22 @@ describe("boss stat curves", () => {
     const def = findBossDef("boss");
     const stage2 = bossStatsAt(def, 2);
     const stage3 = bossStatsAt(def, 3);
+    const stage4 = bossStatsAt(def, 4);
     const cfg = balance.bosses.stageScaling;
 
     expect(stage2.hpMultiplier).toBeCloseTo(def.stats.hpMultiplier * (1 + cfg.hpPerStage));
     expect(stage3.hpMultiplier).toBeCloseTo(
       def.stats.hpMultiplier * (1 + cfg.hpPerStage * cfg.postStage2HpOffsetBase),
+    );
+    expect(stage4.hpMultiplier).toBeCloseTo(
+      def.stats.hpMultiplier *
+        (1 + cfg.hpPerStage * (cfg.postStage2HpOffsetBase + cfg.postStage2HpOffsetPerStage)),
+    );
+    expect(stage4.damageMultiplier).toBeCloseTo(
+      def.stats.damageMultiplier * (1 + cfg.damagePerStage * 3),
+    );
+    expect(stage4.speedMultiplier).toBeCloseTo(
+      def.stats.speedMultiplier * (1 + cfg.speedPerStage * 3),
     );
   });
 });
@@ -220,10 +231,12 @@ describe("pressure & xp curves", () => {
     let prev = spawnGapAt(1);
     for (let pressure = 2; pressure <= 60; pressure += 1) {
       const gap = spawnGapAt(pressure);
+      const minGap =
+        pressure < balance.latePressure.startPressure
+          ? balance.pressure.spawnGapMin / balance.enemyDensityMultiplier
+          : balance.latePressure.spawnGapMin / balance.enemyDensityMultiplier;
       expect(gap).toBeLessThanOrEqual(prev + 1e-6);
-      expect(gap).toBeGreaterThanOrEqual(
-        balance.latePressure.spawnGapMin / balance.enemyDensityMultiplier,
-      );
+      expect(gap).toBeGreaterThanOrEqual(minGap);
       expect(gap).toBeLessThanOrEqual(balance.pressure.spawnGapStart);
       prev = gap;
     }
