@@ -56,7 +56,8 @@ export type MetaUpgradeId =
   | "rarity:rare-signal"
   | "rarity:prototype-lab"
   | "rarity:singularity-core"
-  | "utility:crystal-contract";
+  | "utility:crystal-contract"
+  | "utility:boss-bounty";
 
 export type MetaUpgradeKind = "unique" | "card" | "rarity" | "utility";
 

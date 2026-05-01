@@ -20,6 +20,17 @@ Voir `sim/README.md` pour l'architecture complète et les workflows de maintenan
 
 ---
 
+## ⚠️ RÈGLE PRIORITAIRE — Jamais d'hypothèse, toujours mesurer
+
+Avant de proposer des chiffres de balance, de coût, de yield, de courbe de progression ou tout autre choix calibré sur des valeurs empiriques : **mesurer**, jamais estimer.
+
+- Crystal yield par run, runs nécessaires pour atteindre un palier, valeurs de stats, taux de pick, fréquences de drop : passer par `npm run balance:meta-report:quick`, `npm run balance:profile:quick`, ou un grep sur les rapports existants. Si le `:quick` est trop court (cap `trial-seconds` à 90s par défaut), augmenter via `--trial-seconds 720 --max-pressure 80 --runs 100 --max-seconds 240` pour un échantillon représentatif d'un joueur skilled.
+- Si l'outillage manque pour mesurer, le dire explicitement et demander la donnée à l'utilisateur AVANT de finaliser un cost array, un cap, ou une courbe.
+- Une formule lue dans `account-progression.ts` n'est PAS une mesure : elle décrit un calcul, pas une distribution observée. Toujours croiser avec un run réel ou un sim agrégé.
+- Cette règle s'applique aussi aux niveaux de meta-progression, aux coûts d'unlocks, et à toute proposition de design qui fixe un nombre.
+
+---
+
 ## Concept du jeu
 
 Voidline est un rogue-lite spatial browser-first: le joueur lance une run courte, survit dans une arene suivie par camera, ramasse de l'XP, choisit des armes/technologies de run, puis meurt ou bat un boss pour alimenter une progression a cristaux.

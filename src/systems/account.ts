@@ -5,6 +5,7 @@ import {
 } from "../game/account-progression";
 import { characterCatalog, findCharacter } from "../game/character-catalog";
 import {
+  bossBountyBonusFromMeta,
   canPurchaseLevel,
   findMetaUpgrade,
   metaUpgradeCatalog,
@@ -452,4 +453,8 @@ export function currentLevelUpChoiceCount(): number {
 export function currentCrystalRewardMultiplier(): number {
   const contract = accountProgress.upgradeLevels["utility:crystal-contract"] ?? 0;
   return 1 + Math.max(0, Math.min(3, contract)) * 0.05;
+}
+
+export function currentBossBountyBonus(): number {
+  return bossBountyBonusFromMeta(accountProgress);
 }
