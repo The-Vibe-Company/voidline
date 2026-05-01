@@ -4,5 +4,5 @@
     "run": "npm run dev -- --port ${CONDUCTOR_PORT:-4173} --strictPort",
     "archive": "true"
   },
-  "runScriptMode": "concurrent"
+  "runScriptMode": "nonconcurrent"
 }

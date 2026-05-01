@@ -9,14 +9,15 @@ use crate::catalogs::{EnemyType, UpgradeTier};
 #[serde(rename_all = "camelCase")]
 pub struct Balance {
     pub player: PlayerBalance,
-    pub wave: WaveBalance,
+    pub pressure: PressureBalance,
     pub xp: XpBalance,
-    pub late_wave: LateWaveBalance,
+    pub late_pressure: LatePressureBalance,
     pub enemy: EnemyBalance,
     pub enemies: Vec<EnemyType>,
     pub upgrade: UpgradeBalance,
     pub tiers: Vec<UpgradeTier>,
     pub bosses: BossBalance,
+    pub hordes: HordeBalance,
     pub synergies: SynergyBalance,
     pub powerups: PowerupBalance,
     pub progression: ProgressionBalance,
@@ -86,34 +87,33 @@ pub struct DroneFireInterval {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WaveBalance {
+pub struct PressureBalance {
     pub target_base: f64,
     pub target_linear: f64,
     pub target_exponent: f64,
     pub spawn_gap_start: f64,
-    pub spawn_gap_per_wave: f64,
+    pub spawn_gap_per_pressure: f64,
     pub spawn_gap_min: f64,
     pub spawn_timer_start: f64,
-    pub pack_chance_per_wave: f64,
+    pub pack_chance_per_pressure: f64,
     pub pack_chance_max: f64,
-    pub wave_delay: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct LateWaveBalance {
-    pub start_wave: f64,
+pub struct LatePressureBalance {
+    pub start_pressure: f64,
     pub target_linear: f64,
     pub target_exponent: f64,
     pub target_exponent_scale: f64,
-    pub spawn_gap_per_wave: f64,
+    pub spawn_gap_per_pressure: f64,
     pub spawn_gap_min: f64,
-    pub pack_chance_per_wave: f64,
+    pub pack_chance_per_pressure: f64,
     pub pack_chance_max: f64,
-    pub hp_scale_per_wave: f64,
-    pub speed_scale_per_wave: f64,
+    pub hp_scale_per_pressure: f64,
+    pub speed_scale_per_pressure: f64,
     pub speed_scale_max: f64,
-    pub damage_scale_per_wave: f64,
+    pub damage_scale_per_pressure: f64,
     pub damage_scale_max: f64,
 }
 
@@ -125,7 +125,7 @@ pub struct XpBalance {
     pub level_exponent: f64,
     pub level_exponent_scale: f64,
     pub drop_score_divisor: f64,
-    pub drop_wave_scale: f64,
+    pub drop_pressure_scale: f64,
     pub shard_count: HashMap<String, u32>,
     pub orb_radius_base: f64,
     pub orb_radius_value_scale: f64,
@@ -136,13 +136,13 @@ pub struct XpBalance {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EnemyBalance {
-    pub hp_scale_per_wave: f64,
-    pub speed_scale_per_wave: f64,
+    pub hp_scale_per_pressure: f64,
+    pub speed_scale_per_pressure: f64,
     pub speed_scale_max: f64,
-    pub hunter_chance_per_wave: f64,
+    pub hunter_chance_per_pressure: f64,
     pub hunter_chance_max: f64,
-    pub brute_chance_offset_wave: f64,
-    pub brute_chance_per_wave: f64,
+    pub brute_chance_offset_pressure: f64,
+    pub brute_chance_per_pressure: f64,
     pub brute_chance_max: f64,
     pub wobble: EnemyWobble,
 }
@@ -193,12 +193,12 @@ pub struct SteppedGain {
 pub struct TierWeights {
     pub standard_min: f64,
     pub standard_base: f64,
-    pub standard_per_wave: f64,
+    pub standard_per_pressure: f64,
     pub rare_base: f64,
-    pub rare_per_wave: f64,
+    pub rare_per_pressure: f64,
     pub prototype_base: f64,
-    pub prototype_per_wave: f64,
-    pub singularity_per_wave: f64,
+    pub prototype_per_pressure: f64,
+    pub singularity_per_pressure: f64,
     pub per_rank: PerRankWeights,
 }
 
@@ -222,10 +222,12 @@ pub struct TierGates {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TierGate {
-    pub min_wave: f64,
-    pub ramp_waves: f64,
+    pub min_pressure: f64,
+    pub ramp_pressures: f64,
     #[serde(default)]
     pub locked_weight: f64,
+    #[serde(default)]
+    pub min_rank: u32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -244,6 +246,7 @@ pub struct UpgradeEffects {
     pub lifesteal: f64,
     pub pickup_radius: f64,
     pub bullet_radius: f64,
+    pub projectile_damage_factor: f64,
     pub drone_extra_threshold: f64,
 }
 
@@ -251,7 +254,7 @@ pub struct UpgradeEffects {
 #[serde(rename_all = "camelCase")]
 pub struct BossBalance {
     pub stage_duration_seconds: f64,
-    pub wave_offset_per_stage: f64,
+    pub pressure_offset_per_stage: f64,
     pub contact_backoff: f64,
     pub stage_scaling: BossStageScaling,
     pub wobble: BossWobbleMap,
@@ -286,24 +289,16 @@ pub struct BossWobble {
 #[serde(rename_all = "camelCase")]
 pub struct BossSpawnOffsets {
     pub mini_boss: MiniBossSpawnOffset,
-    pub wave_boss: WaveBossSpawnOffset,
     pub stage_boss: StageBossSpawnOffset,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiniBossSpawnOffset {
-    pub eligible_from_wave: f64,
+    pub eligible_from_pressure: f64,
     pub offset: f64,
-    pub fallback_wave: f64,
+    pub fallback_pressure: f64,
     pub fallback_roll: f64,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct WaveBossSpawnOffset {
-    pub offset: f64,
-    pub roll: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -328,9 +323,9 @@ pub struct BossTuning {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MiniBossTuning {
-    pub start_wave: f64,
+    pub start_pressure: f64,
     pub spawn_chance: f64,
-    pub guarantee_after_eligible_waves: f64,
+    pub guarantee_after_eligible_pressures: f64,
     pub hp_multiplier: f64,
     pub speed_multiplier: f64,
     pub damage_multiplier: f64,
@@ -411,6 +406,16 @@ pub struct PowerupBalance {
 
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct HordeBalance {
+    pub starts_seconds: Vec<f64>,
+    pub duration_seconds: f64,
+    pub spawn_gap_multiplier: f64,
+    pub pressure_target_multiplier: f64,
+    pub pack_bonus: u32,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ProgressionBalance {
-    pub relic_unlock_waves: Vec<f64>,
+    pub relic_unlock_stages: Vec<f64>,
 }

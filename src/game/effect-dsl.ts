@@ -32,6 +32,12 @@ export interface AddPctEffect {
   scale?: EffectScale;
 }
 
+export interface ScaleCurrentPctEffect {
+  type: "scaleCurrentPct";
+  stat: PercentStat;
+  factor: number;
+}
+
 export interface AddCappedEffect {
   type: "addCapped";
   stat: CappedIntStat;
@@ -95,6 +101,7 @@ export interface SetMinEffect {
 
 export type EffectOp =
   | AddPctEffect
+  | ScaleCurrentPctEffect
   | AddCappedEffect
   | AddCappedPctEffect
   | AddCappedPctBonusEffect
@@ -152,6 +159,11 @@ function applyEffectStep(op: EffectOp, tierPower: number, target: Player): void 
     case "addPct": {
       const scale = resolveScale(op.scale ?? "tier.power", tierPower);
       target.bonus[PERCENT_BONUS_KEY[op.stat]] += op.amount * scale;
+      return;
+    }
+    case "scaleCurrentPct": {
+      const bonusKey = PERCENT_BONUS_KEY[op.stat];
+      target.bonus[bonusKey] = (1 + target.bonus[bonusKey]) * op.factor - 1;
       return;
     }
     case "addCapped": {

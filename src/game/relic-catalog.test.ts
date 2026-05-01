@@ -6,7 +6,7 @@ import {
   fallbackRelic,
   findRelic,
   pickChestRelics,
-  relicUnlocksForBossWave,
+  relicUnlocksForBossStage,
 } from "./relic-catalog";
 
 describe("chest relic choices", () => {
@@ -60,13 +60,13 @@ describe("relic effects", () => {
 });
 
 describe("relic unlocks", () => {
-  it("unlocks new relic ids from boss milestone waves", () => {
-    expect(relicUnlocksForBossWave(9)).toEqual([]);
-    expect(relicUnlocksForBossWave(10)).toContain("splitter-matrix");
-    expect(relicUnlocksForBossWave(20)).toEqual(
+  it("unlocks new relic ids from boss stage milestones", () => {
+    expect(relicUnlocksForBossStage(0)).toEqual([]);
+    expect(relicUnlocksForBossStage(1)).toContain("splitter-matrix");
+    expect(relicUnlocksForBossStage(2)).toEqual(
       expect.arrayContaining(["splitter-matrix", "drone-contract"]),
     );
-    expect(relicUnlocksForBossWave(30)).toEqual(
+    expect(relicUnlocksForBossStage(3)).toEqual(
       expect.arrayContaining(["splitter-matrix", "drone-contract", "critical-orbit"]),
     );
   });

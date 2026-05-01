@@ -15,7 +15,7 @@ import { burst, pulseText } from "../entities/particles";
 import { bossBalance } from "../game/roguelike";
 import type { EnemyEntity } from "../types";
 import { swapRemove } from "../utils";
-import { resetSimulation, startSimulationWave, stepSimulation } from "./simulation";
+import { resetSimulation, stepSimulation } from "./simulation";
 import {
   challengeProgress,
   initializeChallenges,
@@ -50,10 +50,6 @@ function makeEnemy(id: number, x: number, y: number): EnemyEntity {
     wobbleRate: 0,
     hit: 0,
   };
-}
-
-function completeCurrentWave(): void {
-  startSimulationWave(state.wave + 1);
 }
 
 function prepareWorld(): void {
@@ -125,9 +121,9 @@ describe("simulation performance helpers", () => {
     prepareWorld();
     const snapshot = (seed: number): string[] => {
       resetSimulation(seed);
-      state.spawnTimer = 0;
-      state.spawnRemaining = 4;
-      stepSimulation(1 / 60);
+      for (let i = 0; i < 10; i += 1) {
+        stepSimulation(1 / 60);
+      }
       return enemies.map((enemy) =>
         [enemy.kind, enemy.x.toFixed(2), enemy.y.toFixed(2)].join(":"),
       );
@@ -150,7 +146,7 @@ describe("simulation performance helpers", () => {
     resetSimulation(123);
     enemies.length = 0;
     state.spawnTimer = 0;
-    state.spawnRemaining = 4;
+    state.enemyPressureTarget = 4;
     state.stageElapsedSeconds = bossBalance.stageDurationSeconds - 0.01;
     state.mode = "upgrade";
     state.pendingUpgrades = 1;
@@ -158,7 +154,7 @@ describe("simulation performance helpers", () => {
     stepSimulation(0.02);
 
     expect(state.stageElapsedSeconds).toBeCloseTo(bossBalance.stageDurationSeconds - 0.01);
-    expect(state.spawnRemaining).toBe(4);
+    expect(state.enemyPressureTarget).toBe(4);
     expect(enemies).toHaveLength(0);
     expect(state.stageBossActive).toBe(false);
   });
@@ -176,7 +172,7 @@ describe("simulation performance helpers", () => {
 
     expect(state.stage).toBe(2);
     expect(state.startStage).toBe(2);
-    expect(state.wave).toBe(10);
+    expect(state.pressure).toBe(10);
     expect(player.damage).toBe(24);
     expect(player.projectileCount).toBe(1);
   });
@@ -190,7 +186,7 @@ describe("simulation performance helpers", () => {
     resetSimulation(123);
 
     expect(state.stage).toBe(1);
-    expect(state.wave).toBe(1);
+    expect(state.pressure).toBe(1);
   });
 
   it("keeps Rust as the source of truth when TS state is mutated directly", () => {
@@ -299,38 +295,19 @@ describe("simulation performance helpers", () => {
     expect(player.magnetStormTimer).toBe(0);
   });
 
-  it("records wave challenge metrics from Rust wave transitions", () => {
+  it("records survival challenge metrics from Rust elapsed time", () => {
     prepareWorld();
     resetChallengeProgress(null);
     initializeChallenges(null);
-    state.wave = 3;
     state.score = 0;
     state.level = 1;
     state.xp = 0;
     state.xpTarget = 1;
 
-    startSimulationWave(5);
-    expect(challengeProgress.bestWave).toBe(0);
-    completeCurrentWave();
-    expect(challengeProgress.bestWave).toBe(5);
-  });
-
-  it("records best-wave challenges relative to the selected start stage", () => {
-    prepareWorld();
-    resetChallengeProgress(null);
-    initializeChallenges(null);
-    restoreAccountProgress({
-      ...createDefaultAccountProgress(),
-      highestStageCleared: 1,
-      highestStartStageUnlocked: 2,
-      selectedStartStage: 2,
-    });
-
     resetSimulation(123);
-
-    expect(state.wave).toBe(10);
-    expect(challengeProgress.bestWave).toBe(0);
-    completeCurrentWave();
-    expect(challengeProgress.bestWave).toBe(1);
+    for (let i = 0; i < 90; i += 1) {
+      stepSimulation(1 / 60);
+    }
+    expect(challengeProgress.bestSurvivalSeconds).toBeGreaterThan(0);
   });
 });

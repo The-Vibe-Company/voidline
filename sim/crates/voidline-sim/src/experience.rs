@@ -20,9 +20,9 @@ pub fn spawn_experience(
     orbs: &mut Vec<ExperienceOrb>,
     rng: &mut Mulberry32,
     enemy: &Enemy,
-    wave: u32,
+    pressure: u32,
 ) {
-    let total = experience_drop_total(balance, enemy.score, wave);
+    let total = experience_drop_total(balance, enemy.score, pressure);
     let shard_count = experience_shard_count(balance, enemy.kind.as_str());
     let mut remaining = total;
 

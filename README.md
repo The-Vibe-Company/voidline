@@ -49,7 +49,7 @@ npm run preview
 - `sim/crates/voidline-sim/` : moteur gameplay Rust source de verite.
 - `src/game/` : catalogues, balance exportee, input, progression meta.
 - `src/entities/` : entites visuelles TypeScript restantes (particules, zones XP).
-- `src/systems/` : wrappers UI/systemes pour waves, upgrades, relics, compte.
+- `src/systems/` : wrappers UI/systemes pour run, upgrades, relics, compte.
 - `src/render/` : HUD DOM et overlays.
 
 `src/render/hud.ts` conserve les overlays DOM. Phaser rend le monde et lit le snapshot produit par Rust; les regles de jeu ne dependent pas des sprites ni d'une copie TypeScript.

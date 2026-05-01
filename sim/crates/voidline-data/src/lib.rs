@@ -233,11 +233,11 @@ mod tests {
     }
 
     #[test]
-    fn gates_have_consistent_min_waves() {
+    fn gates_have_consistent_min_pressures() {
         let bundle = load_default().expect("load");
         let gates = &bundle.balance.upgrade.gates;
-        assert!(gates.rare.min_wave <= gates.prototype.min_wave);
-        assert!(gates.prototype.min_wave <= gates.singularity.min_wave);
+        assert!(gates.rare.min_pressure <= gates.prototype.min_pressure);
+        assert!(gates.prototype.min_pressure <= gates.singularity.min_pressure);
     }
 
     #[test]

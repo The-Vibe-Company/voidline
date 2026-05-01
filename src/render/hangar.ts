@@ -16,7 +16,7 @@ import {
   selectCharacter,
   selectStartStage,
 } from "../systems/account";
-import { resetGame } from "../systems/waves";
+import { resetGame } from "../systems/run";
 import type {
   CharacterId,
   MetaUpgrade,

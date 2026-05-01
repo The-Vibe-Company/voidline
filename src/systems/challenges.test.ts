@@ -35,7 +35,7 @@ describe("challenge persistence", () => {
     initializeChallenges(storage);
 
     expect(challengeProgress).toEqual({
-      bestWave: 0,
+      bestSurvivalSeconds: 0,
       bossKills: 0,
       totalKills: 0,
       bestScore: 0,
@@ -45,13 +45,19 @@ describe("challenge persistence", () => {
 
   it("restores stored progress", () => {
     storage.setItem(
-      "voidline:challengeProgress",
-      JSON.stringify({ bestWave: 12, bossKills: 2, totalKills: 155, bestScore: 8_500, bestLevel: 9 }),
+      "voidline:challengeProgress:v2",
+      JSON.stringify({
+        bestSurvivalSeconds: 360,
+        bossKills: 2,
+        totalKills: 155,
+        bestScore: 8_500,
+        bestLevel: 9,
+      }),
     );
 
     initializeChallenges(storage);
 
-    expect(challengeProgress.bestWave).toBe(12);
+    expect(challengeProgress.bestSurvivalSeconds).toBe(360);
     expect(challengeProgress.bossKills).toBe(2);
     expect(challengeProgress.totalKills).toBe(155);
     expect(challengeProgress.bestScore).toBe(8_500);
@@ -59,11 +65,11 @@ describe("challenge persistence", () => {
   });
 
   it("ignores invalid stored JSON", () => {
-    storage.setItem("voidline:challengeProgress", "{nope");
+    storage.setItem("voidline:challengeProgress:v2", "{nope");
 
     initializeChallenges(storage);
 
-    expect(challengeProgress.bestWave).toBe(0);
+    expect(challengeProgress.bestSurvivalSeconds).toBe(0);
     expect(challengeProgress.totalKills).toBe(0);
   });
 
@@ -73,7 +79,7 @@ describe("challenge persistence", () => {
     recordChallengeProgress("bestScore", 2_500, storage);
     incrementChallengeProgress("totalKills", 3, storage);
 
-    const stored = JSON.parse(storage.getItem("voidline:challengeProgress") ?? "{}");
+    const stored = JSON.parse(storage.getItem("voidline:challengeProgress:v2") ?? "{}");
     expect(stored.bestScore).toBe(2_500);
     expect(stored.totalKills).toBe(3);
   });
@@ -81,7 +87,7 @@ describe("challenge persistence", () => {
   it("does not mutate meta progression when objectives advance", () => {
     initializeChallenges(storage);
 
-    recordChallengeProgress("bestWave", 5, storage);
+    recordChallengeProgress("bestSurvivalSeconds", 180, storage);
 
     expect(storage.getItem("voidline:metaProgress:v1")).toBeNull();
   });
@@ -97,11 +103,11 @@ describe("challenge persistence", () => {
 
   it("resets stored and in-memory progress", () => {
     initializeChallenges(storage);
-    recordChallengeProgress("bestWave", 15, storage);
+    recordChallengeProgress("bestSurvivalSeconds", 600, storage);
 
     resetChallengeProgress(storage);
 
-    expect(storage.getItem("voidline:challengeProgress")).toBeNull();
-    expect(challengeProgress.bestWave).toBe(0);
+    expect(storage.getItem("voidline:challengeProgress:v2")).toBeNull();
+    expect(challengeProgress.bestSurvivalSeconds).toBe(0);
   });
 });

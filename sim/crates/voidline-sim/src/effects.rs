@@ -85,6 +85,10 @@ fn apply_step(op: &EffectOp, tier_power: f64, balance: &Balance, player: &mut Pl
             );
             *percent_bonus(player, stat) += amount * scale_value;
         }
+        EffectOp::ScaleCurrentPct { stat, factor } => {
+            let target = percent_bonus(player, stat);
+            *target = (1.0 + *target) * factor - 1.0;
+        }
         EffectOp::AddCapped {
             stat,
             amount,
@@ -230,6 +234,13 @@ mod tests {
         let tier = find_tier(&bundle, "rare");
         run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
         assert_eq!(player.projectile_count, 3.0);
+        assert!(
+            (player.damage
+                - bundle.balance.player.stats.damage
+                    * bundle.balance.upgrade.effects.projectile_damage_factor)
+                .abs()
+                < 1e-12
+        );
     }
 
     #[test]
@@ -328,6 +339,108 @@ mod tests {
                 expected,
             );
         }
+    }
+
+    fn player_with_damage_multiplier(
+        bundle: &voidline_data::DataBundle,
+        multiplier: f64,
+    ) -> Player {
+        let mut player = fresh_player(bundle);
+        run_effects(
+            &[EffectOp::AddPct {
+                stat: PercentStat::Damage,
+                amount: multiplier - 1.0,
+                scale: Some(EffectScale::Number(1.0)),
+            }],
+            1.0,
+            &bundle.balance,
+            &mut player,
+        );
+        player
+    }
+
+    #[test]
+    fn addpct_positive_points_add_to_current_bonus() {
+        let bundle = load_default().unwrap();
+        let mut player = player_with_damage_multiplier(&bundle, 2.0);
+        run_effects(
+            &[EffectOp::AddPct {
+                stat: PercentStat::Damage,
+                amount: 0.1,
+                scale: Some(EffectScale::Number(1.0)),
+            }],
+            1.0,
+            &bundle.balance,
+            &mut player,
+        );
+        assert!((player.damage - bundle.balance.player.stats.damage * 2.1).abs() < 1e-12);
+        assert!((player.bonus.damage_pct - 1.1).abs() < 1e-12);
+    }
+
+    #[test]
+    fn addpct_negative_points_add_to_current_bonus() {
+        let bundle = load_default().unwrap();
+        let mut player = player_with_damage_multiplier(&bundle, 2.0);
+        run_effects(
+            &[EffectOp::AddPct {
+                stat: PercentStat::Damage,
+                amount: -0.1,
+                scale: Some(EffectScale::Number(1.0)),
+            }],
+            1.0,
+            &bundle.balance,
+            &mut player,
+        );
+        assert!((player.damage - bundle.balance.player.stats.damage * 1.9).abs() < 1e-12);
+        assert!((player.bonus.damage_pct - 0.9).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scale_current_pct_positive_is_instant_then_future_addpct_is_additive() {
+        let bundle = load_default().unwrap();
+        let mut player = player_with_damage_multiplier(&bundle, 2.0);
+        run_effects(
+            &[
+                EffectOp::ScaleCurrentPct {
+                    stat: PercentStat::Damage,
+                    factor: 1.1,
+                },
+                EffectOp::AddPct {
+                    stat: PercentStat::Damage,
+                    amount: 0.1,
+                    scale: Some(EffectScale::Number(1.0)),
+                },
+            ],
+            1.0,
+            &bundle.balance,
+            &mut player,
+        );
+        assert!((player.damage - bundle.balance.player.stats.damage * 2.3).abs() < 1e-12);
+        assert!((player.bonus.damage_pct - 1.3).abs() < 1e-12);
+    }
+
+    #[test]
+    fn scale_current_pct_negative_is_instant_then_future_addpct_is_additive() {
+        let bundle = load_default().unwrap();
+        let mut player = player_with_damage_multiplier(&bundle, 2.0);
+        run_effects(
+            &[
+                EffectOp::ScaleCurrentPct {
+                    stat: PercentStat::Damage,
+                    factor: 0.7,
+                },
+                EffectOp::AddPct {
+                    stat: PercentStat::Damage,
+                    amount: 0.1,
+                    scale: Some(EffectScale::Number(1.0)),
+                },
+            ],
+            1.0,
+            &bundle.balance,
+            &mut player,
+        );
+        assert!((player.damage - bundle.balance.player.stats.damage * 1.5).abs() < 1e-12);
+        assert!((player.bonus.damage_pct - 0.5).abs() < 1e-12);
     }
 
     #[test]

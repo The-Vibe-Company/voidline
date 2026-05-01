@@ -102,7 +102,7 @@ pub struct EngineSnapshot {
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotState {
     pub mode: String,
-    pub wave: u32,
+    pub pressure: u32,
     pub stage: u32,
     pub start_stage: u32,
     pub stage_elapsed_seconds: f64,
@@ -111,16 +111,15 @@ pub struct SnapshotState {
     pub stage_boss_active: bool,
     pub highest_stage_reached: u32,
     pub score: f64,
-    pub wave_kills: u32,
+    pub phase_kills: u32,
     pub kills_by_kind: HashMap<String, u32>,
-    pub wave_target: u32,
-    pub spawn_remaining: u32,
+    pub enemy_pressure_target: u32,
     pub spawn_timer: f64,
     pub spawn_gap: f64,
-    pub wave_delay: f64,
     pub best_combo: u32,
     pub mini_boss_eligible_misses: u32,
     pub mini_boss_pending: bool,
+    pub mini_boss_last_pressure: u32,
     pub control_mode: String,
     pub level: u32,
     pub xp: u32,
@@ -130,7 +129,6 @@ pub struct SnapshotState {
     pub hearts_carried: u32,
     pub magnets_carried: u32,
     pub bombs_carried: u32,
-    pub run_boss_waves: Vec<u32>,
     pub run_boss_stages: Vec<u32>,
     pub run_reward_claimed: bool,
 }
@@ -424,12 +422,6 @@ impl Engine {
         self.sim.state.control_mode = self.sim.control_mode;
     }
 
-    pub fn start_wave(&mut self, wave: u32) {
-        self.sim.force_start_wave(wave.max(1));
-        self.cached_upgrade_choices.clear();
-        self.cached_relic_choices.clear();
-    }
-
     pub fn step(&mut self, dt: f64) {
         self.sim.step(dt);
     }
@@ -437,10 +429,9 @@ impl Engine {
     pub fn seed_stress(&mut self, config: StressSeedConfig) {
         let mut rng = Mulberry32::new(config.seed);
         self.sim.state.mode = GameMode::Playing;
-        self.sim.state.wave = 1;
-        self.sim.state.spawn_remaining = 0;
+        self.sim.state.pressure = 1;
         self.sim.state.spawn_timer = f64::INFINITY;
-        self.sim.state.wave_target = config.enemies;
+        self.sim.state.enemy_pressure_target = config.enemies;
         self.sim.state.pending_upgrades = 0;
         self.sim.state.pending_chests = 0;
         self.sim.player.x = self.sim.world.arena_width / 2.0;
@@ -557,7 +548,7 @@ impl Engine {
         for idx in picked {
             let tier = select_upgrade_tier(
                 &self.bundle.balance,
-                self.sim.state.wave,
+                self.sim.state.pressure,
                 self.sim.rng.next_f64(),
                 self.account.rarity_rank,
             );
@@ -961,7 +952,7 @@ fn sim_config_from_engine(account: &EngineAccountContext, seed: u32) -> SimConfi
         seed,
         start_stage: account.selected_start_stage.max(1),
         max_seconds: 120.0,
-        max_wave: 10,
+        max_pressure: 10,
         step_seconds: 1.0 / 60.0,
     }
 }
@@ -1076,7 +1067,7 @@ fn snapshot_from_engine(engine: &Engine) -> EngineSnapshot {
     EngineSnapshot {
         state: SnapshotState {
             mode: game_mode_str(state.mode).to_string(),
-            wave: state.wave,
+            pressure: state.pressure,
             stage: state.stage,
             start_stage: state.start_stage,
             stage_elapsed_seconds: state.stage_elapsed_seconds,
@@ -1085,16 +1076,15 @@ fn snapshot_from_engine(engine: &Engine) -> EngineSnapshot {
             stage_boss_active: state.stage_boss_active,
             highest_stage_reached: state.highest_stage_reached,
             score: state.score,
-            wave_kills: state.wave_kills,
+            phase_kills: state.phase_kills,
             kills_by_kind: state.kills_by_kind.clone(),
-            wave_target: state.wave_target,
-            spawn_remaining: state.spawn_remaining,
+            enemy_pressure_target: state.enemy_pressure_target,
             spawn_timer: state.spawn_timer,
             spawn_gap: state.spawn_gap,
-            wave_delay: state.wave_delay,
             best_combo: state.best_combo,
             mini_boss_eligible_misses: state.mini_boss_eligible_misses,
             mini_boss_pending: state.mini_boss_pending,
+            mini_boss_last_pressure: state.mini_boss_last_pressure,
             control_mode: control_mode_str(state.control_mode).to_string(),
             level: state.level,
             xp: state.xp,
@@ -1104,7 +1094,6 @@ fn snapshot_from_engine(engine: &Engine) -> EngineSnapshot {
             hearts_carried: state.hearts_carried,
             magnets_carried: state.magnets_carried,
             bombs_carried: state.bombs_carried,
-            run_boss_waves: state.run_boss_waves.clone(),
             run_boss_stages: state.run_boss_stages.clone(),
             run_reward_claimed: state.run_reward_claimed,
         },
@@ -1354,7 +1343,7 @@ mod tests {
         engine.step(1.0 / 60.0);
         let snapshot = engine.snapshot();
         assert_eq!(snapshot.state.mode, "playing");
-        assert_eq!(snapshot.state.wave, 1);
+        assert_eq!(snapshot.state.pressure, 1);
         assert!(snapshot.world.width >= 1.0);
         assert!(snapshot.player.hp > 0.0);
     }
@@ -1393,17 +1382,15 @@ mod tests {
         let bundle = load_default().unwrap();
         let mut engine = Engine::new(bundle, EngineConfig::default());
         engine.sim.enemies.clear();
-        engine.sim.state.wave_kills = 2;
-        engine.sim.state.wave_target = 10;
-        engine.sim.state.spawn_remaining = 4;
+        engine.sim.state.phase_kills = 2;
+        engine.sim.state.enemy_pressure_target = 10;
         engine.sim.state.stage_elapsed_seconds = engine.sim.stage_duration_seconds - 0.01;
 
         engine.step(0.02);
 
         let snapshot = engine.snapshot();
         assert!(snapshot.state.stage_boss_active);
-        assert_eq!(snapshot.state.spawn_remaining, 0);
-        assert_eq!(snapshot.state.wave_target, 3);
+        assert!(snapshot.state.enemy_pressure_target > 0);
         assert!(snapshot.enemies.iter().any(|enemy| enemy.role == "boss"));
     }
 }

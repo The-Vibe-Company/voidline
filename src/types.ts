@@ -78,7 +78,7 @@ export interface World {
 
 export interface GameState {
   mode: GameMode;
-  wave: number;
+  pressure: number;
   stage: number;
   startStage: number;
   stageElapsedSeconds: number;
@@ -87,16 +87,15 @@ export interface GameState {
   stageBossActive: boolean;
   highestStageReached: number;
   score: number;
-  waveKills: number;
+  phaseKills: number;
   killsByKind: Record<EnemyKind, number>;
-  waveTarget: number;
-  spawnRemaining: number;
+  enemyPressureTarget: number;
   spawnTimer: number;
   spawnGap: number;
-  waveDelay: number;
   bestCombo: number;
   miniBossEligibleMisses: number;
   miniBossPending: boolean;
+  miniBossLastPressure: number;
   controlMode: ControlMode;
   level: number;
   xp: number;
@@ -107,7 +106,6 @@ export interface GameState {
   magnetsCarried: number;
   bombsCarried: number;
   showPickupZones: boolean;
-  runBossWaves: number[];
   runBossStages: number[];
   runRewardClaimed: boolean;
 }
@@ -122,7 +120,7 @@ export interface PlayerBonus {
 }
 
 export type ChallengeMetric =
-  | "bestWave"
+  | "bestSurvivalSeconds"
   | "bossKills"
   | "totalKills"
   | "bestScore"
@@ -389,9 +387,9 @@ export type BuildTag =
 
 export interface EnemySpawnRule {
   baseChance: number;
-  perWave: number;
+  perPressure: number;
   maxChance: number;
-  waveOnset: number;
+  pressureOnset: number;
 }
 
 export type EnemySpawnPolicy = EnemySpawnRule | "residual";

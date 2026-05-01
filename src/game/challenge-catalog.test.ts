@@ -16,7 +16,7 @@ describe("challenge catalog", () => {
 
   it("computes unlocked tiers from progress", () => {
     const progress = createEmptyChallengeProgress();
-    progress.bestWave = 10;
+    progress.bestSurvivalSeconds = 360;
     const survivor = challengeCatalog.find((challenge) => challenge.id === "survivor")!;
 
     expect(unlockedTierCount(survivor, progress)).toBe(2);
@@ -24,7 +24,7 @@ describe("challenge catalog", () => {
 
   it("counts all unlocked objective tiers", () => {
     const progress = createEmptyChallengeProgress();
-    progress.bestWave = 20;
+    progress.bestSurvivalSeconds = 900;
     progress.bossKills = 3;
     progress.totalKills = 600;
     progress.bestScore = 20_000;
@@ -35,14 +35,14 @@ describe("challenge catalog", () => {
 
   it("does not count tiers beyond the last threshold", () => {
     const capped = createEmptyChallengeProgress();
-    capped.bestWave = 99;
+    capped.bestSurvivalSeconds = 9_999;
     capped.bossKills = 99;
     capped.totalKills = 99_999;
     capped.bestScore = 999_999;
     capped.bestLevel = 99;
 
     const exact = createEmptyChallengeProgress();
-    exact.bestWave = 20;
+    exact.bestSurvivalSeconds = 900;
     exact.bossKills = 3;
     exact.totalKills = 600;
     exact.bestScore = 20_000;

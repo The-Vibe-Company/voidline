@@ -35,9 +35,9 @@ pub struct UpgradeTier {
 #[serde(rename_all = "camelCase")]
 pub struct EnemySpawnRule {
     pub base_chance: f64,
-    pub per_wave: f64,
+    pub per_pressure: f64,
     pub max_chance: f64,
-    pub wave_onset: f64,
+    pub pressure_onset: f64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -96,7 +96,7 @@ pub struct Relic {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RelicUnlock {
-    pub wave: f64,
+    pub stage: f64,
     pub relic_ids: Vec<String>,
 }
 

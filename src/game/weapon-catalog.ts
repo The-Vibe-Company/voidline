@@ -1,4 +1,5 @@
 import type { Player, Weapon, WeaponId } from "../types";
+import { balance } from "./balance";
 import { runEffects, type EffectOp } from "./effect-dsl";
 
 type WeaponSpec = Omit<Weapon, "apply"> & { effects: readonly EffectOp[] };
@@ -23,11 +24,15 @@ export const weaponCatalog: readonly Weapon[] = [
     id: "scatter",
     name: "Scatter Cannon",
     icon: "SCT",
-    description: "Plus de projectiles, impacts plus legers.",
+    description: "Plus de projectiles, degats actuels x0.70 et impacts plus legers.",
     tags: ["cannon", "crit"],
     effects: [
       { type: "addCapped", stat: "projectileCount", amount: 1, cap: "projectiles" },
-      { type: "addPct", stat: "damage", amount: -0.16, scale: 1 },
+      {
+        type: "scaleCurrentPct",
+        stat: "damage",
+        factor: balance.upgrade.effects.projectileDamageFactor,
+      },
       { type: "addPct", stat: "bulletRadius", amount: -0.08, scale: 1 },
     ],
   }),

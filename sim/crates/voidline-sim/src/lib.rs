@@ -26,9 +26,9 @@ pub mod synergies;
 pub mod world;
 
 pub use balance_curves::{
-    experience_drop_total, experience_orb_radius, experience_shard_count, late_wave_pressure,
+    experience_drop_total, experience_orb_radius, experience_shard_count, late_pressure,
     scaled_enemy_stats, score_award, select_upgrade_tier, spawn_gap, spawn_pack_chance,
-    stepped_upgrade_gain, upgrade_tier_weights, wave_target, xp_to_next_level, ScaledEnemyStats,
+    stepped_upgrade_gain, upgrade_tier_weights, pressure_target, xp_to_next_level, ScaledEnemyStats,
     WeightedTier,
 };
 pub use math::{circle_hit, clamp, distance, distance_sq};

@@ -51,7 +51,7 @@ export function computeRunCrystalBreakdown(
   summary: AccountRunSummary,
 ): AccountRewardBreakdown {
   const elapsedSeconds = Math.max(0, Math.floor(summary.elapsedSeconds));
-  const stage = Math.max(1, Math.floor(summary.stage), highestReachedStageForSummary(summary));
+  const stage = Math.max(1, highestReachedStageForSummary(summary));
   const runLevel = Math.max(1, Math.floor(summary.runLevel));
   const uniqueBossStages = uniquePositiveNumbers(summary.bossStages);
   const score = Math.max(0, Math.floor(summary.score));

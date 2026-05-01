@@ -18,7 +18,9 @@ describe("weapon catalog", () => {
     applyWeapon("scatter", target);
 
     expect(target.projectileCount).toBe(2);
-    expect(target.damage).toBeLessThan(balance.player.stats.damage);
+    expect(target.damage).toBeCloseTo(
+      balance.player.stats.damage * balance.upgrade.effects.projectileDamageFactor,
+    );
   });
 
   it("applies lance as a slower piercing start", () => {

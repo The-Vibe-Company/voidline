@@ -86,32 +86,31 @@ export const playerBalance = {
   drone: droneBalance,
 };
 
-export const waveBalance = {
+export const pressureBalance = {
   targetBase: 21,
   targetLinear: 5,
   targetExponent: 1.28,
   spawnGapStart: 0.405,
-  spawnGapPerWave: 0.02,
+  spawnGapPerPressure: 0.02,
   spawnGapMin: 0.14,
   spawnTimerStart: 0.1,
-  packChancePerWave: 0.12,
+  packChancePerPressure: 0.12,
   packChanceMax: 0.62,
-  waveDelay: 0.7,
 };
 
-export const lateWaveBalance = {
-  startWave: 7,
+export const latePressureBalance = {
+  startPressure: 7,
   targetLinear: 5,
   targetExponent: 1.12,
   targetExponentScale: 1.4,
-  spawnGapPerWave: 0.008,
+  spawnGapPerPressure: 0.008,
   spawnGapMin: 0.105,
-  packChancePerWave: 0.02,
+  packChancePerPressure: 0.02,
   packChanceMax: 0.84,
-  hpScalePerWave: 0.055,
-  speedScalePerWave: 0.018,
+  hpScalePerPressure: 0.055,
+  speedScalePerPressure: 0.018,
   speedScaleMax: 0.24,
-  damageScalePerWave: 0.04,
+  damageScalePerPressure: 0.04,
   damageScaleMax: 0.55,
 };
 
@@ -121,7 +120,7 @@ export const xpBalance = {
   levelExponent: 1.45,
   levelExponentScale: 6,
   dropScoreDivisor: 7,
-  dropWaveScale: 0.04,
+  dropPressureScale: 0.04,
   shardCount: {
     scout: 2,
     hunter: 3,
@@ -135,7 +134,7 @@ export const xpBalance = {
 
 export const bossBalance = {
   stageDurationSeconds: 600,
-  waveOffsetPerStage: 9,
+  pressureOffsetPerStage: 9,
   contactBackoff: 0.45,
   stageScaling: {
     hpPerStage: 0,
@@ -147,8 +146,7 @@ export const bossBalance = {
     miniBoss: { value: 0.09, rate: 1.7 },
   },
   spawnOffsets: {
-    miniBoss: { eligibleFromWave: 7, offset: 3, fallbackWave: 8, fallbackRoll: 0.95 },
-    waveBoss: { offset: 8, roll: 0.98 },
+    miniBoss: { eligibleFromPressure: 7, offset: 3, fallbackPressure: 8, fallbackRoll: 0.95 },
     stageBoss: { offset: 8, stageMultiplier: 4, roll: 0.98 },
   },
   boss: {
@@ -160,9 +158,9 @@ export const bossBalance = {
     contactCooldown: 0.95,
   },
   miniBoss: {
-    startWave: 4,
+    startPressure: 4,
     spawnChance: 0.32,
-    guaranteeAfterEligibleWaves: 4,
+    guaranteeAfterEligiblePressures: 4,
     hpMultiplier: 6.4,
     speedMultiplier: 0.74,
     damageMultiplier: 1.35,
@@ -209,13 +207,13 @@ export const enemyTypes = [
 ] satisfies EnemyType[];
 
 export const enemyBalance = {
-  hpScalePerWave: 0.065,
-  speedScalePerWave: 0.022,
+  hpScalePerPressure: 0.065,
+  speedScalePerPressure: 0.022,
   speedScaleMax: 0.4,
-  hunterChancePerWave: 0.07,
+  hunterChancePerPressure: 0.07,
   hunterChanceMax: 0.4,
-  bruteChanceOffsetWave: 2,
-  bruteChancePerWave: 0.05,
+  bruteChanceOffsetPressure: 2,
+  bruteChancePerPressure: 0.05,
   bruteChanceMax: 0.25,
   wobble: {
     scout: 0.18,
@@ -230,15 +228,15 @@ export const enemySpawnRules: Record<EnemyKind, EnemySpawnPolicy> = {
   scout: "residual",
   hunter: {
     baseChance: 0,
-    perWave: enemyBalance.hunterChancePerWave,
+    perPressure: enemyBalance.hunterChancePerPressure,
     maxChance: enemyBalance.hunterChanceMax,
-    waveOnset: 0,
+    pressureOnset: 0,
   },
   brute: {
     baseChance: 0,
-    perWave: enemyBalance.bruteChancePerWave,
+    perPressure: enemyBalance.bruteChancePerPressure,
     maxChance: enemyBalance.bruteChanceMax,
-    waveOnset: enemyBalance.bruteChanceOffsetWave,
+    pressureOnset: enemyBalance.bruteChanceOffsetPressure,
   },
 };
 
@@ -296,29 +294,29 @@ export const upgradeBalance = {
   tierWeights: {
     standardMin: 38,
     standardBase: 100,
-    standardPerWave: 5.5,
+    standardPerPressure: 5.5,
     rareBase: 28,
-    rarePerWave: 1.5,
+    rarePerPressure: 1.5,
     prototypeBase: 7,
-    prototypePerWave: 0.9,
-    singularityPerWave: 0.8,
+    prototypePerPressure: 0.9,
+    singularityPerPressure: 0.8,
     perRank: {
-      standardPenalty: 4,
-      rare: 3,
-      prototype: 1.5,
-      singularity: 0.6,
+      standardPenalty: 6,
+      rare: 6,
+      prototype: 5,
+      singularity: 4,
     },
   },
   gates: {
-    rare: { minWave: 1, rampWaves: 0 },
-    prototype: { minWave: 5, rampWaves: 2, lockedWeight: 4 },
-    singularity: { minWave: 8, rampWaves: 2, lockedWeight: 0 },
+    rare: { minPressure: 1, rampPressures: 0, minRank: 1 },
+    prototype: { minPressure: 5, rampPressures: 2, lockedWeight: 0, minRank: 2 },
+    singularity: { minPressure: 8, rampPressures: 2, lockedWeight: 0, minRank: 3 },
   },
   effects: {
-    fireRate: 0.15,
-    damage: 0.18,
+    fireRate: 0.17,
+    damage: 0.2,
     bulletSpeed: 0.04,
-    speed: 0.13,
+    speed: 0.16,
     shield: 18,
     shieldRegen: 1.6,
     maxHp: 14,
@@ -326,8 +324,9 @@ export const upgradeBalance = {
     pierceDamage: 0.07,
     critChance: 0.06,
     lifesteal: 1.4,
-    pickupRadius: 0.28,
-    bulletRadius: 0.18,
+    pickupRadius: 0.36,
+    bulletRadius: 0.24,
+    projectileDamageFactor: 0.7,
     droneExtraThreshold: 1.65,
   },
 };
@@ -364,20 +363,29 @@ export const powerupBalance = {
   } satisfies Record<EnemyKind, number>,
 };
 
+export const hordeBalance = {
+  startsSeconds: [180, 360] as const,
+  durationSeconds: 30,
+  spawnGapMultiplier: 0.35,
+  pressureTargetMultiplier: 2.25,
+  packBonus: 2,
+};
+
 export const progressionBalance = {
-  relicUnlockWaves: [10, 20, 30] as const,
+  relicUnlockStages: [1, 2, 3] as const,
 };
 
 export const balance = {
   player: playerBalance,
-  wave: waveBalance,
+  pressure: pressureBalance,
   xp: xpBalance,
-  lateWave: lateWaveBalance,
+  latePressure: latePressureBalance,
   enemy: enemyBalance,
   enemies: enemyTypes,
   upgrade: upgradeBalance,
   tiers: upgradeTiers,
   bosses: bossBalance,
+  hordes: hordeBalance,
   synergies: synergyBalance,
   powerups: powerupBalance,
   progression: progressionBalance,
@@ -439,43 +447,43 @@ export function createPlayerState(overrides: Partial<Player> = {}): Player {
   };
 }
 
-export function waveTarget(wave: number): number {
+export function pressureTarget(pressure: number): number {
   return Math.round(
-    waveBalance.targetBase +
-      wave * waveBalance.targetLinear +
-      Math.pow(wave, waveBalance.targetExponent) +
-      lateWaveTargetBonus(wave),
+    pressureBalance.targetBase +
+      pressure * pressureBalance.targetLinear +
+      Math.pow(pressure, pressureBalance.targetExponent) +
+      latePressureTargetBonus(pressure),
   );
 }
 
-export function spawnGap(wave: number): number {
-  const latePressure = lateWavePressure(wave);
+export function spawnGap(pressure: number): number {
+  const late = latePressure(pressure);
   return Math.max(
-    latePressure > 0 ? lateWaveBalance.spawnGapMin : waveBalance.spawnGapMin,
-    waveBalance.spawnGapStart -
-      wave * waveBalance.spawnGapPerWave -
-      latePressure * lateWaveBalance.spawnGapPerWave,
+    late > 0 ? latePressureBalance.spawnGapMin : pressureBalance.spawnGapMin,
+    pressureBalance.spawnGapStart -
+      pressure * pressureBalance.spawnGapPerPressure -
+      late * latePressureBalance.spawnGapPerPressure,
   );
 }
 
-export function spawnPackChance(wave: number): number {
-  const latePressure = lateWavePressure(wave);
+export function spawnPackChance(pressure: number): number {
+  const late = latePressure(pressure);
   const cap =
-    latePressure > 0
+    late > 0
       ? Math.min(
-          lateWaveBalance.packChanceMax,
-          waveBalance.packChanceMax + latePressure * lateWaveBalance.packChancePerWave,
+          latePressureBalance.packChanceMax,
+          pressureBalance.packChanceMax + late * latePressureBalance.packChancePerPressure,
         )
-      : waveBalance.packChanceMax;
+      : pressureBalance.packChanceMax;
   return Math.min(
     cap,
-    wave * waveBalance.packChancePerWave +
-      latePressure * lateWaveBalance.packChancePerWave,
+    pressure * pressureBalance.packChancePerPressure +
+      late * latePressureBalance.packChancePerPressure,
   );
 }
 
-export function scoreAward(enemyScore: number, wave: number): number {
-  return Math.round(enemyScore * (1.25 + wave * 0.1));
+export function scoreAward(enemyScore: number, pressure: number): number {
+  return Math.round(enemyScore * (1.25 + pressure * 0.1));
 }
 
 export function xpToNextLevel(level: number): number {
@@ -486,9 +494,9 @@ export function xpToNextLevel(level: number): number {
   );
 }
 
-export function experienceDropTotal(enemyScore: number, wave: number): number {
+export function experienceDropTotal(enemyScore: number, pressure: number): number {
   return Math.round(
-    (enemyScore / xpBalance.dropScoreDivisor) * (1 + wave * xpBalance.dropWaveScale),
+    (enemyScore / xpBalance.dropScoreDivisor) * (1 + pressure * xpBalance.dropPressureScale),
   );
 }
 
@@ -503,14 +511,20 @@ export function experienceOrbRadius(value: number): number {
   );
 }
 
-function applyEnemySpawnRule(rule: { baseChance: number; perWave: number; maxChance: number; waveOnset: number }, wave: number): number {
+function applyEnemySpawnRule(
+  rule: { baseChance: number; perPressure: number; maxChance: number; pressureOnset: number },
+  pressure: number,
+): number {
   return Math.min(
     rule.maxChance,
-    Math.max(0, rule.baseChance + Math.max(0, wave - rule.waveOnset) * rule.perWave),
+    Math.max(
+      0,
+      rule.baseChance + Math.max(0, pressure - rule.pressureOnset) * rule.perPressure,
+    ),
   );
 }
 
-export function enemyTypeWeights(wave: number): WeightedEnemyType[] {
+export function enemyTypeWeights(pressure: number): WeightedEnemyType[] {
   const result: WeightedEnemyType[] = [];
   let residual: EnemyType | null = null;
   let nonResidualSum = 0;
@@ -521,7 +535,7 @@ export function enemyTypeWeights(wave: number): WeightedEnemyType[] {
       residual = type;
       continue;
     }
-    const weight = applyEnemySpawnRule(policy, wave);
+    const weight = applyEnemySpawnRule(policy, pressure);
     result.push({ type, weight });
     nonResidualSum += weight;
   }
@@ -533,8 +547,8 @@ export function enemyTypeWeights(wave: number): WeightedEnemyType[] {
   return result;
 }
 
-export function selectEnemyType(wave: number, roll: number): EnemyType {
-  const weights = enemyTypeWeights(wave);
+export function selectEnemyType(pressure: number, roll: number): EnemyType {
+  const weights = enemyTypeWeights(pressure);
   const total = weights.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   let target = Math.min(Math.max(roll, 0), 0.999999999) * total;
 
@@ -549,95 +563,107 @@ export function selectEnemyType(wave: number, roll: number): EnemyType {
 
 export function scaledEnemyStats(
   type: EnemyType,
-  wave: number,
+  pressure: number,
 ): Pick<EnemyType, "hp" | "speed" | "damage"> {
-  const latePressure = lateWavePressure(wave);
+  const late = latePressure(pressure);
   return {
     hp:
       type.hp *
       (1 +
-        wave * enemyBalance.hpScalePerWave +
-        latePressure * lateWaveBalance.hpScalePerWave),
+        pressure * enemyBalance.hpScalePerPressure +
+        late * latePressureBalance.hpScalePerPressure),
     speed:
       type.speed *
       (1 +
-        Math.min(enemyBalance.speedScaleMax, wave * enemyBalance.speedScalePerWave) +
+        Math.min(enemyBalance.speedScaleMax, pressure * enemyBalance.speedScalePerPressure) +
         Math.min(
-          lateWaveBalance.speedScaleMax,
-          latePressure * lateWaveBalance.speedScalePerWave,
+          latePressureBalance.speedScaleMax,
+          late * latePressureBalance.speedScalePerPressure,
         )),
     damage:
       type.damage *
       (1 +
         Math.min(
-          lateWaveBalance.damageScaleMax,
-          latePressure * lateWaveBalance.damageScalePerWave,
+          latePressureBalance.damageScaleMax,
+          late * latePressureBalance.damageScalePerPressure,
         )),
   };
 }
 
-export function lateWavePressure(wave: number): number {
-  return Math.max(0, wave - lateWaveBalance.startWave + 1);
+export function latePressure(pressure: number): number {
+  return Math.max(0, pressure - latePressureBalance.startPressure + 1);
 }
 
-function lateWaveTargetBonus(wave: number): number {
-  const pressure = lateWavePressure(wave);
-  if (pressure <= 0) return 0;
+function latePressureTargetBonus(pressure: number): number {
+  const late = latePressure(pressure);
+  if (late <= 0) return 0;
   return Math.round(
-    pressure * lateWaveBalance.targetLinear +
-      Math.pow(pressure, lateWaveBalance.targetExponent) *
-        lateWaveBalance.targetExponentScale,
+    late * latePressureBalance.targetLinear +
+      Math.pow(late, latePressureBalance.targetExponent) *
+        latePressureBalance.targetExponentScale,
   );
 }
 
 function gateRampMultiplier(
-  wave: number,
-  gate: { minWave: number; rampWaves: number },
+  pressure: number,
+  gate: { minPressure: number; rampPressures: number },
 ): number {
-  if (wave < gate.minWave) return 0;
-  if (gate.rampWaves <= 0) return 1;
-  return Math.min(1, (wave - gate.minWave + 1) / gate.rampWaves);
+  if (pressure < gate.minPressure) return 0;
+  if (gate.rampPressures <= 0) return 1;
+  return Math.min(1, (pressure - gate.minPressure + 1) / gate.rampPressures);
 }
 
-export function upgradeTierWeights(wave: number, rarityRank = 0): WeightedTier[] {
+export function upgradeTierWeights(pressure: number, rarityRank = 0): WeightedTier[] {
   const weights = upgradeBalance.tierWeights;
   const gates = upgradeBalance.gates;
   const rank = Math.max(0, Math.min(3, Math.floor(rarityRank)));
   const perRank = weights.perRank;
-  const protoRamp = gateRampMultiplier(wave, gates.prototype);
-  const singularityRamp = gateRampMultiplier(wave, gates.singularity);
+  const protoRamp = gateRampMultiplier(pressure, gates.prototype);
+  const singularityRamp = gateRampMultiplier(pressure, gates.singularity);
+  const rareUnlocked = rank >= gates.rare.minRank;
+  const prototypeUnlocked = rank >= gates.prototype.minRank;
+  const singularityUnlocked = rank >= gates.singularity.minRank;
   return [
     {
       tier: upgradeTiers[0]!,
       weight: Math.max(
         weights.standardMin,
-        weights.standardBase - wave * weights.standardPerWave - rank * perRank.standardPenalty,
+        weights.standardBase -
+          pressure * weights.standardPerPressure -
+          rank * perRank.standardPenalty,
       ),
     },
     {
       tier: upgradeTiers[1]!,
-      weight: weights.rareBase + wave * weights.rarePerWave + rank * perRank.rare,
+      weight: rareUnlocked
+        ? weights.rareBase + pressure * weights.rarePerPressure + rank * perRank.rare
+        : 0,
     },
     {
       tier: upgradeTiers[2]!,
-      weight:
-        protoRamp > 0
-          ? (weights.prototypeBase + wave * weights.prototypePerWave + rank * perRank.prototype) *
+      weight: !prototypeUnlocked
+        ? 0
+        : protoRamp > 0
+          ? (weights.prototypeBase +
+              pressure * weights.prototypePerPressure +
+              rank * perRank.prototype) *
             protoRamp
           : gates.prototype.lockedWeight,
     },
     {
       tier: upgradeTiers[3]!,
-      weight:
-        singularityRamp > 0
-          ? (wave * weights.singularityPerWave + rank * perRank.singularity) * singularityRamp
+      weight: !singularityUnlocked
+        ? 0
+        : singularityRamp > 0
+          ? (pressure * weights.singularityPerPressure + rank * perRank.singularity) *
+            singularityRamp
           : gates.singularity.lockedWeight,
     },
   ];
 }
 
-export function selectUpgradeTier(wave: number, roll: number, rarityRank = 0): UpgradeTier {
-  const weights = upgradeTierWeights(wave, rarityRank);
+export function selectUpgradeTier(pressure: number, roll: number, rarityRank = 0): UpgradeTier {
+  const weights = upgradeTierWeights(pressure, rarityRank);
   const total = weights.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   let target = Math.min(Math.max(roll, 0), 0.999999999) * total;
 

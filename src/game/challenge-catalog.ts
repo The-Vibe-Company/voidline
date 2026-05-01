@@ -5,21 +5,21 @@ export const challengeCatalog: Challenge[] = [
     id: "survivor",
     icon: "RUN",
     name: "Survivant orbital",
-    description: "Atteins des vagues clefs.",
-    metric: "bestWave",
-    unit: "vague",
+    description: "Survis aux paliers clefs.",
+    metric: "bestSurvivalSeconds",
+    unit: "s",
     tiers: [
-      { threshold: 5 },
-      { threshold: 10 },
-      { threshold: 15 },
-      { threshold: 20 },
+      { threshold: 180 },
+      { threshold: 360 },
+      { threshold: 600 },
+      { threshold: 900 },
     ],
   },
   {
     id: "boss-hunter",
     icon: "BOS",
     name: "Chasseur de boss",
-    description: "Detruis des boss de vague.",
+    description: "Detruis des boss de niveau.",
     metric: "bossKills",
     unit: "boss",
     tiers: [
@@ -71,7 +71,7 @@ export const challengeCatalog: Challenge[] = [
 
 export function createEmptyChallengeProgress(): ChallengeProgress {
   return {
-    bestWave: 0,
+    bestSurvivalSeconds: 0,
     bossKills: 0,
     totalKills: 0,
     bestScore: 0,

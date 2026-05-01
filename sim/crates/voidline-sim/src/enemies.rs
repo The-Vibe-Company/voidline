@@ -12,7 +12,7 @@ use crate::player::Player;
 use crate::pools::{release_enemy, EntityPools};
 use crate::powerups::maybe_drop_powerup;
 use crate::rng::Mulberry32;
-use crate::roguelike::{boss_unlock_wave_for_stage, starting_wave_for_stage};
+use crate::roguelike::base_pressure_for_stage;
 use crate::state::{EntityCounters, GameMode, GameState};
 use crate::world::World;
 
@@ -239,10 +239,10 @@ pub fn kill_enemy(
 ) {
     let snapshot = enemies[index].clone();
     release_enemy(pools, enemies, index);
-    state.wave_kills += 1;
+    state.phase_kills += 1;
     let kind_key = snapshot.kind.as_str().to_string();
     *state.kills_by_kind.entry(kind_key).or_insert(0) += 1;
-    let awarded = score_award(snapshot.score, state.wave);
+    let awarded = score_award(snapshot.score, state.pressure);
     state.score += awarded as f64;
     state.best_combo += 1;
     spawn_experience(
@@ -252,7 +252,7 @@ pub fn kill_enemy(
         experience_orbs,
         rng,
         &snapshot,
-        state.wave,
+        state.pressure,
     );
     maybe_drop_powerup(
         balance,
@@ -269,23 +269,21 @@ pub fn kill_enemy(
             spawn_chest(pools, counters, chests, rng, snapshot.x, snapshot.y);
         }
         EnemyRole::Boss => {
-            if !state.run_boss_waves.contains(&state.wave) {
-                state.run_boss_waves.push(state.wave);
-            }
             if !state.run_boss_stages.contains(&state.stage) {
                 state.run_boss_stages.push(state.stage);
             }
             let cleared_stage = state.stage;
             let next_stage = cleared_stage + 1;
-            let next_wave = (state.wave + 1).max(starting_wave_for_stage(balance, next_stage));
+            let next_pressure = base_pressure_for_stage(balance, next_stage).max(state.pressure);
             state.stage_boss_active = false;
             state.stage_boss_spawned = false;
             state.stage = next_stage;
             state.highest_stage_reached = state.highest_stage_reached.max(state.stage);
             state.stage_elapsed_seconds = 0.0;
-            state.wave = next_wave - 1;
-            state.wave_delay = 0.0;
-            let _unlocked = boss_unlock_wave_for_stage(cleared_stage);
+            state.phase_kills = 0;
+            state.pressure = next_pressure;
+            state.mini_boss_pending = false;
+            state.mini_boss_last_pressure = next_pressure.saturating_sub(1);
         }
         EnemyRole::Normal => {}
     }

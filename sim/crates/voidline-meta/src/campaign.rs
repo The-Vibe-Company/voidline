@@ -1,5 +1,5 @@
 //! Run a campaign of N runs with a given policy and capture the timeline
-//! (which meta-upgrade was unlocked at which run, what wave each run reached).
+//! (which meta-upgrade was unlocked at which run, what pressure each run reached).
 
 use std::collections::HashMap;
 
@@ -7,6 +7,7 @@ use voidline_data::DataBundle;
 
 use crate::env::{MetaAction, MetaProgressionEnv, StepKind, StepResult};
 use crate::policies::{MetaPolicy, PolicyId};
+use crate::profiles::{PlayerProfileId, ProfileRunSummary};
 
 #[derive(Debug, Clone)]
 pub struct CampaignTimelineEntry {
@@ -14,9 +15,10 @@ pub struct CampaignTimelineEntry {
     pub action: String,
     pub crystals_before: u64,
     pub crystals_after: u64,
-    pub wave_reached: Option<u32>,
+    pub pressure_reached: Option<u32>,
     pub purchased: Option<String>,
     pub died: Option<bool>,
+    pub profile: Option<ProfileRunSummary>,
 }
 
 #[derive(Debug, Clone)]
@@ -37,9 +39,10 @@ pub struct CampaignOptions {
     pub seed: u32,
     pub runs_count: u32,
     pub max_seconds: f64,
-    pub max_wave: u32,
+    pub max_pressure: u32,
     pub step_seconds: f64,
     pub max_decisions_per_run: u32,
+    pub player_profile: PlayerProfileId,
 }
 
 impl Default for CampaignOptions {
@@ -48,9 +51,10 @@ impl Default for CampaignOptions {
             seed: 0,
             runs_count: 30,
             max_seconds: 240.0,
-            max_wave: 30,
+            max_pressure: 30,
             step_seconds: 1.0 / 60.0,
             max_decisions_per_run: 16,
+            player_profile: PlayerProfileId::Idle,
         }
     }
 }
@@ -62,8 +66,10 @@ pub fn run_meta_campaign<P: MetaPolicy>(
 ) -> CampaignResult {
     let mut env = MetaProgressionEnv::new(bundle, options.seed);
     env.max_seconds = options.max_seconds;
-    env.max_wave = options.max_wave;
+    env.max_pressure = options.max_pressure;
     env.step_seconds = options.step_seconds;
+    env.player_profile = options.player_profile;
+    env.max_decisions_per_run = options.max_decisions_per_run;
 
     let mut timeline = Vec::new();
     let mut unlock_run_index: HashMap<String, u32> = HashMap::new();
@@ -89,9 +95,10 @@ pub fn run_meta_campaign<P: MetaPolicy>(
                         action: format!("buy:{upgrade_id}"),
                         crystals_before,
                         crystals_after: result.crystals_after,
-                        wave_reached: None,
+                        pressure_reached: None,
                         purchased: Some(upgrade_id.clone()),
                         died: None,
+                        profile: None,
                     });
                     unlock_run_index
                         .entry(upgrade_id.clone())
@@ -102,19 +109,21 @@ pub fn run_meta_campaign<P: MetaPolicy>(
                     }
                 }
                 StepKind::Run {
-                    wave,
+                    pressure,
                     died,
                     boss_stages,
+                    profile,
                     ..
                 } => {
                     if !boss_stages.is_empty() {
-                        first_boss_kill.get_or_insert(run_index);
+                        let human_run_index = run_index + 1;
+                        first_boss_kill.get_or_insert(human_run_index);
                         for stage in boss_stages {
                             if *stage >= 1 {
-                                first_stage1_clear.get_or_insert(run_index);
+                                first_stage1_clear.get_or_insert(human_run_index);
                             }
                             if *stage >= 2 {
-                                first_stage2_clear.get_or_insert(run_index);
+                                first_stage2_clear.get_or_insert(human_run_index);
                             }
                         }
                     }
@@ -123,9 +132,10 @@ pub fn run_meta_campaign<P: MetaPolicy>(
                         action: "run".to_string(),
                         crystals_before,
                         crystals_after: result.crystals_after,
-                        wave_reached: Some(*wave),
+                        pressure_reached: Some(*pressure),
                         purchased: None,
                         died: Some(*died),
+                        profile: Some(profile.clone()),
                     });
                     runs_done += 1;
                     break;

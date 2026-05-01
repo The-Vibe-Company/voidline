@@ -25,20 +25,16 @@ import {
   createRustSimulation,
   resetRustSimulation,
   resizeRustSimulation,
-  startRustSimulationWave,
   stepRustSimulation,
 } from "./rust-engine";
 import type { SimulationConfig, SimulationInputState } from "../types";
-import { startingWaveForStage } from "../game/roguelike";
 import { incrementChallengeProgress, recordChallengeProgress } from "../systems/challenges";
 
 interface ChallengeSnapshot {
-  wave: number;
-  startStage: number;
-  waveKills: number;
-  waveDelay: number;
+  totalKills: number;
   score: number;
   level: number;
+  runElapsedSeconds: number;
   runBossStages: number;
 }
 
@@ -72,15 +68,6 @@ export function applyPerfConfig(config: SimulationConfig): void {
 
 export function resizeSimulation(width: number, height: number): void {
   resizeRustSimulation(width, height);
-}
-
-export function startSimulationWave(wave: number): void {
-  const previous = captureChallengeSnapshot();
-  startRustSimulationWave(wave);
-  if (wave === previous.wave + 1) {
-    recordChallengeProgress("bestWave", challengeWaveForRun(previous.wave, previous.startStage));
-  }
-  markHudDirty();
 }
 
 export function resetSimulation(seed?: number): void {
@@ -119,12 +106,10 @@ export function stepSimulation(dt: number, _input?: SimulationInputState): void 
 
 function captureChallengeSnapshot(): ChallengeSnapshot {
   return {
-    wave: state.wave,
-    startStage: state.startStage,
-    waveKills: state.waveKills,
-    waveDelay: state.waveDelay,
+    totalKills: totalKillsByKind(),
     score: state.score,
     level: state.level,
+    runElapsedSeconds: state.runElapsedSeconds,
     runBossStages: state.runBossStages.length,
   };
 }
@@ -139,29 +124,18 @@ function recordRustChallengeProgress(previous: ChallengeSnapshot): void {
   if (state.runBossStages.length > previous.runBossStages) {
     incrementChallengeProgress("bossKills", state.runBossStages.length - previous.runBossStages);
   }
+  if (Math.floor(state.runElapsedSeconds) > Math.floor(previous.runElapsedSeconds)) {
+    recordChallengeProgress("bestSurvivalSeconds", state.runElapsedSeconds);
+  }
 
-  const killsDelta =
-    state.wave === previous.wave
-      ? state.waveKills - previous.waveKills
-      : Math.max(0, state.waveKills);
+  const killsDelta = totalKillsByKind() - previous.totalKills;
   if (killsDelta > 0) {
     incrementChallengeProgress("totalKills", killsDelta);
   }
-
-  if (state.wave > previous.wave) {
-    recordChallengeProgress("bestWave", challengeWaveForRun(previous.wave, previous.startStage));
-  } else if (
-    previous.waveDelay === 0 &&
-    state.waveDelay > 0 &&
-    state.spawnRemaining <= 0 &&
-    enemies.length === 0
-  ) {
-    recordChallengeProgress("bestWave", challengeWaveForRun(state.wave, state.startStage));
-  }
 }
 
-function challengeWaveForRun(wave: number, startStage: number): number {
-  return Math.max(1, wave - startingWaveForStage(startStage) + 1);
+function totalKillsByKind(): number {
+  return Object.values(state.killsByKind).reduce((total, count) => total + count, 0);
 }
 
 export function getSimulationView(): {

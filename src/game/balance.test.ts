@@ -5,7 +5,7 @@ import {
   enemyTypeWeights,
   experienceDropTotal,
   experienceOrbRadius,
-  lateWavePressure,
+  latePressure,
   scoreAward,
   scaledEnemyStats,
   selectUpgradeTier,
@@ -13,7 +13,7 @@ import {
   spawnPackChance,
   upgradeTierWeights,
   upgradeTiers,
-  waveTarget,
+  pressureTarget,
   xpToNextLevel,
 } from "./balance";
 import { availableUpgradesForPlayer, findUpgrade } from "./upgrade-catalog";
@@ -42,7 +42,7 @@ describe("balance namespace integrity", () => {
 
   it("exposes the new namespaces wired in Phase A", () => {
     expect(balance.bosses).toBeDefined();
-    expect(balance.bosses.spawnOffsets.miniBoss.eligibleFromWave).toBe(7);
+    expect(balance.bosses.spawnOffsets.miniBoss.eligibleFromPressure).toBe(7);
     expect(balance.synergies.kineticRam.minSpeed).toBe(150);
     expect(balance.synergies.magnetStorm.threshold).toBe(24);
     expect(balance.powerups.heartHealRatio).toBe(0.5);
@@ -50,7 +50,7 @@ describe("balance namespace integrity", () => {
     expect(balance.player.drone.fireInterval.minSwarm).toBeLessThan(
       balance.player.drone.fireInterval.min,
     );
-    expect(balance.progression.relicUnlockWaves).toEqual([10, 20, 30]);
+    expect(balance.progression.relicUnlockStages).toEqual([1, 2, 3]);
   });
 });
 
@@ -76,9 +76,9 @@ function walk(
 }
 
 describe("balance curves", () => {
-  it("keeps XP and wave targets monotonic", () => {
+  it("keeps XP and pressure targets monotonic", () => {
     let previousXp = xpToNextLevel(1);
-    let previousTarget = waveTarget(1);
+    let previousTarget = pressureTarget(1);
 
     for (let level = 2; level <= 40; level += 1) {
       const nextXp = xpToNextLevel(level);
@@ -86,8 +86,8 @@ describe("balance curves", () => {
       previousXp = nextXp;
     }
 
-    for (let wave = 2; wave <= 40; wave += 1) {
-      const nextTarget = waveTarget(wave);
+    for (let pressure = 2; pressure <= 40; pressure += 1) {
+      const nextTarget = pressureTarget(pressure);
       expect(nextTarget).toBeGreaterThan(previousTarget);
       previousTarget = nextTarget;
     }
@@ -96,52 +96,52 @@ describe("balance curves", () => {
   it("keeps spawn gaps bounded", () => {
     let previousGap = spawnGap(1);
 
-    for (let wave = 1; wave <= 80; wave += 1) {
-      const gap = spawnGap(wave);
+    for (let pressure = 1; pressure <= 80; pressure += 1) {
+      const gap = spawnGap(pressure);
       const minGap =
-        lateWavePressure(wave) > 0
-          ? balance.lateWave.spawnGapMin
-          : balance.wave.spawnGapMin;
+        latePressure(pressure) > 0
+          ? balance.latePressure.spawnGapMin
+          : balance.pressure.spawnGapMin;
       expect(gap).toBeGreaterThanOrEqual(minGap);
-      expect(gap).toBeLessThanOrEqual(balance.wave.spawnGapStart);
+      expect(gap).toBeLessThanOrEqual(balance.pressure.spawnGapStart);
       expect(gap).toBeLessThanOrEqual(previousGap);
       previousGap = gap;
     }
   });
 
-  it("front-loads the first wave tempo", () => {
-    expect(waveTarget(1)).toBe(27);
+  it("front-loads the first pressure tempo", () => {
+    expect(pressureTarget(1)).toBe(27);
     expect(spawnGap(1)).toBeCloseTo(0.385);
     expect(spawnPackChance(1)).toBeCloseTo(0.12);
-    expect(balance.wave.spawnTimerStart).toBeCloseTo(0.1);
+    expect(balance.pressure.spawnTimerStart).toBeCloseTo(0.1);
   });
 
-  it("ramps late-game pressure starting from balance.lateWave.startWave", () => {
-    const startWave = balance.lateWave.startWave;
+  it("ramps late-game pressure starting from balance.latePressure.startPressure", () => {
+    const startPressure = balance.latePressure.startPressure;
     const scout = balance.enemies[0]!;
-    const beforeStart = scaledEnemyStats(scout, startWave - 1);
-    const atStart = scaledEnemyStats(scout, startWave);
-    const wave10 = scaledEnemyStats(scout, 10);
-    const wave40 = scaledEnemyStats(scout, 40);
+    const beforeStart = scaledEnemyStats(scout, startPressure - 1);
+    const atStart = scaledEnemyStats(scout, startPressure);
+    const pressure10 = scaledEnemyStats(scout, 10);
+    const pressure40 = scaledEnemyStats(scout, 40);
 
-    expect(lateWavePressure(startWave - 1)).toBe(0);
-    expect(lateWavePressure(startWave)).toBe(1);
-    expect(lateWavePressure(20)).toBe(20 - startWave + 1);
+    expect(latePressure(startPressure - 1)).toBe(0);
+    expect(latePressure(startPressure)).toBe(1);
+    expect(latePressure(20)).toBe(20 - startPressure + 1);
 
-    expect(waveTarget(startWave) - waveTarget(startWave - 1)).toBeGreaterThan(0);
-    expect(spawnGap(20)).toBe(balance.lateWave.spawnGapMin);
-    expect(spawnPackChance(20)).toBeCloseTo(balance.lateWave.packChanceMax);
+    expect(pressureTarget(startPressure) - pressureTarget(startPressure - 1)).toBeGreaterThan(0);
+    expect(spawnGap(20)).toBe(balance.latePressure.spawnGapMin);
+    expect(spawnPackChance(20)).toBeCloseTo(balance.latePressure.packChanceMax);
 
     expect(beforeStart.damage).toBe(scout.damage);
     expect(atStart.damage).toBeGreaterThan(scout.damage);
-    expect(wave10.hp).toBeGreaterThan(scout.hp);
-    expect(wave10.speed).toBeGreaterThan(scout.speed);
-    expect(wave10.damage).toBeGreaterThan(scout.damage);
-    expect(wave40.speed).toBeCloseTo(
-      scout.speed * (1 + balance.enemy.speedScaleMax + balance.lateWave.speedScaleMax),
+    expect(pressure10.hp).toBeGreaterThan(scout.hp);
+    expect(pressure10.speed).toBeGreaterThan(scout.speed);
+    expect(pressure10.damage).toBeGreaterThan(scout.damage);
+    expect(pressure40.speed).toBeCloseTo(
+      scout.speed * (1 + balance.enemy.speedScaleMax + balance.latePressure.speedScaleMax),
     );
-    expect(wave40.damage).toBeCloseTo(
-      scout.damage * (1 + balance.lateWave.damageScaleMax),
+    expect(pressure40.damage).toBeCloseTo(
+      scout.damage * (1 + balance.latePressure.damageScaleMax),
     );
   });
 
@@ -152,12 +152,12 @@ describe("balance curves", () => {
     expect(scout).toMatchObject({ hp: 42, speed: 132, damage: 25 });
     expect(hunter).toMatchObject({ hp: 64, speed: 112, damage: 29 });
     expect(brute).toMatchObject({ hp: 130, speed: 72, damage: 40 });
-    expect(balance.enemy.hunterChancePerWave).toBeCloseTo(0.07);
-    expect(balance.enemy.bruteChancePerWave).toBeCloseTo(0.05);
-    expect(balance.enemy.bruteChanceOffsetWave).toBe(2);
+    expect(balance.enemy.hunterChancePerPressure).toBeCloseTo(0.07);
+    expect(balance.enemy.bruteChancePerPressure).toBeCloseTo(0.05);
+    expect(balance.enemy.bruteChanceOffsetPressure).toBe(2);
   });
 
-  it("awards more visible score as waves advance", () => {
+  it("awards more visible score as pressures advance", () => {
     const baseScore = balance.enemies[0]!.score;
 
     expect(scoreAward(baseScore, 1)).toBe(47);
@@ -169,40 +169,80 @@ describe("balance curves", () => {
   });
 
   it("keeps upgrade tier weights valid", () => {
-    for (const wave of [1, 2, 5, 12, 40]) {
-      const weights = upgradeTierWeights(wave);
-      expect(weights.every((item) => item.weight >= 0)).toBe(true);
-      expect(weights.reduce((sum, item) => sum + item.weight, 0)).toBeGreaterThan(0);
+    for (const pressure of [1, 2, 5, 12, 40]) {
+      for (const rank of [0, 1, 2, 3]) {
+        const weights = upgradeTierWeights(pressure, rank);
+        expect(weights.every((item) => item.weight >= 0)).toBe(true);
+        expect(weights.reduce((sum, item) => sum + item.weight, 0)).toBeGreaterThan(0);
+      }
     }
 
-    const singularityGate = balance.upgrade.gates.singularity.minWave;
+    const singularityGate = balance.upgrade.gates.singularity.minPressure;
+    const singularityRank = balance.upgrade.gates.singularity.minRank;
     expect(
-      upgradeTierWeights(singularityGate - 1).find((item) => item.tier.id === "singularity")
-        ?.weight,
+      upgradeTierWeights(singularityGate - 1, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
     ).toBe(0);
     expect(
-      upgradeTierWeights(singularityGate).find((item) => item.tier.id === "singularity")?.weight,
+      upgradeTierWeights(singularityGate, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
     ).toBeGreaterThan(0);
     expect(selectUpgradeTier(1, 0).id).toBe("standard");
   });
 
-  it("lets account rarity ranks tilt tier odds without early singularities", () => {
-    const baseWaveFive = upgradeTierWeights(5, 0);
-    const boostedWaveFive = upgradeTierWeights(5, 3);
-    const baseRare = baseWaveFive.find((item) => item.tier.id === "rare")!.weight;
-    const boostedRare = boostedWaveFive.find((item) => item.tier.id === "rare")!.weight;
+  it("hard-gates higher tiers behind rarity rank", () => {
+    for (const pressure of [1, 5, 12, 40]) {
+      const r0 = upgradeTierWeights(pressure, 0);
+      expect(r0.find((item) => item.tier.id === "rare")?.weight).toBe(0);
+      expect(r0.find((item) => item.tier.id === "prototype")?.weight).toBe(0);
+      expect(r0.find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+      expect(r0.find((item) => item.tier.id === "standard")?.weight).toBeGreaterThan(0);
 
-    expect(boostedRare).toBeGreaterThan(baseRare);
-    const singularityGate = balance.upgrade.gates.singularity.minWave;
+      const r1 = upgradeTierWeights(pressure, 1);
+      expect(r1.find((item) => item.tier.id === "prototype")?.weight).toBe(0);
+      expect(r1.find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+
+      const r2 = upgradeTierWeights(pressure, 2);
+      expect(r2.find((item) => item.tier.id === "singularity")?.weight).toBe(0);
+    }
+  });
+
+  it("monotonically rewards rank with stronger biases past combined gates", () => {
+    const protoGate = balance.upgrade.gates.prototype.minPressure;
+    const protoRank = balance.upgrade.gates.prototype.minRank;
+    const ramp = balance.upgrade.gates.prototype.rampPressures;
+    const fullyRamped = protoGate + ramp + 1;
+    for (let rank = protoRank; rank < 3; rank += 1) {
+      const lower = upgradeTierWeights(fullyRamped, rank).find(
+        (item) => item.tier.id === "prototype",
+      )!.weight;
+      const higher = upgradeTierWeights(fullyRamped, rank + 1).find(
+        (item) => item.tier.id === "prototype",
+      )!.weight;
+      expect(higher).toBeGreaterThan(lower);
+    }
+  });
+
+  it("keeps singularity locked before its pressure gate even at full rank", () => {
+    const singularityGate = balance.upgrade.gates.singularity.minPressure;
+    const singularityRank = balance.upgrade.gates.singularity.minRank;
     expect(
-      upgradeTierWeights(singularityGate - 1, 3).find((item) => item.tier.id === "singularity")
-        ?.weight,
+      upgradeTierWeights(singularityGate - 1, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
     ).toBe(0);
+    expect(
+      upgradeTierWeights(singularityGate, singularityRank).find(
+        (item) => item.tier.id === "singularity",
+      )?.weight,
+    ).toBeGreaterThan(0);
   });
 
   it("keeps enemy and XP formulas valid", () => {
-    for (const wave of [1, 6, 20]) {
-      const weights = enemyTypeWeights(wave);
+    for (const pressure of [1, 6, 20]) {
+      const weights = enemyTypeWeights(pressure);
       expect(weights.every((item) => item.weight >= 0)).toBe(true);
       expect(weights.reduce((sum, item) => sum + item.weight, 0)).toBeCloseTo(1);
     }
@@ -229,13 +269,17 @@ describe("upgrade effects", () => {
 
     findUpgrade("twin-cannon").apply(tier("rare"), target);
     expect(target.projectileCount).toBe(3);
+    expect(target.damage).toBeCloseTo(
+      24 * balance.upgrade.effects.projectileDamageFactor,
+    );
 
     findUpgrade("plasma-core").apply(tier("standard"), target);
     expect(target.fireRate).toBeCloseTo(3 * (1 + fireRateEffect));
 
-    findUpgrade("rail-slug").apply(tier("standard"), target);
-    expect(target.damage).toBeCloseTo(24 * (1 + damageEffect));
-    expect(target.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
+    const damageTarget = createPlayerState();
+    findUpgrade("rail-slug").apply(tier("standard"), damageTarget);
+    expect(damageTarget.damage).toBeCloseTo(24 * (1 + damageEffect));
+    expect(damageTarget.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
   });
 
   it("applies defensive and utility upgrades to an isolated player", () => {

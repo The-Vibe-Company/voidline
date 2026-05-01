@@ -2,28 +2,29 @@
 
 use voidline_data::balance::Balance;
 
-pub fn starting_wave_for_stage(balance: &Balance, stage: u32) -> u32 {
-    1 + (stage.saturating_sub(1)) * (balance.bosses.wave_offset_per_stage as u32)
+pub fn base_pressure_for_stage(balance: &Balance, stage: u32) -> u32 {
+    1 + (stage.saturating_sub(1)) * (balance.bosses.pressure_offset_per_stage as u32)
 }
 
-pub fn boss_unlock_wave_for_stage(stage: u32) -> u32 {
-    stage.max(1) * 10
+pub fn pressure_for_stage_elapsed(balance: &Balance, stage: u32, elapsed_seconds: f64) -> u32 {
+    let elapsed_pressure = (elapsed_seconds.max(0.0) / 60.0).floor() as u32;
+    base_pressure_for_stage(balance, stage) + elapsed_pressure
 }
 
-pub fn is_mini_boss_eligible_wave(balance: &Balance, wave: u32) -> bool {
-    wave >= balance.bosses.mini_boss.start_wave as u32
+pub fn is_mini_boss_eligible_pressure(balance: &Balance, pressure: u32) -> bool {
+    pressure >= balance.bosses.mini_boss.start_pressure as u32
 }
 
 pub fn should_spawn_mini_boss(
     balance: &Balance,
-    wave: u32,
+    pressure: u32,
     eligible_misses: u32,
     roll: f64,
 ) -> bool {
-    if !is_mini_boss_eligible_wave(balance, wave) {
+    if !is_mini_boss_eligible_pressure(balance, pressure) {
         return false;
     }
-    if (eligible_misses + 1) as f64 >= balance.bosses.mini_boss.guarantee_after_eligible_waves {
+    if (eligible_misses + 1) as f64 >= balance.bosses.mini_boss.guarantee_after_eligible_pressures {
         return true;
     }
     roll < balance.bosses.mini_boss.spawn_chance
@@ -31,16 +32,40 @@ pub fn should_spawn_mini_boss(
 
 pub fn next_mini_boss_misses(
     balance: &Balance,
-    wave: u32,
+    pressure: u32,
     eligible_misses: u32,
     spawned: bool,
 ) -> u32 {
-    if !is_mini_boss_eligible_wave(balance, wave) {
+    if !is_mini_boss_eligible_pressure(balance, pressure) {
         return eligible_misses;
     }
     if spawned {
         0
     } else {
         eligible_misses + 1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use voidline_data::load_default;
+
+    use super::{base_pressure_for_stage, pressure_for_stage_elapsed};
+
+    #[test]
+    fn pressure_is_stage_base_plus_elapsed_minutes() {
+        let bundle = load_default().unwrap();
+        let balance = &bundle.balance;
+        assert_eq!(base_pressure_for_stage(balance, 1), 1);
+        assert_eq!(
+            base_pressure_for_stage(balance, 2),
+            1 + balance.bosses.pressure_offset_per_stage as u32
+        );
+        assert_eq!(pressure_for_stage_elapsed(balance, 1, 0.0), 1);
+        assert_eq!(pressure_for_stage_elapsed(balance, 1, 179.9), 3);
+        assert_eq!(
+            pressure_for_stage_elapsed(balance, 2, 360.0),
+            base_pressure_for_stage(balance, 2) + 6
+        );
     }
 }

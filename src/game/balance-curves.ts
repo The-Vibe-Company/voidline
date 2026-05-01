@@ -3,12 +3,12 @@ import {
   enemyTypes,
   experienceDropTotal,
   experienceOrbRadius,
-  lateWavePressure,
+  latePressure,
   scaledEnemyStats,
   spawnGap,
   spawnPackChance,
   upgradeTierWeights,
-  waveTarget,
+  pressureTarget,
   xpToNextLevel,
 } from "./balance";
 import type { BossDef, EnemyKind, EnemyType, TierId, UpgradeTier } from "../types";
@@ -23,16 +23,16 @@ function getEnemyType(kind: EnemyKind): EnemyType {
   return type;
 }
 
-export function enemyHpAt(wave: number, kind: EnemyKind): number {
-  return scaledEnemyStats(getEnemyType(kind), wave).hp;
+export function enemyHpAt(pressure: number, kind: EnemyKind): number {
+  return scaledEnemyStats(getEnemyType(kind), pressure).hp;
 }
 
-export function enemyDamageAt(wave: number, kind: EnemyKind): number {
-  return scaledEnemyStats(getEnemyType(kind), wave).damage;
+export function enemyDamageAt(pressure: number, kind: EnemyKind): number {
+  return scaledEnemyStats(getEnemyType(kind), pressure).damage;
 }
 
-export function enemySpeedAt(wave: number, kind: EnemyKind): number {
-  return scaledEnemyStats(getEnemyType(kind), wave).speed;
+export function enemySpeedAt(pressure: number, kind: EnemyKind): number {
+  return scaledEnemyStats(getEnemyType(kind), pressure).speed;
 }
 
 export type BossRole = "miniBoss" | "boss";
@@ -41,16 +41,16 @@ function bossTuning(role: BossRole) {
   return role === "boss" ? balance.bosses.boss : balance.bosses.miniBoss;
 }
 
-export function bossHpAt(wave: number, role: BossRole, kind: EnemyKind = "scout"): number {
-  return enemyHpAt(wave, kind) * bossTuning(role).hpMultiplier;
+export function bossHpAt(pressure: number, role: BossRole, kind: EnemyKind = "scout"): number {
+  return enemyHpAt(pressure, kind) * bossTuning(role).hpMultiplier;
 }
 
-export function bossDamageAt(wave: number, role: BossRole, kind: EnemyKind = "scout"): number {
-  return enemyDamageAt(wave, kind) * bossTuning(role).damageMultiplier;
+export function bossDamageAt(pressure: number, role: BossRole, kind: EnemyKind = "scout"): number {
+  return enemyDamageAt(pressure, kind) * bossTuning(role).damageMultiplier;
 }
 
-export function bossSpeedAt(wave: number, role: BossRole, kind: EnemyKind = "scout"): number {
-  return enemySpeedAt(wave, kind) * bossTuning(role).speedMultiplier;
+export function bossSpeedAt(pressure: number, role: BossRole, kind: EnemyKind = "scout"): number {
+  return enemySpeedAt(pressure, kind) * bossTuning(role).speedMultiplier;
 }
 
 export function bossStatsAt(def: BossDef, stage: number): BossDef["stats"] {
@@ -72,14 +72,14 @@ export interface WeightedTier {
   weight: number;
 }
 
-export function rarityWeightsAt(wave: number, rarityRank = 0): WeightedTier[] {
-  return upgradeTierWeights(wave, rarityRank);
+export function rarityWeightsAt(pressure: number, rarityRank = 0): WeightedTier[] {
+  return upgradeTierWeights(pressure, rarityRank);
 }
 
 export type RarityShare = Record<TierId, number>;
 
-export function rarityProbabilitiesAt(wave: number, rarityRank = 0): RarityShare {
-  const weights = rarityWeightsAt(wave, rarityRank);
+export function rarityProbabilitiesAt(pressure: number, rarityRank = 0): RarityShare {
+  const weights = rarityWeightsAt(pressure, rarityRank);
   const total = weights.reduce((sum, item) => sum + Math.max(0, item.weight), 0);
   const out: Partial<RarityShare> = {};
   for (const item of weights) {
@@ -99,37 +99,37 @@ export interface UpgradeUnlockState {
   singularity: boolean;
 }
 
-export function upgradeUnlocksAt(wave: number): UpgradeUnlockState {
+export function upgradeUnlocksAt(pressure: number): UpgradeUnlockState {
   const gates = balance.upgrade.gates;
   return {
-    rare: wave >= gates.rare.minWave,
-    prototype: wave >= gates.prototype.minWave,
-    singularity: wave >= gates.singularity.minWave,
+    rare: pressure >= gates.rare.minPressure,
+    prototype: pressure >= gates.prototype.minPressure,
+    singularity: pressure >= gates.singularity.minPressure,
   };
 }
 
-export function lateWavePressureAt(wave: number): number {
-  return lateWavePressure(wave);
+export function latePressureAt(pressure: number): number {
+  return latePressure(pressure);
 }
 
-export function waveTargetAt(wave: number): number {
-  return waveTarget(wave);
+export function pressureTargetAt(pressure: number): number {
+  return pressureTarget(pressure);
 }
 
-export function spawnGapAt(wave: number): number {
-  return spawnGap(wave);
+export function spawnGapAt(pressure: number): number {
+  return spawnGap(pressure);
 }
 
-export function spawnPackChanceAt(wave: number): number {
-  return spawnPackChance(wave);
+export function spawnPackChanceAt(pressure: number): number {
+  return spawnPackChance(pressure);
 }
 
 export function xpToNextLevelAt(level: number): number {
   return xpToNextLevel(level);
 }
 
-export function experienceDropAt(enemyScore: number, wave: number): number {
-  return experienceDropTotal(enemyScore, wave);
+export function experienceDropAt(enemyScore: number, pressure: number): number {
+  return experienceDropTotal(enemyScore, pressure);
 }
 
 export function experienceOrbRadiusAt(value: number): number {

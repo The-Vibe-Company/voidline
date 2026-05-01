@@ -7,7 +7,7 @@ export interface RustMetaReportOptions {
   quick?: boolean;
   campaigns?: number;
   runs?: number;
-  maxWave?: number;
+  maxPressure?: number;
   trialSeconds?: number;
   maxSeconds?: number;
   threads?: number;
@@ -29,7 +29,7 @@ export function runRustMetaReport(options: RustMetaReportOptions = {}): RustMeta
   ];
   appendNumberArg(args, "--campaigns", options.campaigns);
   appendNumberArg(args, "--runs", options.runs);
-  appendNumberArg(args, "--max-wave", options.maxWave);
+  appendNumberArg(args, "--max-pressure", options.maxPressure);
   appendNumberArg(args, "--trial-seconds", options.trialSeconds);
   appendNumberArg(args, "--max-seconds", options.maxSeconds);
   appendNumberArg(args, "--threads", options.threads);

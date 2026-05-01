@@ -1,26 +1,40 @@
 import { describe, expect, it } from "vitest";
 import {
+  basePressureForStage,
   bossBalance,
   nextMiniBossMisses,
-  shouldSpawnMiniBoss,
+  pressureForStageElapsed,
+  shouldSpawnMiniBossAtPressure,
 } from "./roguelike";
 
-describe("roguelike wave cadence", () => {
-  it("can spawn mini-bosses on former boss-wave milestones", () => {
-    for (const wave of [10, 20, 30]) {
-      expect(shouldSpawnMiniBoss(wave, bossBalance.miniBoss.guaranteeAfterEligibleWaves, 0)).toBe(
-        true,
-      );
+describe("roguelike pressure cadence", () => {
+  it("computes pressure only from stage and elapsed time", () => {
+    expect(basePressureForStage(1)).toBe(1);
+    expect(basePressureForStage(2)).toBe(1 + bossBalance.pressureOffsetPerStage);
+    expect(pressureForStageElapsed(1, 0)).toBe(1);
+    expect(pressureForStageElapsed(1, 179.9)).toBe(3);
+    expect(pressureForStageElapsed(2, 360)).toBe(basePressureForStage(2) + 6);
+  });
+
+  it("can spawn mini-bosses on pressure milestones", () => {
+    for (const pressure of [10, 20, 30]) {
+      expect(
+        shouldSpawnMiniBossAtPressure(
+          pressure,
+          bossBalance.miniBoss.guaranteeAfterEligiblePressures,
+          0,
+        ),
+      ).toBe(true);
     }
   });
 
   it("guarantees a mini-boss after enough eligible misses", () => {
-    const guaranteedMisses = bossBalance.miniBoss.guaranteeAfterEligibleWaves - 1;
-    const eligibleWave = bossBalance.miniBoss.startWave;
+    const guaranteedMisses = bossBalance.miniBoss.guaranteeAfterEligiblePressures - 1;
+    const eligiblePressure = bossBalance.miniBoss.startPressure;
 
-    expect(shouldSpawnMiniBoss(eligibleWave, 0, 0.99)).toBe(false);
-    expect(shouldSpawnMiniBoss(eligibleWave, guaranteedMisses, 0.99)).toBe(true);
-    expect(nextMiniBossMisses(eligibleWave, 2, false)).toBe(3);
-    expect(nextMiniBossMisses(eligibleWave, 3, true)).toBe(0);
+    expect(shouldSpawnMiniBossAtPressure(eligiblePressure, 0, 0.99)).toBe(false);
+    expect(shouldSpawnMiniBossAtPressure(eligiblePressure, guaranteedMisses, 0.99)).toBe(true);
+    expect(nextMiniBossMisses(eligiblePressure, 2, false)).toBe(3);
+    expect(nextMiniBossMisses(eligiblePressure, 3, true)).toBe(0);
   });
 });

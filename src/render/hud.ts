@@ -1,7 +1,7 @@
 import { enemies, ownedRelics, ownedUpgrades, player, state } from "../state";
 import { clamp } from "../utils";
 import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
-import { applyRelicChoice, pickRelicChoices } from "../systems/relics";
+import { applyRelicChoice, pickRelicChoices, unlockRelicsForBossStage } from "../systems/relics";
 import { upgradeTiers } from "../game/balance";
 import { bossBalance } from "../game/roguelike";
 import type {
@@ -26,7 +26,7 @@ import {
 import { renderCockpit, showHangarTitle } from "./hangar";
 
 const hud = {
-  wave: document.querySelector<HTMLElement>("#waveValue")!,
+  pressure: document.querySelector<HTMLElement>("#pressureValue")!,
   kills: document.querySelector<HTMLElement>("#killsValue")!,
   target: document.querySelector<HTMLElement>("#targetValue")!,
   level: document.querySelector<HTMLElement>("#levelValue")!,
@@ -74,7 +74,7 @@ const hud = {
     ...document.querySelectorAll<HTMLButtonElement>("[data-control-mode]"),
   ],
   finalScore: document.querySelector<HTMLElement>("#finalScore")!,
-  finalWave: document.querySelector<HTMLElement>("#finalWave")!,
+  finalStage: document.querySelector<HTMLElement>("#finalStage")!,
   pickupZonesToggle: document.querySelector<HTMLInputElement>("#togglePickupZones")!,
   runRecapGrid: document.querySelector<HTMLElement>("#runRecapGrid")!,
   runRewardBreakdown: document.querySelector<HTMLElement>("#runRewardBreakdown")!,
@@ -444,11 +444,11 @@ function renderRunRecap(): void {
 
 export function updateHud(): void {
   const stageRemaining = Math.max(0, bossBalance.stageDurationSeconds - state.stageElapsedSeconds);
-  hud.wave.textContent = state.stageBossActive
+  hud.pressure.textContent = state.stageBossActive
     ? `N${state.stage} BOSS`
     : `N${state.stage} ${formatTime(stageRemaining)}`;
-  hud.kills.textContent = String(state.waveKills);
-  hud.target.textContent = String(state.waveTarget);
+  hud.kills.textContent = String(state.phaseKills);
+  hud.target.textContent = String(state.enemyPressureTarget);
   hud.level.textContent = String(state.level);
   hud.xp.textContent = `${Math.floor(state.xp)}/${state.xpTarget} XP`;
   hud.xpBar.style.width = `${clamp(state.xp / state.xpTarget, 0, 1) * 100}%`;
@@ -728,9 +728,12 @@ export function showGameOver(): void {
       score: state.score,
       bossStages: state.runBossStages,
     });
+    for (const stage of state.runBossStages) {
+      unlockRelicsForBossStage(stage);
+    }
   }
   hud.finalScore.textContent = Math.floor(state.score).toLocaleString("fr-FR");
-  hud.finalWave.textContent = String(state.highestStageReached);
+  hud.finalStage.textContent = String(state.highestStageReached);
   renderRunRecap();
   updateChallengePanels();
   updateHangarPanels();

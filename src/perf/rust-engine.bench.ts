@@ -1,9 +1,8 @@
 import { bench } from "vitest";
-import { resetSimulation, startSimulationWave, stepSimulation } from "../simulation/simulation";
+import { resetSimulation, stepSimulation } from "../simulation/simulation";
 
 function prepareRun(seed: number): void {
   resetSimulation(seed);
-  startSimulationWave(1);
 }
 
 bench("rust engine: simulate 60 fixed frames", () => {

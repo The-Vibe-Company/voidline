@@ -10,7 +10,7 @@ import {
   initializeRelicUnlocks,
   pickRelicChoices,
   resetRelicUnlocks,
-  unlockRelicsForBossWave,
+  unlockRelicsForBossStage,
 } from "./relics";
 import { resetAccountProgress } from "./account";
 
@@ -56,7 +56,7 @@ describe("relic unlock persistence", () => {
     const storage = new MemoryStorage();
 
     initializeRelicUnlocks(storage);
-    const unlocked = unlockRelicsForBossWave(10, storage);
+    const unlocked = unlockRelicsForBossStage(1, storage);
 
     expect(unlocked).toEqual(["splitter-matrix"]);
     expect(storage.getItem("voidline:unlockedRelics")).toContain("splitter-matrix");
@@ -66,7 +66,7 @@ describe("relic unlock persistence", () => {
     const storage = new MemoryStorage();
 
     initializeRelicUnlocks(storage);
-    unlockRelicsForBossWave(10, storage);
+    unlockRelicsForBossStage(1, storage);
     resetRelicUnlocks(storage);
 
     expect(unlockedRelics.has("rail-focus")).toBe(true);

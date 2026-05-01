@@ -71,6 +71,8 @@ pub enum EffectOp {
         scale: Option<EffectScale>,
     },
     #[serde(rename_all = "camelCase")]
+    ScaleCurrentPct { stat: PercentStat, factor: f64 },
+    #[serde(rename_all = "camelCase")]
     AddCapped {
         stat: CappedIntStat,
         amount: f64,

@@ -7,44 +7,44 @@
 use voidline_data::balance::Balance;
 use voidline_data::catalogs::EnemyType;
 
-pub fn wave_target(balance: &Balance, wave: u32) -> i64 {
-    let w = wave as f64;
-    let base = balance.wave.target_base
-        + w * balance.wave.target_linear
-        + w.powf(balance.wave.target_exponent)
-        + late_wave_target_bonus(balance, wave);
+pub fn pressure_target(balance: &Balance, pressure: u32) -> i64 {
+    let w = pressure as f64;
+    let base = balance.pressure.target_base
+        + w * balance.pressure.target_linear
+        + w.powf(balance.pressure.target_exponent)
+        + late_pressure_target_bonus(balance, pressure);
     base.round() as i64
 }
 
-pub fn spawn_gap(balance: &Balance, wave: u32) -> f64 {
-    let late_pressure = late_wave_pressure(balance, wave) as f64;
+pub fn spawn_gap(balance: &Balance, pressure: u32) -> f64 {
+    let late_pressure = late_pressure(balance, pressure) as f64;
     let min = if late_pressure > 0.0 {
-        balance.late_wave.spawn_gap_min
+        balance.late_pressure.spawn_gap_min
     } else {
-        balance.wave.spawn_gap_min
+        balance.pressure.spawn_gap_min
     };
-    let raw = balance.wave.spawn_gap_start
-        - (wave as f64) * balance.wave.spawn_gap_per_wave
-        - late_pressure * balance.late_wave.spawn_gap_per_wave;
+    let raw = balance.pressure.spawn_gap_start
+        - (pressure as f64) * balance.pressure.spawn_gap_per_pressure
+        - late_pressure * balance.late_pressure.spawn_gap_per_pressure;
     raw.max(min)
 }
 
-pub fn spawn_pack_chance(balance: &Balance, wave: u32) -> f64 {
-    let late_pressure = late_wave_pressure(balance, wave) as f64;
+pub fn spawn_pack_chance(balance: &Balance, pressure: u32) -> f64 {
+    let late_pressure = late_pressure(balance, pressure) as f64;
     let cap = if late_pressure > 0.0 {
-        balance.late_wave.pack_chance_max.min(
-            balance.wave.pack_chance_max + late_pressure * balance.late_wave.pack_chance_per_wave,
+        balance.late_pressure.pack_chance_max.min(
+            balance.pressure.pack_chance_max + late_pressure * balance.late_pressure.pack_chance_per_pressure,
         )
     } else {
-        balance.wave.pack_chance_max
+        balance.pressure.pack_chance_max
     };
-    let value = (wave as f64) * balance.wave.pack_chance_per_wave
-        + late_pressure * balance.late_wave.pack_chance_per_wave;
+    let value = (pressure as f64) * balance.pressure.pack_chance_per_pressure
+        + late_pressure * balance.late_pressure.pack_chance_per_pressure;
     value.min(cap)
 }
 
-pub fn score_award(enemy_score: f64, wave: u32) -> i64 {
-    (enemy_score * (1.25 + (wave as f64) * 0.1)).round() as i64
+pub fn score_award(enemy_score: f64, pressure: u32) -> i64 {
+    (enemy_score * (1.25 + (pressure as f64) * 0.1)).round() as i64
 }
 
 pub fn xp_to_next_level(balance: &Balance, level: u32) -> i64 {
@@ -55,9 +55,9 @@ pub fn xp_to_next_level(balance: &Balance, level: u32) -> i64 {
     raw.round() as i64
 }
 
-pub fn experience_drop_total(balance: &Balance, enemy_score: f64, wave: u32) -> i64 {
+pub fn experience_drop_total(balance: &Balance, enemy_score: f64, pressure: u32) -> i64 {
     let raw = (enemy_score / balance.xp.drop_score_divisor)
-        * (1.0 + (wave as f64) * balance.xp.drop_wave_scale);
+        * (1.0 + (pressure as f64) * balance.xp.drop_pressure_scale);
     raw.round() as i64
 }
 
@@ -77,19 +77,19 @@ pub fn experience_shard_count(balance: &Balance, kind: &str) -> u32 {
         .unwrap_or_else(|| panic!("Unknown enemy kind for shard count: {kind}"))
 }
 
-pub fn late_wave_pressure(balance: &Balance, wave: u32) -> i64 {
-    let p = (wave as i64) - (balance.late_wave.start_wave as i64) + 1;
+pub fn late_pressure(balance: &Balance, pressure: u32) -> i64 {
+    let p = (pressure as i64) - (balance.late_pressure.start_pressure as i64) + 1;
     p.max(0)
 }
 
-fn late_wave_target_bonus(balance: &Balance, wave: u32) -> f64 {
-    let pressure = late_wave_pressure(balance, wave);
+fn late_pressure_target_bonus(balance: &Balance, pressure: u32) -> f64 {
+    let pressure = late_pressure(balance, pressure);
     if pressure <= 0 {
         return 0.0;
     }
     let p = pressure as f64;
-    let raw = p * balance.late_wave.target_linear
-        + p.powf(balance.late_wave.target_exponent) * balance.late_wave.target_exponent_scale;
+    let raw = p * balance.late_pressure.target_linear
+        + p.powf(balance.late_pressure.target_exponent) * balance.late_pressure.target_exponent_scale;
     raw.round()
 }
 
@@ -100,19 +100,19 @@ pub struct ScaledEnemyStats {
     pub damage: f64,
 }
 
-pub fn scaled_enemy_stats(balance: &Balance, ty: &EnemyType, wave: u32) -> ScaledEnemyStats {
-    let w = wave as f64;
-    let late = late_wave_pressure(balance, wave) as f64;
-    let speed_extra = (w * balance.enemy.speed_scale_per_wave).min(balance.enemy.speed_scale_max);
+pub fn scaled_enemy_stats(balance: &Balance, ty: &EnemyType, pressure: u32) -> ScaledEnemyStats {
+    let w = pressure as f64;
+    let late = late_pressure(balance, pressure) as f64;
+    let speed_extra = (w * balance.enemy.speed_scale_per_pressure).min(balance.enemy.speed_scale_max);
     let speed_extra_late =
-        (late * balance.late_wave.speed_scale_per_wave).min(balance.late_wave.speed_scale_max);
+        (late * balance.late_pressure.speed_scale_per_pressure).min(balance.late_pressure.speed_scale_max);
     let damage_extra =
-        (late * balance.late_wave.damage_scale_per_wave).min(balance.late_wave.damage_scale_max);
+        (late * balance.late_pressure.damage_scale_per_pressure).min(balance.late_pressure.damage_scale_max);
     ScaledEnemyStats {
         hp: ty.hp
             * (1.0
-                + w * balance.enemy.hp_scale_per_wave
-                + late * balance.late_wave.hp_scale_per_wave),
+                + w * balance.enemy.hp_scale_per_pressure
+                + late * balance.late_pressure.hp_scale_per_pressure),
         speed: ty.speed * (1.0 + speed_extra + speed_extra_late),
         damage: ty.damage * (1.0 + damage_extra),
     }
@@ -126,37 +126,48 @@ pub struct WeightedTier<'a> {
 
 pub fn upgrade_tier_weights<'a>(
     balance: &'a Balance,
-    wave: u32,
+    pressure: u32,
     rarity_rank: u32,
 ) -> Vec<WeightedTier<'a>> {
     let weights = &balance.upgrade.tier_weights;
     let gates = &balance.upgrade.gates;
     let per_rank = &weights.per_rank;
-    let rank = rarity_rank.min(3) as f64;
-    let w = wave as f64;
+    let rank_clamped = rarity_rank.min(3);
+    let rank = rank_clamped as f64;
+    let w = pressure as f64;
 
-    let proto_ramp = gate_ramp_multiplier(w, gates.prototype.min_wave, gates.prototype.ramp_waves);
+    let proto_ramp = gate_ramp_multiplier(w, gates.prototype.min_pressure, gates.prototype.ramp_pressures);
     let sing_ramp =
-        gate_ramp_multiplier(w, gates.singularity.min_wave, gates.singularity.ramp_waves);
+        gate_ramp_multiplier(w, gates.singularity.min_pressure, gates.singularity.ramp_pressures);
+
+    let rare_unlocked = rank_clamped >= gates.rare.min_rank;
+    let prototype_unlocked = rank_clamped >= gates.prototype.min_rank;
+    let singularity_unlocked = rank_clamped >= gates.singularity.min_rank;
 
     vec![
         WeightedTier {
             tier: &balance.tiers[0],
             weight: weights.standard_min.max(
                 weights.standard_base
-                    - w * weights.standard_per_wave
+                    - w * weights.standard_per_pressure
                     - rank * per_rank.standard_penalty,
             ),
         },
         WeightedTier {
             tier: &balance.tiers[1],
-            weight: weights.rare_base + w * weights.rare_per_wave + rank * per_rank.rare,
+            weight: if rare_unlocked {
+                weights.rare_base + w * weights.rare_per_pressure + rank * per_rank.rare
+            } else {
+                0.0
+            },
         },
         WeightedTier {
             tier: &balance.tiers[2],
-            weight: if proto_ramp > 0.0 {
+            weight: if !prototype_unlocked {
+                0.0
+            } else if proto_ramp > 0.0 {
                 (weights.prototype_base
-                    + w * weights.prototype_per_wave
+                    + w * weights.prototype_per_pressure
                     + rank * per_rank.prototype)
                     * proto_ramp
             } else {
@@ -165,8 +176,10 @@ pub fn upgrade_tier_weights<'a>(
         },
         WeightedTier {
             tier: &balance.tiers[3],
-            weight: if sing_ramp > 0.0 {
-                (w * weights.singularity_per_wave + rank * per_rank.singularity) * sing_ramp
+            weight: if !singularity_unlocked {
+                0.0
+            } else if sing_ramp > 0.0 {
+                (w * weights.singularity_per_pressure + rank * per_rank.singularity) * sing_ramp
             } else {
                 gates.singularity.locked_weight
             },
@@ -176,11 +189,11 @@ pub fn upgrade_tier_weights<'a>(
 
 pub fn select_upgrade_tier<'a>(
     balance: &'a Balance,
-    wave: u32,
+    pressure: u32,
     roll: f64,
     rarity_rank: u32,
 ) -> &'a voidline_data::catalogs::UpgradeTier {
-    let weights = upgrade_tier_weights(balance, wave, rarity_rank);
+    let weights = upgrade_tier_weights(balance, pressure, rarity_rank);
     let total: f64 = weights.iter().map(|w| w.weight.max(0.0)).sum();
     let mut target = roll.clamp(0.0, 0.999_999_999) * total;
     for item in &weights {
@@ -206,14 +219,14 @@ pub fn stepped_upgrade_gain(balance: &Balance, tier_power: f64) -> f64 {
     }
 }
 
-fn gate_ramp_multiplier(wave: f64, min_wave: f64, ramp_waves: f64) -> f64 {
-    if wave < min_wave {
+fn gate_ramp_multiplier(pressure: f64, min_pressure: f64, ramp_pressures: f64) -> f64 {
+    if pressure < min_pressure {
         return 0.0;
     }
-    if ramp_waves <= 0.0 {
+    if ramp_pressures <= 0.0 {
         return 1.0;
     }
-    ((wave - min_wave + 1.0) / ramp_waves).min(1.0)
+    ((pressure - min_pressure + 1.0) / ramp_pressures).min(1.0)
 }
 
 #[cfg(test)]
@@ -226,11 +239,11 @@ mod tests {
     }
 
     #[test]
-    fn wave_target_matches_ts_baseline() {
+    fn pressure_target_matches_ts_baseline() {
         let b = balance();
-        assert_eq!(wave_target(&b, 1), 27);
-        assert_eq!(wave_target(&b, 9), 103);
-        assert_eq!(wave_target(&b, 10), 117);
+        assert_eq!(pressure_target(&b, 1), 27);
+        assert_eq!(pressure_target(&b, 9), 103);
+        assert_eq!(pressure_target(&b, 10), 117);
     }
 
     #[test]
@@ -240,7 +253,7 @@ mod tests {
         let g10 = spawn_gap(&b, 10);
         assert!((g1 - 0.385).abs() < 1e-9, "spawn_gap(1) = {g1}");
         assert!((g10 - 0.173).abs() < 1e-9, "spawn_gap(10) = {g10}");
-        assert_eq!(spawn_gap(&b, 40), b.late_wave.spawn_gap_min);
+        assert_eq!(spawn_gap(&b, 40), b.late_pressure.spawn_gap_min);
     }
 
     #[test]
@@ -271,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn enemy_damage_unchanged_before_late_wave() {
+    fn enemy_damage_unchanged_before_late_pressure() {
         let b = balance();
         let scout = b.enemies.iter().find(|e| e.id == "scout").unwrap().clone();
         let stats = scaled_enemy_stats(&b, &scout, 4);
@@ -281,9 +294,10 @@ mod tests {
     #[test]
     fn singularity_unlocks_at_configured_gate() {
         let b = balance();
-        let gate = b.upgrade.gates.singularity.min_wave as u32;
-        let before = upgrade_tier_weights(&b, gate - 1, 0);
-        let at_gate = upgrade_tier_weights(&b, gate, 0);
+        let gate = b.upgrade.gates.singularity.min_pressure as u32;
+        let rank = b.upgrade.gates.singularity.min_rank;
+        let before = upgrade_tier_weights(&b, gate - 1, rank);
+        let at_gate = upgrade_tier_weights(&b, gate, rank);
         assert_eq!(before[3].weight, 0.0);
         assert!(at_gate[3].weight > 0.0);
     }
@@ -302,9 +316,9 @@ mod tests {
     #[test]
     fn rarity_probabilities_sum_to_one() {
         let b = balance();
-        for &wave in &[1, 5, 10, 20, 40] {
+        for &pressure in &[1, 5, 10, 20, 40] {
             for rank in 0..=3 {
-                let weights = upgrade_tier_weights(&b, wave, rank);
+                let weights = upgrade_tier_weights(&b, pressure, rank);
                 let total: f64 = weights.iter().map(|w| w.weight.max(0.0)).sum();
                 assert!(total > 0.0);
                 let probs: f64 = weights.iter().map(|w| w.weight.max(0.0) / total).sum();
@@ -320,16 +334,17 @@ mod tests {
     #[test]
     fn prototype_locked_until_gate() {
         let b = balance();
-        let gate = b.upgrade.gates.prototype.min_wave as u32;
+        let gate = b.upgrade.gates.prototype.min_pressure as u32;
+        let min_rank = b.upgrade.gates.prototype.min_rank;
         for w in 1..gate {
-            let weights = upgrade_tier_weights(&b, w, 0);
+            let weights = upgrade_tier_weights(&b, w, min_rank);
             assert_eq!(
                 tier_weight(&weights, "prototype"),
                 b.upgrade.gates.prototype.locked_weight,
-                "prototype must show locked weight before gate (wave {w})",
+                "prototype must show locked weight before gate (pressure {w})",
             );
         }
-        for rank in 0..=3 {
+        for rank in min_rank..=3 {
             let weights = upgrade_tier_weights(&b, gate, rank);
             assert!(
                 tier_weight(&weights, "prototype") > 0.0,
@@ -339,16 +354,59 @@ mod tests {
     }
 
     #[test]
+    fn higher_tiers_locked_below_min_rank() {
+        let b = balance();
+        for pressure in 1..=40 {
+            for rank in 0..=3 {
+                let weights = upgrade_tier_weights(&b, pressure, rank);
+                if rank < b.upgrade.gates.rare.min_rank {
+                    assert_eq!(
+                        tier_weight(&weights, "rare"),
+                        0.0,
+                        "rare must be 0 below its min_rank (pressure={pressure}, rank={rank})",
+                    );
+                }
+                if rank < b.upgrade.gates.prototype.min_rank {
+                    assert_eq!(
+                        tier_weight(&weights, "prototype"),
+                        0.0,
+                        "prototype must be 0 below its min_rank (pressure={pressure}, rank={rank})",
+                    );
+                }
+                if rank < b.upgrade.gates.singularity.min_rank {
+                    assert_eq!(
+                        tier_weight(&weights, "singularity"),
+                        0.0,
+                        "singularity must be 0 below its min_rank (pressure={pressure}, rank={rank})",
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn rank_zero_yields_only_standard() {
+        let b = balance();
+        for pressure in 1..=40 {
+            let weights = upgrade_tier_weights(&b, pressure, 0);
+            assert!(tier_weight(&weights, "standard") > 0.0);
+            assert_eq!(tier_weight(&weights, "rare"), 0.0);
+            assert_eq!(tier_weight(&weights, "prototype"), 0.0);
+            assert_eq!(tier_weight(&weights, "singularity"), 0.0);
+        }
+    }
+
+    #[test]
     fn singularity_locked_until_gate_for_all_ranks() {
         let b = balance();
-        let gate = b.upgrade.gates.singularity.min_wave as u32;
+        let gate = b.upgrade.gates.singularity.min_pressure as u32;
         for w in 1..gate {
             for rank in 0..=3 {
                 let weights = upgrade_tier_weights(&b, w, rank);
                 assert_eq!(
                     tier_weight(&weights, "singularity"),
                     0.0,
-                    "singularity must remain 0 before gate (wave {w}, rank {rank})",
+                    "singularity must remain 0 before gate (pressure {w}, rank {rank})",
                 );
             }
         }
@@ -357,12 +415,13 @@ mod tests {
     #[test]
     fn gate_ramp_smooths_introduction() {
         let b = balance();
-        let proto_gate = b.upgrade.gates.prototype.min_wave as u32;
-        let ramp = b.upgrade.gates.prototype.ramp_waves;
+        let proto_gate = b.upgrade.gates.prototype.min_pressure as u32;
+        let ramp = b.upgrade.gates.prototype.ramp_pressures;
+        let rank = b.upgrade.gates.prototype.min_rank;
         if ramp > 0.0 {
-            let at_gate = tier_weight(&upgrade_tier_weights(&b, proto_gate, 0), "prototype");
+            let at_gate = tier_weight(&upgrade_tier_weights(&b, proto_gate, rank), "prototype");
             let after_ramp = tier_weight(
-                &upgrade_tier_weights(&b, proto_gate + ramp as u32 + 2, 0),
+                &upgrade_tier_weights(&b, proto_gate + ramp as u32 + 2, rank),
                 "prototype",
             );
             assert!(at_gate > 0.0);
@@ -376,16 +435,16 @@ mod tests {
     #[test]
     fn higher_rank_increases_rare_and_decreases_standard() {
         let b = balance();
-        for &wave in &[1, 5, 10, 15] {
-            let r0 = upgrade_tier_weights(&b, wave, 0);
-            let r3 = upgrade_tier_weights(&b, wave, 3);
+        for &pressure in &[1, 5, 10, 15] {
+            let r0 = upgrade_tier_weights(&b, pressure, 0);
+            let r3 = upgrade_tier_weights(&b, pressure, 3);
             assert!(
                 tier_weight(&r3, "rare") >= tier_weight(&r0, "rare"),
-                "rare weight must grow with rarity rank (wave {wave})",
+                "rare weight must grow with rarity rank (pressure {pressure})",
             );
             assert!(
                 tier_weight(&r3, "standard") <= tier_weight(&r0, "standard"),
-                "standard weight must shrink with rarity rank (wave {wave})",
+                "standard weight must shrink with rarity rank (pressure {pressure})",
             );
         }
     }
@@ -394,12 +453,12 @@ mod tests {
     fn standard_tier_respects_minimum_floor() {
         let b = balance();
         let floor = b.upgrade.tier_weights.standard_min;
-        for wave in 1..=80 {
+        for pressure in 1..=80 {
             for rank in 0..=3 {
-                let weights = upgrade_tier_weights(&b, wave, rank);
+                let weights = upgrade_tier_weights(&b, pressure, rank);
                 assert!(
                     tier_weight(&weights, "standard") >= floor - 1e-9,
-                    "standard floor breached: wave={wave} rank={rank}",
+                    "standard floor breached: pressure={pressure} rank={rank}",
                 );
             }
         }
@@ -408,12 +467,12 @@ mod tests {
     #[test]
     fn rarity_weights_never_negative() {
         let b = balance();
-        for wave in 1..=80 {
+        for pressure in 1..=80 {
             for rank in 0..=3 {
-                for entry in upgrade_tier_weights(&b, wave, rank) {
+                for entry in upgrade_tier_weights(&b, pressure, rank) {
                     assert!(
                         entry.weight >= 0.0,
-                        "negative weight at wave={wave} rank={rank} tier={}",
+                        "negative weight at pressure={pressure} rank={rank} tier={}",
                         entry.tier.id,
                     );
                 }
@@ -422,27 +481,26 @@ mod tests {
     }
 
     #[test]
-    fn singularity_share_below_8pct_at_phase1_unranked() {
-        // Phase 1 boss = wave 10 boss. Fresh player (rank 0) should rarely see singularity.
+    fn singularity_zero_at_phase1_unranked() {
+        // Phase 1 boss = pressure 10. A fresh player (rank 0) must never see singularity.
         let b = balance();
         let weights = upgrade_tier_weights(&b, 10, 0);
-        let total: f64 = weights.iter().map(|w| w.weight.max(0.0)).sum();
-        let sing = tier_weight(&weights, "singularity") / total;
-        assert!(
-            sing < 0.08,
-            "singularity probability at wave 10 / rank 0 = {sing}, expected <8%",
+        assert_eq!(
+            tier_weight(&weights, "singularity"),
+            0.0,
+            "singularity must be hard-gated at rank 0",
         );
     }
 
     #[test]
-    fn enemy_hp_strictly_increases_per_wave() {
+    fn enemy_hp_strictly_increases_per_pressure() {
         let b = balance();
         for kind in ["scout", "hunter", "brute"] {
             let ty = b.enemies.iter().find(|e| e.id == kind).unwrap().clone();
             let mut prev = scaled_enemy_stats(&b, &ty, 1).hp;
-            for wave in 2..=30 {
-                let curr = scaled_enemy_stats(&b, &ty, wave).hp;
-                assert!(curr > prev, "hp must strictly grow ({kind}, wave {wave})");
+            for pressure in 2..=30 {
+                let curr = scaled_enemy_stats(&b, &ty, pressure).hp;
+                assert!(curr > prev, "hp must strictly grow ({kind}, pressure {pressure})");
                 prev = curr;
             }
         }
@@ -453,7 +511,7 @@ mod tests {
         let b = balance();
         for kind in ["scout", "hunter", "brute"] {
             let ty = b.enemies.iter().find(|e| e.id == kind).unwrap().clone();
-            let cap_factor = 1.0 + b.enemy.speed_scale_max + b.late_wave.speed_scale_max;
+            let cap_factor = 1.0 + b.enemy.speed_scale_max + b.late_pressure.speed_scale_max;
             let speed_far = scaled_enemy_stats(&b, &ty, 200).speed;
             assert!(
                 speed_far <= ty.speed * cap_factor + 1e-9,
@@ -466,30 +524,30 @@ mod tests {
     fn enemy_damage_caps_at_late_max() {
         let b = balance();
         let scout = b.enemies.iter().find(|e| e.id == "scout").unwrap().clone();
-        let cap_factor = 1.0 + b.late_wave.damage_scale_max;
+        let cap_factor = 1.0 + b.late_pressure.damage_scale_max;
         let damage_far = scaled_enemy_stats(&b, &scout, 200).damage;
         assert!(
             (damage_far - scout.damage * cap_factor).abs() < 1e-9,
-            "damage cap not respected at far wave",
+            "damage cap not respected at far pressure",
         );
     }
 
     #[test]
-    fn enemy_damage_steps_up_exactly_at_late_wave_boundary() {
+    fn enemy_damage_steps_up_exactly_at_late_pressure_boundary() {
         let b = balance();
         let scout = b.enemies.iter().find(|e| e.id == "scout").unwrap().clone();
-        let start = b.late_wave.start_wave as u32;
+        let start = b.late_pressure.start_pressure as u32;
         let before = scaled_enemy_stats(&b, &scout, start - 1).damage;
         let at = scaled_enemy_stats(&b, &scout, start).damage;
-        assert_eq!(before, scout.damage, "damage must be base before late wave");
-        assert!(at > scout.damage, "damage must lift at start_wave");
+        assert_eq!(before, scout.damage, "damage must be base before late pressure");
+        assert!(at > scout.damage, "damage must lift at start_pressure");
     }
 
     #[test]
-    fn miniboss_starts_at_configured_wave() {
+    fn miniboss_starts_at_configured_pressure() {
         let b = balance();
-        let start = b.bosses.mini_boss.start_wave as u32;
-        assert!(start >= 4, "miniBoss start wave should be at least 4");
+        let start = b.bosses.mini_boss.start_pressure as u32;
+        assert!(start >= 4, "miniBoss start pressure should be at least 4");
     }
 
     #[test]
@@ -631,7 +689,7 @@ mod tests {
     }
 
     #[test]
-    fn experience_drop_grows_with_wave() {
+    fn experience_drop_grows_with_pressure() {
         let b = balance();
         let scout = b.enemies.iter().find(|e| e.id == "scout").unwrap();
         let early = experience_drop_total(&b, scout.score, 1);
@@ -640,11 +698,11 @@ mod tests {
     }
 
     #[test]
-    fn score_award_grows_with_wave() {
-        for wave in 2..=30 {
+    fn score_award_grows_with_pressure() {
+        for pressure in 2..=30 {
             assert!(
-                score_award(35.0, wave) > score_award(35.0, wave - 1),
-                "score_award must grow with wave",
+                score_award(35.0, pressure) > score_award(35.0, pressure - 1),
+                "score_award must grow with pressure",
             );
         }
     }
@@ -653,11 +711,11 @@ mod tests {
     fn spawn_gap_monotonically_decreases() {
         let b = balance();
         let mut prev = spawn_gap(&b, 1);
-        for wave in 2..=40 {
-            let curr = spawn_gap(&b, wave);
+        for pressure in 2..=40 {
+            let curr = spawn_gap(&b, pressure);
             assert!(
                 curr <= prev + 1e-12,
-                "spawn_gap must not grow (wave {wave}: {curr} > {prev})",
+                "spawn_gap must not grow (pressure {pressure}: {curr} > {prev})",
             );
             prev = curr;
         }
@@ -667,11 +725,11 @@ mod tests {
     fn spawn_pack_chance_monotonically_grows() {
         let b = balance();
         let mut prev = spawn_pack_chance(&b, 1);
-        for wave in 2..=40 {
-            let curr = spawn_pack_chance(&b, wave);
+        for pressure in 2..=40 {
+            let curr = spawn_pack_chance(&b, pressure);
             assert!(
                 curr >= prev - 1e-12,
-                "spawn_pack_chance must not shrink (wave {wave})",
+                "spawn_pack_chance must not shrink (pressure {pressure})",
             );
             prev = curr;
         }

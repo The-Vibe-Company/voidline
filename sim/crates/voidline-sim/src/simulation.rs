@@ -11,7 +11,7 @@ use voidline_data::balance::Balance;
 use voidline_data::catalogs::{BossDef, EnemySpawnRules, EnemyType};
 use voidline_data::DataBundle;
 
-use crate::balance_curves::{spawn_gap, spawn_pack_chance, wave_target, xp_to_next_level};
+use crate::balance_curves::{spawn_gap, spawn_pack_chance, pressure_target, xp_to_next_level};
 use crate::bullets::update_bullets;
 use crate::chests::update_chests;
 use crate::enemies::{reap_dead_enemies, update_enemies};
@@ -24,7 +24,10 @@ use crate::player_update::update_player;
 use crate::pools::EntityPools;
 use crate::powerups::{update_powerups, BombSideEffect};
 use crate::rng::Mulberry32;
-use crate::roguelike::{next_mini_boss_misses, should_spawn_mini_boss, starting_wave_for_stage};
+use crate::roguelike::{
+    base_pressure_for_stage, next_mini_boss_misses, pressure_for_stage_elapsed,
+    should_spawn_mini_boss,
+};
 use crate::spatial_grid::SpatialGrid;
 use crate::spawn::{find_boss_def, select_enemy_type, spawn_elite, spawn_enemy, SpawnRolls};
 use crate::state::{ControlMode, EntityCounters, GameMode, GameState};
@@ -37,7 +40,7 @@ pub struct SimConfig {
     pub seed: u32,
     pub start_stage: u32,
     pub max_seconds: f64,
-    pub max_wave: u32,
+    pub max_pressure: u32,
     pub step_seconds: f64,
 }
 
@@ -47,7 +50,7 @@ impl Default for SimConfig {
             seed: 0,
             start_stage: 1,
             max_seconds: 120.0,
-            max_wave: 10,
+            max_pressure: 10,
             step_seconds: 1.0 / 60.0,
         }
     }
@@ -128,7 +131,7 @@ impl Sim {
         self.state.start_stage = start_stage;
         self.state.stage = start_stage;
         self.state.highest_stage_reached = start_stage;
-        self.state.wave = starting_wave_for_stage(&self.balance, start_stage);
+        self.state.pressure = base_pressure_for_stage(&self.balance, start_stage);
         self.state.xp_target = xp_to_next_level(&self.balance, self.state.level) as u32;
         self.state.level = 1;
         self.player = Player::new(&self.balance.player.stats);
@@ -143,39 +146,44 @@ impl Sim {
         self.chests.clear();
         self.pools.clear();
         self.enemy_grid.clear();
-        self.start_wave(self.state.wave);
+        self.reset_phase_pressure_state();
     }
 
-    fn start_wave(&mut self, wave: u32) {
+    fn reset_phase_pressure_state(&mut self) {
+        let pressure = pressure_for_stage_elapsed(
+            &self.balance,
+            self.state.stage,
+            self.state.stage_elapsed_seconds,
+        );
         self.state.mode = GameMode::Playing;
-        self.state.wave = wave;
-        self.state.wave_kills = 0;
-        let base_target = wave_target(&self.balance, wave) as u32;
-        let spawn_mini = should_spawn_mini_boss(
-            &self.balance,
-            wave,
-            self.state.mini_boss_eligible_misses,
-            self.rng.next_f64(),
-        );
-        self.state.mini_boss_eligible_misses = next_mini_boss_misses(
-            &self.balance,
-            wave,
-            self.state.mini_boss_eligible_misses,
-            spawn_mini,
-        );
-        self.state.mini_boss_pending = spawn_mini;
-        self.state.wave_target = base_target + if spawn_mini { 1 } else { 0 };
-        self.state.spawn_remaining = base_target;
-        self.state.spawn_gap = spawn_gap(&self.balance, wave);
-        self.state.spawn_timer = self.balance.wave.spawn_timer_start;
-        self.state.wave_delay = 0.0;
+        self.state.pressure = pressure;
+        self.state.phase_kills = 0;
+        self.state.enemy_pressure_target = self.current_enemy_pressure_target();
+        self.state.spawn_gap = self.current_spawn_gap();
+        self.state.spawn_timer = self.balance.pressure.spawn_timer_start;
+        self.state.mini_boss_pending = false;
+        self.state.mini_boss_last_pressure = pressure.saturating_sub(1);
     }
 
-    pub fn force_start_wave(&mut self, wave: u32) {
-        self.start_wave(wave);
-    }
+    fn update_pressure(&mut self, dt: f64) {
+        if self.state.stage_boss_active || self.state.stage_boss_spawned {
+            return;
+        }
+        let next_pressure = pressure_for_stage_elapsed(
+            &self.balance,
+            self.state.stage,
+            self.state.stage_elapsed_seconds,
+        );
+        if next_pressure != self.state.pressure {
+            self.state.pressure = next_pressure;
+        }
+        self.queue_mini_boss_checks();
+        self.state.enemy_pressure_target = self.current_enemy_pressure_target();
+        self.state.spawn_gap = self.current_spawn_gap();
+        if self.state.spawn_timer > self.state.spawn_gap {
+            self.state.spawn_timer = self.state.spawn_gap;
+        }
 
-    fn update_wave(&mut self, dt: f64) {
         if self.state.mini_boss_pending {
             let elite_present = self.enemies.iter().any(|e| {
                 matches!(
@@ -192,20 +200,89 @@ impl Sim {
         }
 
         self.state.spawn_timer -= dt;
-        if self.state.spawn_remaining > 0 && self.state.spawn_timer <= 0.0 {
-            let pack = if self.rng.next_f64() < spawn_pack_chance(&self.balance, self.state.wave) {
+        let active_target = self.state.enemy_pressure_target as usize;
+        if self.enemies.len() < active_target && self.state.spawn_timer <= 0.0 {
+            let mut pack = if self.rng.next_f64() < spawn_pack_chance(&self.balance, self.state.pressure) {
                 2
             } else {
                 1
+            };
+            if self.is_horde_active() {
+                pack += self.balance.hordes.pack_bonus;
             }
-            .min(self.state.spawn_remaining);
+            pack = pack.min((active_target - self.enemies.len()) as u32);
             for _ in 0..pack {
                 self.spawn_normal_enemy();
             }
-            self.state.spawn_remaining -= pack;
             let jitter = 0.72 + self.rng.next_f64() * 0.7;
             self.state.spawn_timer = self.state.spawn_gap * jitter;
         }
+    }
+
+    fn queue_mini_boss_checks(&mut self) {
+        if self.state.mini_boss_pending || self.elite_present() {
+            self.state.mini_boss_last_pressure = self.state.pressure;
+            return;
+        }
+        let start = self.state.mini_boss_last_pressure.saturating_add(1);
+        let end = self.state.pressure;
+        if start > end {
+            return;
+        }
+        for pressure in start..=end {
+            let spawn_mini = should_spawn_mini_boss(
+                &self.balance,
+                pressure,
+                self.state.mini_boss_eligible_misses,
+                self.rng.next_f64(),
+            );
+            self.state.mini_boss_eligible_misses = next_mini_boss_misses(
+                &self.balance,
+                pressure,
+                self.state.mini_boss_eligible_misses,
+                spawn_mini,
+            );
+            if spawn_mini {
+                self.state.mini_boss_pending = true;
+                break;
+            }
+        }
+        self.state.mini_boss_last_pressure = end;
+    }
+
+    fn elite_present(&self) -> bool {
+        self.enemies.iter().any(|e| {
+            matches!(
+                e.role,
+                crate::entities::EnemyRole::Boss | crate::entities::EnemyRole::MiniBoss
+            )
+        })
+    }
+
+    fn current_enemy_pressure_target(&self) -> u32 {
+        let base = pressure_target(&self.balance, self.state.pressure).max(1) as f64;
+        let multiplier = if self.is_horde_active() {
+            self.balance.hordes.pressure_target_multiplier
+        } else {
+            1.0
+        };
+        (base * multiplier).round().max(1.0) as u32
+    }
+
+    fn current_spawn_gap(&self) -> f64 {
+        let base = spawn_gap(&self.balance, self.state.pressure);
+        if self.is_horde_active() {
+            base * self.balance.hordes.spawn_gap_multiplier
+        } else {
+            base
+        }
+    }
+
+    fn is_horde_active(&self) -> bool {
+        let elapsed = self.state.stage_elapsed_seconds;
+        self.balance.hordes.starts_seconds.iter().any(|start| {
+            elapsed >= *start && elapsed < *start + self.balance.hordes.duration_seconds
+        })
     }
 
     fn spawn_normal_enemy(&mut self) {
@@ -226,19 +303,19 @@ impl Sim {
             &mut self.counters,
             &mut self.enemies,
             &self.world,
-            self.state.wave,
+            self.state.pressure,
             rolls,
         );
     }
 
     fn spawn_mini_boss(&mut self) {
         let offsets = &self.balance.bosses.spawn_offsets.mini_boss;
-        let wave = self.state.wave;
-        let ty: EnemyType = if (wave as f64) >= offsets.eligible_from_wave {
+        let pressure = self.state.pressure;
+        let ty: EnemyType = if (pressure as f64) >= offsets.eligible_from_pressure {
             select_enemy_type(
                 &self.balance,
                 &self.spawn_rules,
-                wave + offsets.offset as u32,
+                pressure + offsets.offset as u32,
                 self.rng.next_f64(),
             )
             .clone()
@@ -246,7 +323,7 @@ impl Sim {
             select_enemy_type(
                 &self.balance,
                 &self.spawn_rules,
-                offsets.fallback_wave as u32,
+                offsets.fallback_pressure as u32,
                 offsets.fallback_roll,
             )
             .clone()
@@ -268,7 +345,7 @@ impl Sim {
             &mut self.counters,
             &mut self.enemies,
             &self.world,
-            self.state.wave,
+            self.state.pressure,
             &ty,
             &boss_def,
             rolls,
@@ -277,10 +354,10 @@ impl Sim {
 
     fn spawn_stage_boss(&mut self) {
         let offsets = &self.balance.bosses.spawn_offsets.stage_boss;
-        let wave = self.state.wave
+        let pressure = self.state.pressure
             + (self.state.stage as u32) * (offsets.stage_multiplier as u32)
             + offsets.offset as u32;
-        let ty = select_enemy_type(&self.balance, &self.spawn_rules, wave, offsets.roll).clone();
+        let ty = select_enemy_type(&self.balance, &self.spawn_rules, pressure, offsets.roll).clone();
         let boss_def = find_boss_def(&self.bosses, "boss").clone();
         let rolls = SpawnRolls {
             position_rolls: [
@@ -298,7 +375,7 @@ impl Sim {
             &mut self.counters,
             &mut self.enemies,
             &self.world,
-            self.state.wave,
+            self.state.pressure,
             &ty,
             &boss_def,
             rolls,
@@ -310,23 +387,13 @@ impl Sim {
         self.state.stage_elapsed_seconds += dt;
         self.state.highest_stage_reached = self.state.highest_stage_reached.max(self.state.stage);
 
-        let elite_present = self.enemies.iter().any(|e| {
-            matches!(
-                e.role,
-                crate::entities::EnemyRole::Boss | crate::entities::EnemyRole::MiniBoss
-            )
-        });
         if !self.state.stage_boss_spawned
             && !self.state.stage_boss_active
-            && !elite_present
             && self.state.stage_elapsed_seconds >= self.stage_duration_seconds
         {
             self.state.stage_boss_spawned = true;
             self.state.stage_boss_active = true;
             self.state.mini_boss_pending = false;
-            self.state.spawn_remaining = 0;
-            self.state.wave_target = (self.state.wave_kills + 1).max(1);
-            self.state.wave_delay = 0.0;
             self.spawn_stage_boss();
         }
     }
@@ -360,7 +427,7 @@ impl Sim {
         }
 
         self.update_stage_progress(capped_dt);
-        self.update_wave(capped_dt);
+        self.update_pressure(capped_dt);
         self.enemy_grid.rebuild(&self.enemies);
 
         update_player(
@@ -479,23 +546,13 @@ impl Sim {
             self.player.hp = 0.0;
             self.state.mode = GameMode::Gameover;
         }
-
-        if self.state.spawn_remaining == 0
-            && self.enemies.is_empty()
-            && self.state.mode == GameMode::Playing
-        {
-            self.state.wave_delay += capped_dt;
-            if self.state.wave_delay > self.balance.wave.wave_delay {
-                self.start_wave(self.state.wave + 1);
-            }
-        }
     }
 
-    pub fn run_until(&mut self, max_seconds: f64, max_wave: u32, step_seconds: f64) {
+    pub fn run_until(&mut self, max_seconds: f64, max_pressure: u32, step_seconds: f64) {
         let mut elapsed = 0.0;
         while elapsed < max_seconds
             && self.state.mode != GameMode::Gameover
-            && self.state.wave < max_wave
+            && self.state.pressure < max_pressure
         {
             self.step(step_seconds);
             elapsed += step_seconds;
@@ -513,7 +570,7 @@ mod tests {
         let bundle = load_default().unwrap();
         let sim = Sim::new(&bundle, SimConfig::default());
         assert_eq!(sim.player.hp, 100.0);
-        assert_eq!(sim.state.wave, 1);
+        assert_eq!(sim.state.pressure, 1);
         assert_eq!(sim.state.mode, GameMode::Playing);
     }
 
@@ -526,7 +583,7 @@ mod tests {
                 seed: 42,
                 start_stage: 1,
                 max_seconds: 5.0,
-                max_wave: 3,
+                max_pressure: 3,
                 step_seconds: 1.0 / 60.0,
             },
         );
@@ -535,5 +592,93 @@ mod tests {
         }
         // Idle player should take damage eventually
         assert!(sim.state.run_elapsed_seconds > 0.0);
+    }
+
+    #[test]
+    fn pressure_advances_by_stage_time_even_with_live_enemies() {
+        let bundle = load_default().unwrap();
+        let mut sim = Sim::new(&bundle, SimConfig::default());
+        sim.spawn_normal_enemy();
+        let enemies_before = sim.enemies.len();
+        sim.state.stage_elapsed_seconds = 59.99;
+        sim.state.spawn_timer = f64::INFINITY;
+
+        sim.step(0.02);
+
+        assert_eq!(sim.state.pressure, 2);
+        assert!(sim.enemies.len() >= enemies_before);
+        assert!(sim.state.enemy_pressure_target >= pressure_target(&sim.balance, 2) as u32);
+    }
+
+    #[test]
+    fn horde_window_raises_target_and_spawn_cadence() {
+        let bundle = load_default().unwrap();
+        let mut sim = Sim::new(&bundle, SimConfig::default());
+        sim.state.stage_elapsed_seconds = 180.0;
+        sim.state.spawn_timer = f64::INFINITY;
+
+        sim.step(0.01);
+
+        let base_target = pressure_target(&sim.balance, sim.state.pressure) as f64;
+        let expected_target =
+            (base_target * sim.balance.hordes.pressure_target_multiplier).round() as u32;
+        let expected_gap =
+            spawn_gap(&sim.balance, sim.state.pressure) * sim.balance.hordes.spawn_gap_multiplier;
+        assert_eq!(sim.state.enemy_pressure_target, expected_target);
+        assert!((sim.state.spawn_gap - expected_gap).abs() < 1e-9);
+    }
+
+    #[test]
+    fn horde_spawn_pack_includes_configured_bonus() {
+        let bundle = load_default().unwrap();
+        let mut sim = Sim::new(&bundle, SimConfig::default());
+        sim.enemies.clear();
+        sim.state.stage_elapsed_seconds = 180.0;
+        sim.state.spawn_timer = 0.0;
+        sim.state.mini_boss_last_pressure = u32::MAX - 1;
+
+        sim.step(0.01);
+
+        let expected_min = (1 + sim.balance.hordes.pack_bonus) as usize;
+        assert!(sim.enemies.len() >= expected_min);
+        assert!(sim.enemies.len() <= sim.state.enemy_pressure_target as usize);
+    }
+
+    #[test]
+    fn stage_boss_timer_is_not_blocked_by_active_mini_boss() {
+        let bundle = load_default().unwrap();
+        let mut sim = Sim::new(&bundle, SimConfig::default());
+        sim.enemies.clear();
+        sim.spawn_mini_boss();
+        let mini_bosses_before = sim
+            .enemies
+            .iter()
+            .filter(|enemy| matches!(enemy.role, crate::entities::EnemyRole::MiniBoss))
+            .count();
+        sim.state.stage_elapsed_seconds = sim.stage_duration_seconds - 0.01;
+
+        sim.step(0.02);
+
+        assert_eq!(mini_bosses_before, 1);
+        assert!(sim.state.stage_boss_active);
+        assert!(sim
+            .enemies
+            .iter()
+            .any(|enemy| matches!(enemy.role, crate::entities::EnemyRole::Boss)));
+    }
+
+    #[test]
+    fn stage_boss_spawn_freezes_pressure() {
+        let bundle = load_default().unwrap();
+        let mut sim = Sim::new(&bundle, SimConfig::default());
+        sim.enemies.clear();
+        sim.state.pressure = 10;
+        sim.state.stage_elapsed_seconds = sim.stage_duration_seconds - 0.01;
+        sim.state.mini_boss_last_pressure = u32::MAX - 1;
+
+        sim.step(0.02);
+
+        assert!(sim.state.stage_boss_active);
+        assert_eq!(sim.state.pressure, 10);
     }
 }

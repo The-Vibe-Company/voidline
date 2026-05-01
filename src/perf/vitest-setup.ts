@@ -96,6 +96,10 @@ if (typeof globalThis.requestAnimationFrame === "undefined") {
 initSync({
   module: readFileSync(new URL("../generated/voidline-wasm/voidline_wasm_bg.wasm", import.meta.url)),
 });
+
+const isDataExport = process.env.RUN_DATA_EXPORT === "1" || process.env.CHECK_DATA_EXPORT === "1";
+
+if (!isDataExport) {
 const [{ initializeRustSimulationEngine }, { createSimulation }, { initializeAccountProgress }, { initializeRelicUnlocks }] =
   await Promise.all([
     import("../simulation/rust-engine"),
@@ -110,3 +114,4 @@ beforeEach(() => {
   initializeRelicUnlocks(null);
   createSimulation({ seed: 0 });
 });
+}

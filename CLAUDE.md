@@ -49,14 +49,16 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 - Voir `sim/README.md` pour l'architecture complète.
 
 **Commands** :
-- `npm run balance:meta-report:quick` — profil rapide (max_wave=12, trial_seconds=90)
-- `npm run balance:meta-report` — profil profond, budget mur 30s (max_wave=30, trial_seconds=240)
-- `./sim/target/release/voidline-cli --quick --max-wave 10 --trial-seconds 240 --output <path>` — override pour viser la phase 1
+- `npm run balance:profile:quick` — diagnostic balance rapide avec profils actifs skilled (`expert-human`, `optimizer`)
+- `npm run balance:profile` — diagnostic balance plus profond, assez long pour aller au-delà de la phase 1
+- `npm run balance:profile:check` — check opt-in qui échoue si le jeu devient trop facile pour les profils skilled
+- `npm run balance:meta-report:quick` — profil méta-progression/économie rapide (idle, comparaisons relatives)
+- `npm run balance:meta-report` — profil méta-progression/économie profond
 - `npm run data:export` — régénère `data/balance.json`
 - `npm run data:check` — vérifie que `data/balance.json` est à jour
 - `cd sim && cargo test --workspace` — tests parité Rust (28 tests)
 
-**Toujours utiliser le Rust sim pour les itérations de balance**. Le harness TS `balance:report` (Vitest, 25s pour 150 trials, capé à `maxSeconds=120`) est trop lent et ne mesure même pas la phase 1. Le Rust sim tourne 1500 trials en <1s. Note: le Rust sim assume actuellement un joueur **idle** (pas d'IA de mouvement) — il mesure des comparaisons relatives (death rate, tier share, crystals économie, idle survival) avant/après un changement, pas le win rate d'un joueur actif. Pour valider la difficulté gameplay réelle (ex: "le boss prend 10 runs"), compléter avec un smoke test manuel sur `npm run dev`.
+**Toujours utiliser le Rust sim pour les itérations de balance**. Le harness TS `balance:report` (Vitest, 25s pour 150 trials, capé à `maxSeconds=120`) a été supprimé. Pour la difficulté réelle, utiliser `balance:profile:*` : le wrapper lance suffisamment de runs, de secondes simulées et de pression pour tester la phase 1 et l'après-phase 1 avec les profils actifs. Pour l'économie/meta-progression pure, utiliser `balance:meta-report:*`.
 
 ## Architecture (rappel)
 
@@ -90,8 +92,8 @@ Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit`, `renderCockpit`,
 **Source de vérité**: `src/game/balance.ts`. Tous les paramètres tunables du jeu vivent dans l'objet exporté `balance`, organisé en sous-objets thématiques :
 
 - `balance.player` — stats de base (`stats`, `weaponSpread`, `drone`, `resetInvulnerability`)
-- `balance.wave` / `balance.lateWave` — cadence de spawn, courbes de target, scaling tardif
-- `balance.enemy` — scaling per-wave, chances de hunter/brute, `wobble`
+- `balance.pressure` / `balance.latePressure` — cadence de spawn, courbes de target, scaling tardif
+- `balance.enemy` — scaling par pression, chances de hunter/brute, `wobble`
 - `balance.enemies` — array des types (scout/hunter/brute) avec stats de base
 - `balance.bosses` — `boss`, `miniBoss`, `wobble`, `spawnOffsets`, `contactBackoff`, `stageDurationSeconds`
 - `balance.upgrade` — `caps`, `tierWeights`, `effects`, `steppedGain`
@@ -99,11 +101,11 @@ Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit`, `renderCockpit`,
 - `balance.xp` — courbes de level, valeur des orbes
 - `balance.synergies` — `kineticRam`, `magnetStorm` (formules complètes : seuils, cooldowns, dégâts, knockback)
 - `balance.powerups` — `heartHealRatio`, `dropChance`, `pullRadius`, `pullStrength`, `velocityDamping`
-- `balance.progression` — `relicUnlockWaves`
+- `balance.progression` — `relicUnlockStages`
 
 **Règle**: pas de magic numbers de gameplay dans `src/entities/*`, `src/systems/*` ou `src/simulation/*`. Si tu écris un littéral `0.85`, `2.4`, `0.18` dans un fichier qui n'est pas `balance.ts`, demande-toi si c'est un knob d'équilibrage (presque toujours oui) — ajoute-le à `balance.ts` sous le bon namespace, importe-le. Les valeurs purement mécaniques (`Math.PI`, taille de pixel, durée d'animation visuelle pure) restent locales ; tout ce qui change le ressenti gameplay se centralise.
 
-**Courbes nommées**: `src/game/balance-curves.ts` expose des fonctions paramétriques en wave/rank/role : `enemyHpAt(wave, kind)`, `enemyDamageAt`, `enemySpeedAt`, `bossHpAt(wave, role)`, `bossDamageAt`, `bossSpeedAt`, `rarityWeightsAt(wave, rank)`, `rarityProbabilitiesAt`, `upgradeUnlocksAt(wave)`. Sert à tester les courbes en isolation et à les plotter pour visualiser le ramp-up. Tests : `balance-curves.test.ts` (monotonie, bornes, somme de probas = 1, gates exacts).
+**Courbes nommées**: `src/game/balance-curves.ts` expose des fonctions paramétriques en pressure/rank/role : `enemyHpAt(pressure, kind)`, `enemyDamageAt`, `enemySpeedAt`, `bossHpAt(pressure, role)`, `bossDamageAt`, `bossSpeedAt`, `rarityWeightsAt(pressure, rank)`, `rarityProbabilitiesAt`, `upgradeUnlocksAt(pressure)`. Sert à tester les courbes en isolation et à les plotter pour visualiser le ramp-up. Tests : `balance-curves.test.ts` (monotonie, bornes, somme de probas = 1, gates exacts).
 
 **Test invariant**: `balance.test.ts` parcourt récursivement tout l'objet `balance` à chaque run et vérifie qu'aucune valeur n'est NaN, Infinity, ni négative — un knob ajouté avec une faute de frappe est attrapé immédiatement.
 
@@ -117,13 +119,21 @@ Le rendu vit dans `src/render/hangar.ts` (expose `bindCockpit`, `renderCockpit`,
 
 ### Validation harness — uniquement Rust
 
-Le harness TS (`src/game/balance-simulation.ts`) a été supprimé : il était trop lent (25s pour 150 trials, capé à 120s sim time). **Toute validation balance passe par le Rust sim** (`sim/`, voir section "Sim Rust"). Pour itérer sur les knobs : `npm run balance:meta-report:quick` ou avec overrides pour viser phase 1 :
+Le harness TS (`src/game/balance-simulation.ts`) a été supprimé : il était trop lent (25s pour 150 trials, capé à 120s sim time). **Toute validation balance passe par le Rust sim** (`sim/`, voir section "Sim Rust").
 
-```sh
-./sim/target/release/voidline-cli --quick --max-wave 10 --trial-seconds 240 --output .context/report.json
-```
+Pour la difficulté, ne pas exposer une forêt de paramètres dans les scripts courants. Utiliser le wrapper opinionated `scripts/balance-profile.sh` via :
 
-Le sim Rust expose : `deaths_rate_per_run`, `median_first_boss_kill`, `median_first_stage1_clear`, `median_runs_to_unlock` (par méta upgrade), `median_wave_at_run_index`, `deaths_rate_per_run`. Idle player input (port d'IA active sur la roadmap). Pour valider un changement de balance : exécuter avant/après et lire les deltas.
+- `npm run balance:profile:quick` — échantillon rapide pour voir les tendances.
+- `npm run balance:profile` — rapport plus profond, avec assez de runs/pression/temps pour aller au-delà de la phase 1.
+- `npm run balance:profile:check` — check opt-in, volontairement non branché sur `npm test`, qui échoue si les profils skilled rendent le jeu trop facile.
+
+Le wrapper utilise `--player-profile skilled`, soit `expert-human` + `optimizer`. `expert-human` approxime un très bon joueur humain (kite, collecte l'XP, choisit les builds forts sans information parfaite). `optimizer` cherche les choix dominants et sert à repérer les upgrades/reliques OP. Le check ne cherche pas une valeur exacte de runs ; il protège surtout contre une phase 1 triviale et contre une progression trop facile après phase 1 (`runsToStage1Clear`, `runsToStage2Clear`).
+
+Le CLI garde des options avancées (`--player-profile`, `--campaigns`, `--runs`, `--max-pressure`, `--trial-seconds`, `--seed`) uniquement pour rejouer un historique ou faire une investigation ponctuelle. Ne pas les ajouter aux scripts npm sans vraie raison.
+
+Historique : `--record-history` ajoute une entrée JSONL dans `data/balance-profile-history.jsonl` avec commit, branch, dirty flag, hash de `data/balance.json`, commande de replay, inputs résolus et output agrégé. Par défaut, l'écriture d'historique refuse un worktree dirty ; utiliser `--allow-dirty-history` seulement pour une capture de travail approximative.
+
+Le rapport balance expose notamment : `runs_to_stage1_clear`, `runs_to_stage2_clear`, `stage1_clear_rate`, `stage2_clear_rate`, `deaths_rate_per_run`, pick rates upgrades/reliques, warnings `op-pick` / `dead-pick`, et snapshots de stats. Pour valider un changement de balance : exécuter avant/après, lire les deltas, et garder un historique si le résultat doit être comparé en PR.
 
 ### Méta-progression — catalogue unique
 
@@ -135,7 +145,7 @@ Source de vérité: `src/game/meta-upgrade-catalog.ts`. Deux types d'upgrade:
 Helpers exposés: `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPurchaseLevel`, `unlockedTechnologyIdsFromMeta`, `unlockedBuildTagsFromMeta`. Achat via `purchaseMetaUpgradeLevel(id)` dans `src/systems/account.ts`.
 
 Hooks runtime branchés sur le catalogue (dans `src/systems/account.ts`):
-- `currentRarityRank()` = `min(3, max(level over 4 categories))` → alimente `upgradeTierWeights(wave, rarityRank)` dans `src/game/balance.ts`.
+- `currentRarityRank()` = `min(3, max(level over 4 categories))` → alimente `upgradeTierWeights(pressure, rarityRank)` dans `src/game/balance.ts`.
 - `currentLevelUpChoiceCount()` = `3 + (extra-choice OR tempo>=4 ? 1 : 0)` (clamped à base+1, jamais cumulés) → consommé par `pickUpgrades(...)` dans `src/render/hud.ts`.
 - `currentCrystalRewardMultiplier()` = `1 + (salvage>=2 ? 0.10 : 0)` → appliqué dans `applyCrystalReward` (`src/game/account-progression.ts`).
 
@@ -161,6 +171,9 @@ Clé localStorage inchangée (`voidline:metaProgress:v1`). `resetAccountProgress
 - `npm run test:balance` — suites `balance.test.ts` + `balance-curves.test.ts`
 - `npm run bench` — Vitest benchmarks
 - `npm run smoke` — `npm run build && node scripts/browser-smoke.mjs` (smoke Playwright headless)
+- `npm run balance:profile:quick` — diagnostic balance rapide (`expert-human` + `optimizer`)
+- `npm run balance:profile` — diagnostic balance approfondi
+- `npm run balance:profile:check` — check opt-in "pas trop facile"
 - `npm run balance:meta-report` / `:quick` — Rust sim (voir section "Sim Rust")
 
 Lancer un test isolé (par fichier ou par nom):
@@ -194,7 +207,7 @@ Un test "intelligent" attrape une vraie régression. Un test qui n'attrape rien 
 Écris un test SI le changement touche:
 
 1. Une **fonction pure** (balance, upgrades, formules, math)
-2. Une **transition d'état** (level-up, damage, pickup, wave progression)
+2. Une **transition d'état** (level-up, damage, pickup, pressure progression)
 3. Un **invariant de gameplay** (HP ≥ 0, cap respecté, courbe monotone)
 4. Un **bug fix** → test de régression qui échoue AVANT le fix
 
@@ -247,7 +260,7 @@ Reproduis cette approche pour les nouveaux tests.
 1. `sim/crates/voidline-sim` — **fait** (tests Rust dans `balance_curves.rs`, `effects.rs`, `simulation.rs`, `engine.rs`)
 2. `src/game/meta-upgrade-catalog.ts` — **fait** (`meta-upgrade-catalog.test.ts`: courbes de coût monotones, cap de niveau max, idempotence des uniques, complétude du catalogue) + migration couverte dans `src/systems/account.test.ts`
 3. `src/game/upgrade-catalog.ts` + `src/systems/upgrades.ts` — UI/catalogue TS; logique draft/apply couverte côté Rust
-4. `src/systems/waves.ts` — wrapper UI autour du moteur Rust
+4. `src/systems/run.ts` — wrapper UI autour du moteur Rust
 5. XP, powerups, enemies, bullets, chests — couverts côté Rust; les anciens modules runtime TS ont été supprimés
 7. `src/utils.ts` — TODO (`distance`, `circleCollide`, `clamp`, `shuffle` — purs, ROI immédiat)
 
