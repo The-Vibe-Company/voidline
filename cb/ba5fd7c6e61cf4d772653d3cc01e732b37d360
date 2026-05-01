@@ -1,0 +1,39 @@
+src/game/account-progression.test.ts
+  24ce77273187dd3f 112-131
+src/game/account-progression.ts
+  24ce77273187dd3f 1,63-64
+sim/crates/voidline-meta/src/account.rs
+  24ce77273187dd3f 180-189,275-276
+src/game/meta-upgrade-catalog.test.ts
+  24ce77273187dd3f 4,39,225-240
+CLAUDE.md
+  24ce77273187dd3f 23-33
+src/systems/account.ts
+  24ce77273187dd3f 8,457-459
+src/game/meta-upgrade-catalog.ts
+  24ce77273187dd3f 16-18,284-297,481-484
+data/balance.json
+  24ce77273187dd3f 1316-1339
+src/types.ts
+  24ce77273187dd3f 59-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "cbba5fd7c6e61cf4d772653d3cc01e732b37d360",
+  "prompts": {
+    "24ce77273187dd3f": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019de36a-810e-7841-8396-0e8bff026b46",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 427,
+      "total_deletions": 3,
+      "accepted_lines": 427,
+      "overriden_lines": 0
+    }
+  }
+}
