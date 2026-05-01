@@ -1,3 +1,4 @@
+import { bossBountyBonusFromMeta } from "./meta-upgrade-catalog";
 import type {
   AccountProgress,
   AccountRecords,
@@ -59,7 +60,8 @@ export function computeRunCrystalBreakdown(
 
   const durationCrystals = Math.floor(elapsedSeconds / 12);
   const stageCrystals = stage * 12 + Math.max(0, runLevel - 1) * 2;
-  const bossCrystals = uniqueBossStages.length * 45;
+  const bossBountyBonus = bossBountyBonusFromMeta(progress);
+  const bossCrystals = uniqueBossStages.length * (45 + bossBountyBonus);
   const scoreCrystals = Math.min(45, Math.floor(score / 1_250));
 
   let recordCrystals = 0;

@@ -177,6 +177,16 @@ pub fn crystal_reward_multiplier(account: &AccountSnapshot) -> f64 {
     1.0 + contract as f64 * 0.05
 }
 
+pub fn boss_bounty_bonus(account: &AccountSnapshot) -> u32 {
+    let level = account.level_of("utility:boss-bounty").min(3);
+    match level {
+        0 => 0,
+        1 => 8,
+        2 => 16,
+        _ => 25,
+    }
+}
+
 pub fn unlocked_technology_ids(bundle: &DataBundle, account: &AccountSnapshot) -> HashSet<String> {
     let mut ids: HashSet<String> = bundle.starter_technology_ids.iter().cloned().collect();
     for meta in &bundle.meta_upgrades {
@@ -262,7 +272,8 @@ pub fn compute_run_breakdown(account: &AccountSnapshot, outcome: &RunOutcome) ->
 
     let duration = elapsed / 12;
     let stage_crystals = (stage as u64) * 12 + ((run_level.saturating_sub(1)) as u64) * 2;
-    let boss_crystals = (unique_boss.len() as u64) * 45;
+    let boss_bounty = boss_bounty_bonus(account) as u64;
+    let boss_crystals = (unique_boss.len() as u64) * (45 + boss_bounty);
     let score_crystals = (score / 1_250).min(45);
 
     let mut record_crystals: u64 = 0;
