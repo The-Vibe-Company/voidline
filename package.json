@@ -19,6 +19,7 @@
     "balance:full": "scripts/balance-dispatch.sh full",
     "balance:train": "scripts/balance-dispatch.sh train",
     "balance:test-card": "scripts/balance-dispatch.sh test-card",
+    "balance:sweep": "scripts/balance-dispatch.sh sweep",
     "balance:pull": "scripts/balance-dispatch.sh pull",
     "test:watch": "vitest",
     "prebench": "npm run wasm:build",

@@ -31,12 +31,60 @@ use voidline_sim::engine::{
 };
 
 const DEFAULT_RUNS_PER_EPISODE: u32 = 30;
-const STAGE_CLEAR_BONUSES: [(u32, f64); 3] = [(1, 200.0), (2, 800.0), (3, 3000.0)];
-const STAGE_ENTRY_BONUS: f64 = 30.0;
-const LEVEL_UP_BONUS: f64 = 5.0;
-const SHOP_IDLE_STEP_PENALTY: f64 = -0.05;
-const PURCHASE_BONUS: f64 = 25.0;
-const RUN_DEATH_PENALTY: f64 = 30.0;
+const BASE_STAGE_CLEAR_BONUSES: [(u32, f64); 3] = [(1, 200.0), (2, 800.0), (3, 3000.0)];
+const BASE_STAGE_ENTRY_BONUS: f64 = 30.0;
+const BASE_LEVEL_UP_BONUS: f64 = 5.0;
+const BASE_SHOP_IDLE_STEP_PENALTY: f64 = -0.05;
+const BASE_PURCHASE_BONUS: f64 = 25.0;
+const BASE_RUN_DEATH_PENALTY: f64 = 30.0;
+
+/// Runtime-overridable reward scaling so a Modal sweep can shape the policy
+/// without recompiling the Rust crate. Read once per `EpisodeEnv::new()`.
+#[derive(Debug, Clone)]
+struct RewardConfig {
+    stage_scale: f64,
+    dense_scale: f64,
+    death_penalty: f64,
+    purchase_bonus: f64,
+    shop_idle_penalty: f64,
+    survival_bonus_per_frame: f64,
+}
+
+impl RewardConfig {
+    fn from_env() -> Self {
+        fn read(key: &str, default: f64) -> f64 {
+            std::env::var(key)
+                .ok()
+                .and_then(|raw| raw.parse::<f64>().ok())
+                .unwrap_or(default)
+        }
+        Self {
+            stage_scale: read("VOIDLINE_REWARD_STAGE_SCALE", 1.0),
+            dense_scale: read("VOIDLINE_REWARD_DENSE_SCALE", 1.0),
+            death_penalty: read("VOIDLINE_REWARD_DEATH_PENALTY", BASE_RUN_DEATH_PENALTY),
+            purchase_bonus: read("VOIDLINE_REWARD_PURCHASE_BONUS", BASE_PURCHASE_BONUS),
+            shop_idle_penalty: read("VOIDLINE_REWARD_SHOP_IDLE", BASE_SHOP_IDLE_STEP_PENALTY),
+            survival_bonus_per_frame: read("VOIDLINE_REWARD_SURVIVAL", 0.01),
+        }
+    }
+
+    fn stage_clear_bonus(&self, stage: u32) -> f64 {
+        let base = BASE_STAGE_CLEAR_BONUSES
+            .iter()
+            .find(|(s, _)| *s == stage)
+            .map(|(_, value)| *value)
+            .unwrap_or(0.0);
+        base * self.stage_scale
+    }
+
+    fn stage_entry_bonus(&self) -> f64 {
+        BASE_STAGE_ENTRY_BONUS * self.dense_scale
+    }
+
+    fn level_up_bonus(&self) -> f64 {
+        BASE_LEVEL_UP_BONUS * self.dense_scale
+    }
+}
 
 #[derive(Debug, Clone)]
 struct StepOutput {
@@ -93,6 +141,7 @@ struct EpisodeEnv {
     last_score: f64,
     last_level: u32,
     last_stage: u32,
+    reward_config: RewardConfig,
     current_upgrades: Vec<UpgradeChoiceRecord>,
     current_relics: Vec<RelicChoiceRecord>,
     current_shop: Vec<ShopChoiceRecord>,
@@ -136,6 +185,7 @@ impl EpisodeEnv {
             last_score: 0.0,
             last_level: 1,
             last_stage: 1,
+            reward_config: RewardConfig::from_env(),
             current_upgrades: Vec::new(),
             current_relics: Vec::new(),
             current_shop: Vec::new(),
@@ -275,12 +325,14 @@ impl EpisodeEnv {
         let mut bonus = 0.0;
         let cur_level = snapshot.state.level;
         if cur_level > self.last_level {
-            bonus += LEVEL_UP_BONUS * (cur_level - self.last_level) as f64;
+            bonus += self.reward_config.level_up_bonus()
+                * (cur_level - self.last_level) as f64;
             self.last_level = cur_level;
         }
         let cur_stage = snapshot.state.stage;
         if cur_stage > self.last_stage {
-            bonus += STAGE_ENTRY_BONUS * (cur_stage - self.last_stage) as f64;
+            bonus += self.reward_config.stage_entry_bonus()
+                * (cur_stage - self.last_stage) as f64;
             self.last_stage = cur_stage;
         }
 
@@ -291,13 +343,12 @@ impl EpisodeEnv {
                 self.cleared_stages.insert(*stage);
                 self.stage_clear_runs
                     .insert(*stage, self.runs_in_episode);
-                if let Some((_, value)) = STAGE_CLEAR_BONUSES.iter().find(|(s, _)| s == stage) {
-                    bonus += value;
-                }
+                bonus += self.reward_config.stage_clear_bonus(*stage);
             }
         }
 
-        let mut reward = score_delta + 0.01 + bonus;
+        let mut reward =
+            score_delta + self.reward_config.survival_bonus_per_frame + bonus;
         let stage3_cleared = self.cleared_stages.contains(&3);
 
         let mut episode_terminated = false;
@@ -306,7 +357,7 @@ impl EpisodeEnv {
         if run_died || truncated_run {
             // Wrap up the run, push reward, transition to shop.
             if run_died {
-                reward -= RUN_DEATH_PENALTY;
+                reward -= self.reward_config.death_penalty;
             }
             let outcome = build_run_outcome(&snapshot, run_died);
             apply_run_reward(&mut self.account, &outcome);
@@ -373,8 +424,8 @@ impl EpisodeEnv {
                             .or_insert(0) += 1;
                         // Reward unlock-y purchases more than rarity/utility tiers.
                         reward += match meta.kind.as_str() {
-                            "unique" | "card" => PURCHASE_BONUS,
-                            _ => PURCHASE_BONUS * 0.5,
+                            "unique" | "card" => self.reward_config.purchase_bonus,
+                            _ => self.reward_config.purchase_bonus * 0.5,
                         };
                         purchased = true;
                         self.refresh_shop_slots();
@@ -386,7 +437,7 @@ impl EpisodeEnv {
         if !purchased {
             // Idle shop step: small penalty so the policy converges toward
             // purchasing when affordable and otherwise calling NextRun.
-            reward += SHOP_IDLE_STEP_PENALTY;
+            reward += self.reward_config.shop_idle_penalty;
         }
 
         // Action 0 (NextRun) — only meaningful when nothing was purchased.

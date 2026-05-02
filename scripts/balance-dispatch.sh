@@ -78,7 +78,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$COMMAND" in
-  quick|full|train|test-card|pull)
+  quick|full|train|test-card|sweep|pull)
     ;;
   *)
     echo "unknown balance command: $COMMAND" >&2
@@ -174,6 +174,11 @@ case "$COMMAND" in
     RESOURCE_CLASS="cpu-burst"
     TIMEOUT_SECONDS=1200
     ;;
+  sweep)
+    # Sweeps fan out N H100 H100 jobs in parallel via voidline_rl.sweep::main.
+    RESOURCE_CLASS="h100-burst"
+    TIMEOUT_SECONDS=$((60 * 60))
+    ;;
   pull)
     RESOURCE_CLASS="local-pull"
     TIMEOUT_SECONDS=0
@@ -239,6 +244,12 @@ fi
 echo "[balance-dispatch] backend=modal command=$COMMAND resource=$RESOURCE_CLASS run_id=$RUN_ID" >&2
 cd "$REPO_ROOT"
 export PYTHONPATH="$TRAINING_DIR${PYTHONPATH:+:$PYTHONPATH}"
+
+if [[ "$COMMAND" == "sweep" ]]; then
+  # Sweep has its own Modal app + entrypoint — flags are forwarded raw.
+  exec uvx modal run -m voidline_rl.sweep::main "${EXTRA_ARGS[@]}"
+fi
+
 exec uvx modal run -m voidline_rl.modal_app::main \
   --command "$COMMAND" \
   --extra-args-json "$JSON_ARGS" \

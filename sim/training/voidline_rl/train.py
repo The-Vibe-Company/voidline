@@ -25,11 +25,25 @@ def load_config(path: Path) -> dict:
         return yaml.safe_load(fh) or {}
 
 
+def _env_override(key: str, default):
+    """Hparam override via env var so Modal sweeps can fan out without
+    rewriting yaml files."""
+    raw = os.environ.get(key)
+    if raw is None:
+        return default
+    try:
+        return type(default)(raw)
+    except (TypeError, ValueError):
+        return default
+
+
 def train_persona(persona: str, model_dir: Path, timesteps: int, seed: int, config: dict) -> None:
     model_dir.mkdir(parents=True, exist_ok=True)
-    n_envs = int(config.get("n_envs", 1))
-    max_steps = int(config.get("max_steps", 3600))
-    runs_per_episode = int(config.get("runs_per_episode", 150))
+    n_envs = _env_override("VOIDLINE_PPO_N_ENVS", int(config.get("n_envs", 1)))
+    max_steps = _env_override("VOIDLINE_MAX_STEPS_PER_RUN", int(config.get("max_steps", 3600)))
+    runs_per_episode = _env_override(
+        "VOIDLINE_RUNS_PER_EPISODE", int(config.get("runs_per_episode", 150))
+    )
     env = DummyVecEnv(
         [
             make_masked_env(seed + i, max_steps=max_steps, runs_per_episode=runs_per_episode)
@@ -43,13 +57,19 @@ def train_persona(persona: str, model_dir: Path, timesteps: int, seed: int, conf
         env,
         seed=seed,
         verbose=int(config.get("verbose", 0)),
-        n_steps=int(config.get("n_steps", 64)),
-        batch_size=int(config.get("batch_size", 64)),
-        n_epochs=int(config.get("n_epochs", 2)),
-        gamma=float(config.get("gamma", 0.99)),
-        learning_rate=float(config.get("learning_rate", 3e-4)),
-        ent_coef=float(config.get("ent_coef", 0.0)),
-        clip_range=float(config.get("clip_range", 0.2)),
+        n_steps=_env_override("VOIDLINE_PPO_N_STEPS", int(config.get("n_steps", 64))),
+        batch_size=_env_override(
+            "VOIDLINE_PPO_BATCH_SIZE", int(config.get("batch_size", 64))
+        ),
+        n_epochs=_env_override("VOIDLINE_PPO_N_EPOCHS", int(config.get("n_epochs", 2))),
+        gamma=_env_override("VOIDLINE_PPO_GAMMA", float(config.get("gamma", 0.99))),
+        learning_rate=_env_override(
+            "VOIDLINE_PPO_LR", float(config.get("learning_rate", 3e-4))
+        ),
+        ent_coef=_env_override("VOIDLINE_PPO_ENT_COEF", float(config.get("ent_coef", 0.0))),
+        clip_range=_env_override(
+            "VOIDLINE_PPO_CLIP_RANGE", float(config.get("clip_range", 0.2))
+        ),
         device=config.get("device", "auto"),
     )
     model.learn(total_timesteps=timesteps)
