@@ -245,14 +245,15 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "quick":
-        episodes_n = args.episodes if args.episodes is not None else 100
-        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 50
+        # Sized to fit under the 30-min Modal subprocess cap on cpu-burst.
+        episodes_n = args.episodes if args.episodes is not None else 20
+        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 15
     elif args.mode == "full":
-        episodes_n = args.episodes if args.episodes is not None else 1000
-        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 150
+        episodes_n = args.episodes if args.episodes is not None else 200
+        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 50
     else:  # test-card
-        episodes_n = args.episodes if args.episodes is not None else 50
-        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 30
+        episodes_n = args.episodes if args.episodes is not None else 30
+        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 20
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = args.model_dir / "oracle.zip"

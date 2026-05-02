@@ -89,10 +89,10 @@ image = (
 )
 
 COMMAND_TIMEOUT_SECONDS = {
-    "quick": 60 * 15,
+    "quick": 60 * 30,
     "full": 60 * 60 * 4 - 120,
     "train": 60 * 60 * 6 - 120,
-    "test-card": 60 * 20,
+    "test-card": 60 * 30,
 }
 
 RESERVED_REMOTE_ARGS = {"--output", "--model-dir", "--checkpoint-dir", "--repo-root"}
@@ -399,7 +399,7 @@ def _run_command(
     volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
     cpu=32,
     memory=65536,
-    timeout=60 * 20,
+    timeout=60 * 35,
 )
 def run_balance_quick(command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str) -> dict[str, object]:
     return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")

@@ -160,7 +160,7 @@ RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-${BALANCE_HASH}"
 case "$COMMAND" in
   quick)
     RESOURCE_CLASS="cpu-burst"
-    TIMEOUT_SECONDS=900
+    TIMEOUT_SECONDS=1800
     ;;
   full)
     RESOURCE_CLASS="big-cpu-burst"
