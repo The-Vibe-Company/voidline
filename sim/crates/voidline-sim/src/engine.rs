@@ -350,6 +350,7 @@ pub struct OwnedRelicRecord {
     pub count: u32,
 }
 
+#[derive(Clone)]
 pub struct Engine {
     bundle: DataBundle,
     config: EngineConfig,

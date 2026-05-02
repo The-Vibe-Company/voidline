@@ -44,6 +44,14 @@ class Variant:
     id: str
     env_vars: dict[str, str]
     train_args: list[str]
+    # Path inside the Modal /models volume to copy as the warm-start
+    # ``oracle.zip`` before training runs. None = random init. Used by
+    # the curriculum grids so each stage reliably picks up where the
+    # previous one left off.
+    base_checkpoint: str | None = None
+    # Per-mode max_steps for the variant's quick eval (so curriculum
+    # stage 2/3 evals can actually observe their boss).
+    eval_max_steps: int = 46800
 
 
 # -- Reward shape sweep (stage A) ------------------------------------------
@@ -155,7 +163,173 @@ def iter3_grid() -> list[Variant]:
     return variants
 
 
-GRIDS = {"reward": reward_grid, "hparam": hparam_grid, "iter3": iter3_grid}
+# -- Curriculum grids ------------------------------------------------------
+# Each curriculum stage warm-starts from the previous stage's top-1
+# checkpoint. Population = 8 variants per stage (seed perturbations + small
+# reward shape variations) so we keep variance across the leaderboard low.
+#
+# Game-time horizons:
+#   stage 1 boss spawns @ 600s   → 46800 frames + buffer
+#   stage 2 boss spawns @ 1560s  → 93600 frames
+#   stage 3 boss spawns @ 2340s  → 140400 frames
+
+CURRICULUM_STAGE1_BASE = "{balance_hash}/oracle.zip"
+CURRICULUM_STAGE2_BASE = "curriculum/stage1/best.zip"
+CURRICULUM_STAGE3_BASE = "curriculum/stage2/best.zip"
+
+
+def easy_stage1_grid() -> list[Variant]:
+    """Lower-density bootstrap. The agent has 3x fewer enemies during
+    training so it can survive long enough to discover stage clears.
+    Once a baseline policy exists at low density, transfer it back to
+    full density via curriculum_stage1.
+    """
+    variants: list[Variant] = []
+    seeds = [1109, 2202, 3304, 4406, 5508, 6610, 7712, 8814]
+    density_scales = [0.33, 0.33, 0.33, 0.33, 0.5, 0.5, 0.5, 0.5]
+    stage_scales = [10.0, 25.0, 10.0, 25.0, 10.0, 25.0, 10.0, 25.0]
+    for seed, density_scale, stage_scale in zip(seeds, density_scales, stage_scales):
+        variants.append(
+            Variant(
+                id=f"easy_seed{seed}_d{density_scale:g}_s{stage_scale:g}",
+                env_vars={
+                    "VOIDLINE_FORCE_START_STAGE": "1",
+                    "VOIDLINE_MAX_STEPS_PER_RUN": "46800",
+                    "VOIDLINE_RUNS_PER_EPISODE": "4",
+                    "VOIDLINE_TRAINING_DENSITY_MULT": str(density_scale),
+                    "VOIDLINE_REWARD_STAGE_SCALE": str(stage_scale),
+                    "VOIDLINE_REWARD_DENSE_SCALE": "1.0",
+                    "VOIDLINE_PPO_N_ENVS": "8",
+                },
+                train_args=["--timesteps", "1000000", "--seed", str(seed)],
+                base_checkpoint=None,  # fresh init at low density
+                eval_max_steps=46800,
+            )
+        )
+    return variants
+
+
+def transfer_stage1_grid() -> list[Variant]:
+    """Density ramp from the easy_stage1 winner to full game density.
+
+    The easy_stage1 sweep produced a checkpoint that clears stage 1 at
+    d=0.33. We now warm-start from that and continue training at higher
+    densities so the policy generalizes back to the prod env. 8 variants
+    spanning d ∈ {0.5, 0.66, 0.85, 1.0} × 2 stage_scales.
+    """
+    variants: list[Variant] = []
+    base = "curriculum/stage1_easy/best.zip"
+    densities = [0.5, 0.5, 0.66, 0.66, 0.85, 0.85, 1.0, 1.0]
+    stage_scales = [10.0, 25.0, 10.0, 25.0, 10.0, 25.0, 10.0, 25.0]
+    seeds = [1109, 2202, 3304, 4406, 5508, 6610, 7712, 8814]
+    for seed, density, stage_scale in zip(seeds, densities, stage_scales):
+        variants.append(
+            Variant(
+                id=f"xfer_s{seed}_d{density:g}_s{stage_scale:g}",
+                env_vars={
+                    "VOIDLINE_FORCE_START_STAGE": "1",
+                    "VOIDLINE_MAX_STEPS_PER_RUN": "46800",
+                    "VOIDLINE_RUNS_PER_EPISODE": "4",
+                    "VOIDLINE_TRAINING_DENSITY_MULT": str(density),
+                    "VOIDLINE_REWARD_STAGE_SCALE": str(stage_scale),
+                    "VOIDLINE_REWARD_DENSE_SCALE": "1.0",
+                    "VOIDLINE_PPO_N_ENVS": "8",
+                },
+                train_args=["--timesteps", "1500000", "--seed", str(seed)],
+                base_checkpoint=base,
+                eval_max_steps=46800,
+            )
+        )
+    return variants
+
+
+def curriculum_stage1_grid() -> list[Variant]:
+    variants: list[Variant] = []
+    seed_pairs = [(s, s + 1) for s in (1109, 2202, 3304, 4406)]
+    stage_scales = [1.0, 5.0, 10.0]
+    for idx, ((seed_a, _seed_b), stage_scale) in enumerate(
+        zip(seed_pairs * 2, stage_scales * 3)
+    ):
+        if idx >= 8:
+            break
+        variants.append(
+            Variant(
+                id=f"s1_seed{seed_a}_stage{stage_scale:g}",
+                env_vars={
+                    "VOIDLINE_FORCE_START_STAGE": "1",
+                    "VOIDLINE_MAX_STEPS_PER_RUN": "46800",
+                    "VOIDLINE_RUNS_PER_EPISODE": "4",
+                    "VOIDLINE_REWARD_STAGE_SCALE": str(stage_scale),
+                    "VOIDLINE_REWARD_DENSE_SCALE": "1.0",
+                    "VOIDLINE_PPO_N_ENVS": "8",
+                },
+                train_args=["--timesteps", "500000", "--seed", str(seed_a)],
+                base_checkpoint=CURRICULUM_STAGE1_BASE,
+                eval_max_steps=46800,
+            )
+        )
+    return variants
+
+
+def curriculum_stage2_grid() -> list[Variant]:
+    variants: list[Variant] = []
+    seeds = [1109, 2202, 3304, 4406, 5508, 6610, 7712, 8814]
+    for idx, seed in enumerate(seeds):
+        # Alternate stage_scale to encourage diversity in the population.
+        stage_scale = 5.0 if idx % 2 == 0 else 10.0
+        variants.append(
+            Variant(
+                id=f"s2_seed{seed}_stage{stage_scale:g}",
+                env_vars={
+                    "VOIDLINE_FORCE_START_STAGE": "2",
+                    "VOIDLINE_MAX_STEPS_PER_RUN": "93600",
+                    "VOIDLINE_RUNS_PER_EPISODE": "2",
+                    "VOIDLINE_REWARD_STAGE_SCALE": str(stage_scale),
+                    "VOIDLINE_REWARD_DENSE_SCALE": "1.0",
+                    "VOIDLINE_PPO_N_ENVS": "8",
+                },
+                train_args=["--timesteps", "1000000", "--seed", str(seed)],
+                base_checkpoint=CURRICULUM_STAGE2_BASE,
+                eval_max_steps=93600,
+            )
+        )
+    return variants
+
+
+def curriculum_stage3_grid() -> list[Variant]:
+    variants: list[Variant] = []
+    seeds = [1109, 2202, 3304, 4406, 5508, 6610, 7712, 8814]
+    for idx, seed in enumerate(seeds):
+        stage_scale = 10.0 if idx < 4 else 5.0
+        variants.append(
+            Variant(
+                id=f"s3_seed{seed}_stage{stage_scale:g}",
+                env_vars={
+                    "VOIDLINE_FORCE_START_STAGE": "3",
+                    "VOIDLINE_MAX_STEPS_PER_RUN": "140400",
+                    "VOIDLINE_RUNS_PER_EPISODE": "2",
+                    "VOIDLINE_REWARD_STAGE_SCALE": str(stage_scale),
+                    "VOIDLINE_REWARD_DENSE_SCALE": "1.0",
+                    "VOIDLINE_PPO_N_ENVS": "8",
+                },
+                train_args=["--timesteps", "2000000", "--seed", str(seed)],
+                base_checkpoint=CURRICULUM_STAGE3_BASE,
+                eval_max_steps=140400,
+            )
+        )
+    return variants
+
+
+GRIDS = {
+    "reward": reward_grid,
+    "hparam": hparam_grid,
+    "iter3": iter3_grid,
+    "easy_stage1": easy_stage1_grid,
+    "transfer_stage1": transfer_stage1_grid,
+    "curriculum_stage1": curriculum_stage1_grid,
+    "curriculum_stage2": curriculum_stage2_grid,
+    "curriculum_stage3": curriculum_stage3_grid,
+}
 
 
 @SWEEP_APP.function(
@@ -170,22 +344,64 @@ GRIDS = {"reward": reward_grid, "hparam": hparam_grid, "iter3": iter3_grid}
     gpu="H100",
     timeout=60 * 120,
 )
-def train_variant(variant_id: str, env_vars: dict, train_args: list[str]) -> dict:
+def train_variant(
+    variant_id: str,
+    env_vars: dict,
+    train_args: list[str],
+    base_checkpoint: str | None = None,
+    eval_max_steps: int = 46800,
+    balance_hash: str = "",
+) -> dict:
     """Train a single variant on its own H100 and return summary metrics.
 
     Each variant gets its own ``model_dir`` under ``/models/sweep/<id>/``
-    so concurrent jobs don't stomp on each other's checkpoints.
+    so concurrent jobs don't stomp on each other's checkpoints. When
+    ``base_checkpoint`` is set, the named ``oracle.zip`` is copied into
+    the variant dir before training so train.py's automatic warm-start
+    picks it up. Provenance is stored in ``provenance.json`` for audit.
     """
-    import os
+    import shutil
     import subprocess
     from pathlib import Path
 
     model_dir = Path("/models/sweep") / variant_id
+    # Wipe any leftover state from a prior run with the same variant id;
+    # otherwise warm-start would pick up a stale checkpoint that no
+    # longer reflects the intended base lineage.
+    if model_dir.exists():
+        shutil.rmtree(model_dir)
     model_dir.mkdir(parents=True, exist_ok=True)
 
     env = _base_env(model_dir)
     env.update(env_vars)
     _build_voidline_py(env)
+
+    base_resolved: str | None = None
+    if base_checkpoint:
+        # Allow {balance_hash} substitution in the base path so curriculum
+        # grids can pin to the BC checkpoint without hard-coding hashes.
+        rendered = base_checkpoint.format(balance_hash=balance_hash)
+        candidate = Path("/models") / rendered
+        if candidate.is_file():
+            shutil.copyfile(candidate, model_dir / "oracle.zip")
+            base_resolved = str(candidate)
+        else:
+            (model_dir / "missing-base-checkpoint.txt").write_text(
+                f"expected: {candidate}\n", encoding="utf-8"
+            )
+
+    provenance = {
+        "variant_id": variant_id,
+        "env_vars": env_vars,
+        "train_args": train_args,
+        "base_checkpoint_request": base_checkpoint,
+        "base_checkpoint_resolved": base_resolved,
+        "balance_hash": balance_hash,
+        "eval_max_steps": eval_max_steps,
+    }
+    (model_dir / "provenance.json").write_text(
+        json.dumps(provenance, indent=2) + "\n", encoding="utf-8"
+    )
 
     argv = [
         "python3",
@@ -209,12 +425,17 @@ def train_variant(variant_id: str, env_vars: dict, train_args: list[str]) -> dic
     metrics["train_args"] = train_args
     metrics["return_code"] = proc.returncode
     metrics["model_dir"] = str(model_dir)
+    metrics["base_checkpoint_resolved"] = base_resolved
 
     if proc.returncode != 0:
         metrics["error"] = "training subprocess failed (see train.log)"
         return metrics
 
-    # Quick eval: 5 episodes × 5 runs to get a directional signal cheaply.
+    # Quick eval: scope sized so the eval can actually observe the
+    # variant's target stage boss. Bumping max_steps means fewer episodes
+    # in the same wallclock budget.
+    eval_episodes = "8" if eval_max_steps >= 100000 else "12"
+    eval_runs_per_ep = "3" if eval_max_steps >= 100000 else "5"
     eval_path = model_dir / "eval.json"
     eval_argv = [
         "python3",
@@ -229,11 +450,11 @@ def train_variant(variant_id: str, env_vars: dict, train_args: list[str]) -> dic
         "--mode",
         "quick",
         "--episodes",
-        "5",
+        eval_episodes,
         "--runs-per-episode",
-        "5",
+        eval_runs_per_ep,
         "--max-steps",
-        "36000",
+        str(eval_max_steps),
     ]
     eval_log = model_dir / "eval.log"
     with eval_log.open("w", encoding="utf-8") as log:
@@ -313,15 +534,75 @@ def score_variant(metrics: dict) -> float:
     )
 
 
+@SWEEP_APP.function(
+    image=image,
+    volumes={"/models": models_volume},
+    cpu=2,
+    memory=4096,
+    timeout=300,
+)
+def promote_best(grid: str, model_dir: str) -> str:
+    """Copy the winning variant's ``oracle.zip`` to the curriculum path
+    that the next stage reads from. Runs inside Modal so it can touch
+    the persisted ``/models`` volume.
+    """
+    import shutil
+    from pathlib import Path
+
+    src = Path(model_dir) / "oracle.zip"
+    if not src.is_file():
+        return f"missing source: {src}"
+    if grid == "curriculum_stage1":
+        dst = Path("/models/curriculum/stage1/best.zip")
+    elif grid == "curriculum_stage2":
+        dst = Path("/models/curriculum/stage2/best.zip")
+    elif grid == "curriculum_stage3":
+        dst = Path("/models/curriculum/stage3/best.zip")
+    elif grid == "easy_stage1":
+        dst = Path("/models/curriculum/stage1_easy/best.zip")
+    elif grid == "transfer_stage1":
+        dst = Path("/models/curriculum/stage1_transfer/best.zip")
+    else:
+        return f"non-curriculum grid {grid}; nothing to promote"
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(src, dst)
+    models_volume.commit()
+    return str(dst)
+
+
+def _resolve_balance_hash() -> str:
+    import hashlib
+
+    candidate = Path("data/balance.json")
+    if candidate.exists():
+        return hashlib.sha256(candidate.read_bytes()).hexdigest()[:16]
+    return ""
+
+
 @SWEEP_APP.local_entrypoint()
 def main(grid: str = "reward", output: str = "reports/sweep.json") -> None:
     grid_fn = GRIDS.get(grid)
     if grid_fn is None:
         raise SystemExit(f"unknown grid: {grid}; available: {list(GRIDS)}")
     variants = grid_fn()
-    print(f"[sweep] launching {len(variants)} variants for grid={grid}", flush=True)
+    balance_hash = _resolve_balance_hash()
+    print(
+        f"[sweep] launching {len(variants)} variants for grid={grid} "
+        f"(balance_hash={balance_hash or 'unknown'})",
+        flush=True,
+    )
 
-    starmap_args = [(v.id, v.env_vars, v.train_args) for v in variants]
+    starmap_args = [
+        (
+            v.id,
+            v.env_vars,
+            v.train_args,
+            v.base_checkpoint,
+            v.eval_max_steps,
+            balance_hash,
+        )
+        for v in variants
+    ]
     raw_results = list(train_variant.starmap(starmap_args))
 
     results = sorted(raw_results, key=score_variant, reverse=True)
@@ -332,6 +613,7 @@ def main(grid: str = "reward", output: str = "reports/sweep.json") -> None:
             {
                 "grid": grid,
                 "variants": len(variants),
+                "balance_hash": balance_hash,
                 "results": results,
                 "best": results[0] if results else None,
             },
@@ -350,6 +632,10 @@ def main(grid: str = "reward", output: str = "reports/sweep.json") -> None:
             f"stage3={best.get('stage3_rate')}",
             flush=True,
         )
+        if grid.startswith("curriculum_") or grid in {"easy_stage1", "transfer_stage1"}:
+            best_model_dir = best.get("model_dir") or ""
+            promotion = promote_best.remote(grid, best_model_dir)
+            print(f"[sweep] promoted top-1 → {promotion}", flush=True)
 
 
 if __name__ == "__main__":

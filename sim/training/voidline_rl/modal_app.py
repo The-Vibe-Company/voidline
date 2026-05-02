@@ -93,6 +93,8 @@ COMMAND_TIMEOUT_SECONDS = {
     "full": 60 * 60 * 4 - 120,
     "train": 60 * 60 * 6 - 120,
     "test-card": 60 * 30,
+    "hardcoded": 60 * 30,
+    "bc": 60 * 60,
 }
 
 RESERVED_REMOTE_ARGS = {"--output", "--model-dir", "--checkpoint-dir", "--repo-root"}
@@ -171,7 +173,7 @@ def _build_voidline_py(env: dict[str, str]) -> None:
     # the per-package layout cargo expects. The nuclear option (wipe the
     # release tree once per marker bump) is fast in practice and only fires
     # when this constant changes.
-    rebuild_marker_value = "20260502d-iter3-multi-hyp"
+    rebuild_marker_value = "20260502q-h15r6-no-level"
     cargo_target = Path(env.get("CARGO_TARGET_DIR", str(REMOTE_REPO / "sim" / "target")))
     marker = cargo_target / ".voidline-rebuild-marker-py"
     cargo_target.mkdir(parents=True, exist_ok=True)
@@ -215,6 +217,13 @@ def _require_models(model_dir: Path) -> None:
         raise RuntimeError(f"missing RL model(s): {joined}; run `npm run balance:train` first")
 
 
+_DEFAULT_ORACLE_MAX_STEPS = {
+    "quick": 46800,
+    "full": 93600,
+    "test-card": 46800,
+}
+
+
 def _oracle_args(
     mode: str,
     model_dir: Path,
@@ -223,6 +232,11 @@ def _oracle_args(
 ) -> list[str]:
     """Single oracle eval entry point — replaces the legacy heuristic +
     learned report split.
+
+    ``--max-steps`` is always passed explicitly so the report's per-run
+    horizon does not silently regress if anyone touches the eval defaults.
+    Stage 1 boss spawns at 600s game-time (~36000 frames at 60fps) so
+    anything below that produces structurally invalid stage-clear metrics.
     """
     base = [
         "python3",
@@ -236,6 +250,8 @@ def _oracle_args(
         str(output_path),
         "--mode",
         mode,
+        "--max-steps",
+        str(_DEFAULT_ORACLE_MAX_STEPS[mode]),
     ]
     if target_upgrade_id is not None:
         base.extend(["--target-upgrade-id", target_upgrade_id])
@@ -293,6 +309,97 @@ def _run_report(
     return payload, executed
 
 
+def _run_bc(
+    extra_args: list[str],
+    artifact_dir: Path,
+    model_dir: Path,
+    env: dict[str, str],
+) -> tuple[dict[str, object], list[list[str]]]:
+    """Roll out the hardcoded agent then run Behavior Cloning to produce
+    a MaskablePPO-compatible ``oracle.zip`` warm-start checkpoint.
+
+    Curriculum stage 1 sweeps then init from this checkpoint, which puts
+    PPO on a competent baseline instead of a random policy.
+    """
+    _build_voidline_py(env)
+    rollout_path = Path("/tmp/voidline-rollout.npz")
+    rollout_path.parent.mkdir(parents=True, exist_ok=True)
+    bc_output = model_dir / "oracle.zip"
+
+    rollout_argv = _merge_extra_args(
+        [
+            "python3",
+            "-m",
+            "voidline_rl.rollout",
+            "--output",
+            str(rollout_path),
+            "--episodes",
+            "200",
+            "--runs-per-episode",
+            "4",
+        ],
+        [arg for arg in extra_args if arg.startswith("--rollout-")],
+    )
+    bc_argv = _merge_extra_args(
+        [
+            "python3",
+            "-m",
+            "voidline_rl.bc",
+            "--rollout",
+            str(rollout_path),
+            "--output",
+            str(bc_output),
+            "--epochs",
+            "6",
+            "--batch-size",
+            "128",
+        ],
+        [arg for arg in extra_args if not arg.startswith("--rollout-")],
+    )
+
+    executed = [
+        _run_timeout(rollout_argv, env, "bc"),
+        _run_timeout(bc_argv, env, "bc"),
+    ]
+    payload: dict[str, object] = {
+        "schemaVersion": 1,
+        "mode": "bc",
+        "modelDir": str(model_dir),
+        "rolloutPath": str(rollout_path),
+        "checkpoint": str(bc_output),
+    }
+    (artifact_dir / "bc.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    models_volume.commit()
+    return payload, executed
+
+
+def _run_hardcoded(
+    extra_args: list[str],
+    artifact_dir: Path,
+    env: dict[str, str],
+) -> tuple[dict[str, object], list[list[str]]]:
+    """Run the hardcoded heuristic agent baseline. Does not need a
+    trained model — only the voidline_py wheel.
+    """
+    _build_voidline_py(env)
+    output_path = artifact_dir / "hardcoded.json"
+    argv = _merge_extra_args(
+        [
+            "python3",
+            "-m",
+            "voidline_rl.hardcoded_eval",
+            "--repo-root",
+            str(REMOTE_REPO),
+            "--output",
+            str(output_path),
+        ],
+        extra_args,
+    )
+    executed = [_run_timeout(argv, env, "hardcoded")]
+    payload = json.loads(output_path.read_text(encoding="utf-8"))
+    return payload, executed
+
+
 def _run_train(extra_args: list[str], artifact_dir: Path, model_dir: Path, env: dict[str, str]) -> tuple[dict[str, object], list[list[str]]]:
     _build_voidline_py(env)
     output_path = artifact_dir / "train.json"
@@ -315,6 +422,26 @@ def _run_train(extra_args: list[str], artifact_dir: Path, model_dir: Path, env: 
     return payload, executed
 
 
+def _flag_count(payload: dict[str, object]) -> int:
+    """Count balance warnings in the report.
+
+    Schema v2 (oracle reports) emits ``payload['oracle']['warnings']`` as a
+    flat list. The legacy v1 schema used ``payload['flags']`` as a dict of
+    list values. Both shapes are summed for backwards compatibility with
+    older reports still living in the volume.
+    """
+    total = 0
+    oracle = payload.get("oracle")
+    if isinstance(oracle, dict):
+        warnings = oracle.get("warnings")
+        if isinstance(warnings, list):
+            total += len(warnings)
+    legacy = payload.get("flags")
+    if isinstance(legacy, dict):
+        total += sum(len(value) for value in legacy.values() if isinstance(value, list))
+    return total
+
+
 def _run_command(
     command: str,
     extra_args_json: str,
@@ -323,7 +450,7 @@ def _run_command(
     run_id: str,
     resource_class: str,
 ) -> dict[str, object]:
-    if command not in {"quick", "full", "train", "test-card"}:
+    if command not in {"quick", "full", "train", "test-card", "hardcoded", "bc"}:
         raise ValueError(f"unknown balance command: {command}")
     extra_args = json.loads(extra_args_json)
     if not isinstance(extra_args, list) or not all(isinstance(item, str) for item in extra_args):
@@ -340,6 +467,10 @@ def _run_command(
 
     if command == "train":
         payload, executed = _run_train(extra_args, artifact_dir, model_dir, env)
+    elif command == "hardcoded":
+        payload, executed = _run_hardcoded(extra_args, artifact_dir, env)
+    elif command == "bc":
+        payload, executed = _run_bc(extra_args, artifact_dir, model_dir, env)
     else:
         # `--target-upgrade-id <id>` is allowed in extra_args for test-card.
         target_upgrade_id: str | None = None
@@ -390,7 +521,7 @@ def _run_command(
         "output": str(artifact_dir / f"{command}.json"),
         "resourceClass": resource_class,
         "timeoutSeconds": COMMAND_TIMEOUT_SECONDS[command],
-        "flagCount": sum(len(value) for value in payload.get("flags", {}).values()) if isinstance(payload.get("flags"), dict) else 0,
+        "flagCount": _flag_count(payload),
     }
 
 
@@ -441,6 +572,32 @@ def run_balance_test_card(
     return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")
 
 
+@app.function(
+    image=image,
+    volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
+    cpu=32,
+    memory=65536,
+    timeout=60 * 35,
+)
+def run_balance_hardcoded(
+    command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str
+) -> dict[str, object]:
+    return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")
+
+
+@app.function(
+    image=image,
+    volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
+    cpu=32,
+    memory=131072,
+    timeout=60 * 65,
+)
+def run_balance_bc(
+    command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str
+) -> dict[str, object]:
+    return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")
+
+
 @app.local_entrypoint()
 def main(command: str, extra_args_json: str = "[]", git_sha: str = "unknown", balance_hash: str = "unknown", run_id: str = "manual") -> None:
     if command == "quick":
@@ -451,6 +608,14 @@ def main(command: str, extra_args_json: str = "[]", git_sha: str = "unknown", ba
         result = run_balance_train.remote(command, extra_args_json, git_sha, balance_hash, run_id)
     elif command == "test-card":
         result = run_balance_test_card.remote(
+            command, extra_args_json, git_sha, balance_hash, run_id
+        )
+    elif command == "hardcoded":
+        result = run_balance_hardcoded.remote(
+            command, extra_args_json, git_sha, balance_hash, run_id
+        )
+    elif command == "bc":
+        result = run_balance_bc.remote(
             command, extra_args_json, git_sha, balance_hash, run_id
         )
     else:

@@ -20,6 +20,28 @@ Voir `sim/README.md` pour l'architecture complète et les workflows de maintenan
 
 ---
 
+## ⚠️ RÈGLE PRIORITAIRE — Le modèle RL choisit, le Rust pilote
+
+**Le modèle RL ne décide JAMAIS du déplacement.** Le mouvement (8 directions + noop) est entièrement contrôlé par un algorithme Rust déterministe (lookahead receding-horizon dans `voidline_meta::profiles::lookahead_movement`). Le rôle du modèle est strictement de choisir :
+
+- **Upgrades** au level-up (slot 1-4 ou skip)
+- **Reliques** sur chest spawn (slot 1-3 ou skip)
+- **Achats meta** en phase Shop (slot 1-8 ou NextRun)
+
+**Pourquoi** : la difficulté du jeu (3x density d'ennemis) rend l'apprentissage du déplacement par PPO trop coûteux et brouille le signal de balance. En séparant motricité (Rust algo) et stratégie (RL), on a :
+1. Un signal d'oracle propre : si le modèle pick souvent une carte, c'est qu'elle est *stratégiquement* OP, pas que le pilote a appris à abuser d'un dodge.
+2. Un budget compute beaucoup plus petit : action space passe de 9×5×4×9 = 1620 combos à 5×4×9 = 180.
+3. Une survie déjà "résolue" par l'algo Rust → PPO se concentre sur le buildcraft.
+
+**Comment c'est implémenté** :
+- `EpisodeEnv::step_run` ignore `action[0]` quand `VOIDLINE_RUST_MOVEMENT=1` (default) et appelle `lookahead_movement(engine, frames=30)` à chaque tick.
+- `EpisodeEnv::observe()` masque toutes les actions de mouvement sauf `noop` (slot 0) → PPO ne gaspille pas de capacité sur cette dim.
+- L'algo Rust clone l'`Engine`, simule 30 frames sous chaque candidate movement (8-way + noop), score le résultat, et pick le meilleur (`+score_delta − hp_loss×80 − died×5000 − proximity_penalty + survival`).
+
+**Bloquer toute PR qui réintroduit la motricité dans le modèle.** Si quelqu'un ajoute un reward shaping qui exige du mouvement précis, ou un test qui asserte que le modèle apprend à dodge, c'est une violation de cette règle. L'oracle est un *cerveau de joueur*, pas un *pilote*.
+
+---
+
 ## ⚠️ RÈGLE PRIORITAIRE — Jamais d'hypothèse, toujours mesurer
 
 Avant de proposer des chiffres de balance, de coût, de yield, de courbe de progression ou tout autre choix calibré sur des valeurs empiriques : **mesurer**, jamais estimer.
@@ -75,10 +97,24 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 - `npm run balance:quick` — rapport rapide (<5 min cible) pour tendances heuristiques + learned RL
 - `npm run balance:full` — rapport profond, plus long, pour validation avant décision importante
 - `npm run balance:train` — entraîne/exporte les personas RL sur H100 et persiste les ONNX dans Modal
+- `npm run balance:hardcoded` — agent heuristique baseline (gate de décision pour la pipeline BC, ~2 min CPU)
+- `npm run balance:bc` — rollout du hardcoded + Behavior Cloning → `oracle.zip` warm-start (~30-60 min CPU)
+- `npm run balance:sweep -- --grid <name>` — fan out parallèle sur Modal H100. Grids : `reward`, `hparam`, `iter3`, `curriculum_stage1`, `curriculum_stage2`, `curriculum_stage3`
+- `npm run balance:test-card -- --target-upgrade-id <id>` — force la carte dans le draft pool, verdict OP/dead/balanced
 - `npm run balance:pull` / `npm run balance:pull -- --reports` — récupère modèles ou rapports Modal vers `.context/`
 - `npm run data:export` — régénère `data/balance.json`
 - `npm run data:check` — vérifie que `data/balance.json` est à jour
 - `cd sim && cargo test --workspace` — tests parité Rust (28 tests)
+
+**Pipeline curriculum (oracle RL)** :
+1. `balance:hardcoded` → décision : env solvable par heuristique simple ?
+2. `balance:bc` → seed la policy avec les rollouts du hardcoded
+3. `balance:sweep --grid curriculum_stage1` → 8 H100 × 500k timesteps, force start_stage=1, best promu vers `/models/curriculum/stage1/best.zip`
+4. `balance:sweep --grid curriculum_stage2` → warm-start depuis stage1.best, force start_stage=2, 1M timesteps
+5. `balance:sweep --grid curriculum_stage3` → warm-start depuis stage2.best, force start_stage=3, 2M timesteps
+6. `balance:full` final eval → verdict CONVERGED si `oracle.stage_clears.stage3.rate >= 0.15`
+
+L'horizon `--max-steps` du `voidline_rl.eval` est mode-aware (quick=46800/full=93600/test-card=46800) pour que le boss de stage 1 (spawn @ 600s game-time) soit observable. `modal_app._oracle_args` passe `--max-steps` explicitement pour bloquer toute régression.
 
 **Toute mesure d'équilibrage passe par Modal.** Ne lance pas de check/report/train balance en local et n'ajoute pas de workflow CI pour la balance. Le local sert seulement à lancer Modal, à exporter `data/balance.json`, à lancer les tests standard, et à récupérer des artefacts avec `balance:pull`.
 

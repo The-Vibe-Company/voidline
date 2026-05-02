@@ -8,13 +8,16 @@ PERSONAS=(oracle)
 
 usage() {
   cat >&2 <<'EOF'
-usage: scripts/balance-dispatch.sh <quick|full|train|test-card|pull> [args...]
+usage: scripts/balance-dispatch.sh <quick|full|train|test-card|hardcoded|bc|sweep|pull> [args...]
 
 Commands:
   quick      Modal balance trend check via oracle RL agent (CPU, ~10 min)
   full       Modal deep balance report via oracle RL agent (big CPU, ~3-4h)
   train      Modal H100 RL training, persists oracle .zip + .onnx
   test-card  Force a target upgrade into draft/shop and verdict it (CPU)
+  hardcoded  Run the heuristic baseline agent (decision gate for BC pipeline)
+  bc         Roll out hardcoded + Behavior Cloning → oracle.zip warm-start
+  sweep      Fan out N H100 training jobs in parallel
   pull       Pull Modal models/reports into .context
 
 Options:
@@ -78,7 +81,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$COMMAND" in
-  quick|full|train|test-card|sweep|pull)
+  quick|full|train|test-card|hardcoded|bc|sweep|pull)
     ;;
   *)
     echo "unknown balance command: $COMMAND" >&2
@@ -173,6 +176,14 @@ case "$COMMAND" in
   test-card)
     RESOURCE_CLASS="cpu-burst"
     TIMEOUT_SECONDS=1200
+    ;;
+  hardcoded)
+    RESOURCE_CLASS="cpu-burst"
+    TIMEOUT_SECONDS=1800
+    ;;
+  bc)
+    RESOURCE_CLASS="cpu-burst"
+    TIMEOUT_SECONDS=3600
     ;;
   sweep)
     # Sweeps fan out N H100 H100 jobs in parallel via voidline_rl.sweep::main.

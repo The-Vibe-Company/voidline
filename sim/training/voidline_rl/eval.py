@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import statistics
 from collections import Counter
 from pathlib import Path
@@ -53,6 +54,21 @@ STAGE_TARGETS = (1, 2, 3)
 DEAD_PICK_THRESHOLD = 0.05
 OP_PICK_THRESHOLD = 0.7
 OP_CLEAR_LIFT_THRESHOLD = 0.15
+
+# Per-mode horizon defaults. The boss spawns at ~600s game-time (stage 1) so
+# any run shorter than ~36000 frames (60fps × 600s) cannot observe a stage 1
+# clear by construction. We size with a buffer so the agent has time to
+# actually defeat the boss after spawning.
+#   stage 1 boss spawn: 600s   → 46800 frames covers spawn + ~3 min boss fight
+#   stage 2 boss spawn: 1560s  → 93600 frames (~26 min) covers stage 1 + 2
+#   stage 3 boss spawn: 2340s  → 140400 frames (~39 min) covers stages 1-3
+DEFAULT_MAX_STEPS = {
+    "quick": 46800,
+    "full": 93600,
+    "test-card": 46800,
+}
+TARGET_DRAFT_INCLUDE_ENV = "VOIDLINE_FORCE_DRAFT_INCLUDE_ID"
+MIN_TARGET_OFFERS_FOR_VERDICT = 5
 
 
 def run_episode(
@@ -233,7 +249,14 @@ def main() -> None:
     parser.add_argument("--mode", choices=["quick", "full", "test-card"], default="quick")
     parser.add_argument("--episodes", type=int)
     parser.add_argument("--runs-per-episode", type=int)
-    parser.add_argument("--max-steps", type=int, default=3600)
+    parser.add_argument(
+        "--max-steps",
+        type=int,
+        default=None,
+        help="Per-run frame budget. Defaults to mode-specific value "
+        "(quick=46800, full=93600, test-card=46800) so stage clears are "
+        "actually observable.",
+    )
     parser.add_argument("--seed", type=int, default=1109)
     parser.add_argument(
         "--target-upgrade-id",
@@ -245,15 +268,19 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.mode == "quick":
-        # Sized to fit under the 30-min Modal subprocess cap on cpu-burst.
-        episodes_n = args.episodes if args.episodes is not None else 20
-        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 15
+        # Sized to fit under the 30-min Modal subprocess cap on cpu-burst
+        # given the bumped per-run horizon. Each run terminates on death or
+        # boss kill, so wallclock stays well below the worst-case product.
+        episodes_n = args.episodes if args.episodes is not None else 15
+        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 6
     elif args.mode == "full":
-        episodes_n = args.episodes if args.episodes is not None else 200
-        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 50
+        episodes_n = args.episodes if args.episodes is not None else 100
+        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 20
     else:  # test-card
         episodes_n = args.episodes if args.episodes is not None else 30
-        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 20
+        runs_per_ep = args.runs_per_episode if args.runs_per_episode is not None else 12
+
+    max_steps = args.max_steps if args.max_steps is not None else DEFAULT_MAX_STEPS[args.mode]
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     checkpoint = args.model_dir / "oracle.zip"
@@ -267,15 +294,21 @@ def main() -> None:
     print(f"[oracle-eval] loading {checkpoint}", flush=True)
     model = MaskablePPO.load(str(checkpoint))
 
+    if args.mode == "test-card" and args.target_upgrade_id is not None:
+        # The Rust env reads this on every draft to inject the target into
+        # the offered slots, which is what makes the verdict meaningful.
+        os.environ[TARGET_DRAFT_INCLUDE_ENV] = args.target_upgrade_id
+
     print(
-        f"[oracle-eval] running {episodes_n} episodes × {runs_per_ep} runs each",
+        f"[oracle-eval] running {episodes_n} episodes × {runs_per_ep} runs each "
+        f"(max_steps={max_steps})",
         flush=True,
     )
     episodes_summaries: list[dict[str, Any]] = []
     for idx in range(episodes_n):
         # Wrap seed inside the u32 PyO3 boundary expects.
         seed = (args.seed + idx * 0x9E3779B1) & 0xFFFFFFFF
-        ep = run_episode(model, seed, runs_per_ep, args.max_steps)
+        ep = run_episode(model, seed, runs_per_ep, max_steps)
         episodes_summaries.append(ep)
         if (idx + 1) % max(1, episodes_n // 10) == 0:
             print(f"  episode {idx + 1}/{episodes_n}", flush=True)
@@ -326,10 +359,14 @@ def compute_card_verdict(aggregated: dict[str, Any], target_id: str) -> dict[str
         pick_rate = relic_rate["pickRateWhenOffered"]
         offers = relic_rate["offers"]
 
-    if offers < 5 and meta_rate is None:
+    if offers < MIN_TARGET_OFFERS_FOR_VERDICT and meta_rate is None:
         return {
             "label": "insufficient-data",
-            "reason": "target appeared too rarely; rerun with more episodes or check requirements gating",
+            "reason": (
+                f"target appeared {offers} time(s); need ≥ "
+                f"{MIN_TARGET_OFFERS_FOR_VERDICT} offers for a verdict. "
+                "Check requirements gating or rerun with more episodes."
+            ),
             "pickRateWhenOffered": pick_rate,
             "offers": offers,
         }

@@ -56,7 +56,7 @@ impl Default for SimConfig {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Sim {
     pub balance: Arc<Balance>,
     pub spawn_rules: EnemySpawnRules,
