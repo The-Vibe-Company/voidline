@@ -31,7 +31,10 @@ use voidline_sim::engine::{
 };
 
 const DEFAULT_RUNS_PER_EPISODE: u32 = 30;
-const BASE_STAGE_CLEAR_BONUSES: [(u32, f64); 3] = [(1, 200.0), (2, 800.0), (3, 3000.0)];
+// Bumped 10x in iter 3 so stage clears massively dominate passive survival
+// (iter 2 diagnosis: 0.01/frame × 36000 = +360 reward >> 200 stage1 clear,
+// agent learned to NOT engage the boss).
+const BASE_STAGE_CLEAR_BONUSES: [(u32, f64); 3] = [(1, 2000.0), (2, 8000.0), (3, 30000.0)];
 const BASE_STAGE_ENTRY_BONUS: f64 = 30.0;
 const BASE_LEVEL_UP_BONUS: f64 = 5.0;
 const BASE_SHOP_IDLE_STEP_PENALTY: f64 = -0.05;

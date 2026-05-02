@@ -52,26 +52,46 @@ def train_persona(persona: str, model_dir: Path, timesteps: int, seed: int, conf
     )
     if not is_masking_supported(env):
         raise RuntimeError("Voidline training env does not expose action_masks")
-    model = MaskablePPO(
-        "MultiInputPolicy",
-        env,
-        seed=seed,
-        verbose=int(config.get("verbose", 0)),
-        n_steps=_env_override("VOIDLINE_PPO_N_STEPS", int(config.get("n_steps", 64))),
-        batch_size=_env_override(
-            "VOIDLINE_PPO_BATCH_SIZE", int(config.get("batch_size", 64))
-        ),
-        n_epochs=_env_override("VOIDLINE_PPO_N_EPOCHS", int(config.get("n_epochs", 2))),
-        gamma=_env_override("VOIDLINE_PPO_GAMMA", float(config.get("gamma", 0.99))),
-        learning_rate=_env_override(
-            "VOIDLINE_PPO_LR", float(config.get("learning_rate", 3e-4))
-        ),
-        ent_coef=_env_override("VOIDLINE_PPO_ENT_COEF", float(config.get("ent_coef", 0.0))),
-        clip_range=_env_override(
-            "VOIDLINE_PPO_CLIP_RANGE", float(config.get("clip_range", 0.2))
-        ),
-        device=config.get("device", "auto"),
-    )
+    # Auto warm-start from an existing checkpoint in the model_dir so each
+    # iteration resumes from the previous one without manual flag wiring.
+    # Disable by setting VOIDLINE_FRESH_START=1.
+    existing_checkpoint = model_dir / f"{persona}.zip"
+    fresh_start = os.environ.get("VOIDLINE_FRESH_START") == "1"
+    if existing_checkpoint.is_file() and not fresh_start:
+        print(
+            f"[train] warm-starting from {existing_checkpoint}",
+            flush=True,
+        )
+        model = MaskablePPO.load(
+            str(existing_checkpoint),
+            env=env,
+            learning_rate=_env_override(
+                "VOIDLINE_PPO_LR", float(config.get("learning_rate", 3e-4))
+            ),
+            ent_coef=_env_override("VOIDLINE_PPO_ENT_COEF", float(config.get("ent_coef", 0.0))),
+            device=config.get("device", "auto"),
+        )
+    else:
+        model = MaskablePPO(
+            "MultiInputPolicy",
+            env,
+            seed=seed,
+            verbose=int(config.get("verbose", 0)),
+            n_steps=_env_override("VOIDLINE_PPO_N_STEPS", int(config.get("n_steps", 64))),
+            batch_size=_env_override(
+                "VOIDLINE_PPO_BATCH_SIZE", int(config.get("batch_size", 64))
+            ),
+            n_epochs=_env_override("VOIDLINE_PPO_N_EPOCHS", int(config.get("n_epochs", 2))),
+            gamma=_env_override("VOIDLINE_PPO_GAMMA", float(config.get("gamma", 0.99))),
+            learning_rate=_env_override(
+                "VOIDLINE_PPO_LR", float(config.get("learning_rate", 3e-4))
+            ),
+            ent_coef=_env_override("VOIDLINE_PPO_ENT_COEF", float(config.get("ent_coef", 0.0))),
+            clip_range=_env_override(
+                "VOIDLINE_PPO_CLIP_RANGE", float(config.get("clip_range", 0.2))
+            ),
+            device=config.get("device", "auto"),
+        )
     model.learn(total_timesteps=timesteps)
     checkpoint = model_dir / f"{persona}.zip"
     model.save(checkpoint)
