@@ -1,0 +1,59 @@
+sim/training/voidline_rl/rollout.py
+  6ee0b6ba3dccb406 1-115
+sim/crates/voidline-sim/src/pools.rs
+  6ee0b6ba3dccb406 9
+sim/crates/voidline-sim/src/engine.rs
+  6ee0b6ba3dccb406 353
+sim/training/tests/test_modal_flag_count.py
+  6ee0b6ba3dccb406 1-51
+package.json
+  6ee0b6ba3dccb406 22-23
+sim/training/voidline_rl/sweep.py
+  6ee0b6ba3dccb406 47-54,166-332,347-354,358-361,363,368-372,379-405,428,434-438,453,455,457,537-581,588-593,595-605,616,635-638
+sim/training/tests/test_hardcoded_agent.py
+  6ee0b6ba3dccb406 1-171
+sim/crates/voidline-py/src/lib.rs
+  6ee0b6ba3dccb406 28-31,43-155,285-286,291-295,339-340,377-378,392,397-403,417-423,444,451-462,474-477,480-537,539-557,731-732,770-892,895,899-905,928-934,952-976,1029-1041,1273-1313
+sim/crates/voidline-meta/src/lib.rs
+  6ee0b6ba3dccb406 16-19
+sim/training/voidline_rl/hardcoded_eval.py
+  6ee0b6ba3dccb406 1-140
+sim/training/voidline_rl/bc.py
+  6ee0b6ba3dccb406 1-160
+sim/crates/voidline-meta/src/profiles.rs
+  6ee0b6ba3dccb406 455-684
+sim/training/tests/test_eval_defaults.py
+  6ee0b6ba3dccb406 1-36
+sim/training/voidline_rl/eval.py
+  6ee0b6ba3dccb406 41,58-72,252-259,271-275,277-278,281-283,297-301,303-304,311,362,365-369
+sim/training/voidline_rl/hardcoded.py
+  6ee0b6ba3dccb406 1-304
+sim/crates/voidline-sim/src/simulation.rs
+  6ee0b6ba3dccb406 59
+CLAUDE.md
+  6ee0b6ba3dccb406 23-44,100-103,109-117
+sim/training/voidline_rl/modal_app.py
+  6ee0b6ba3dccb406 96-97,176,220-226,235-239,253-254,312-402,425-444,453,470-473,524,575-600,613-620
+scripts/balance-dispatch.sh
+  6ee0b6ba3dccb406 11,18-20,84,180-187
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "293f446300c7a4ed7204e240e699f79e6fdfdeac",
+  "prompts": {
+    "6ee0b6ba3dccb406": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18ba11b5-b1a6-4dda-9710-3a6a10bec998",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 6632,
+      "total_deletions": 279,
+      "accepted_lines": 2901,
+      "overriden_lines": 0
+    }
+  }
+}
