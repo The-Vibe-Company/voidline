@@ -30,6 +30,13 @@ use voidline_sim::engine::{
     Engine, EngineConfig, EngineInput, RelicChoiceRecord, UpgradeChoiceRecord,
 };
 
+fn forced_start_stage() -> Option<u32> {
+    std::env::var("VOIDLINE_FORCE_START_STAGE")
+        .ok()
+        .and_then(|raw| raw.parse::<u32>().ok())
+        .filter(|s| *s >= 1)
+}
+
 const DEFAULT_RUNS_PER_EPISODE: u32 = 30;
 // Bumped 10x in iter 3 so stage clears massively dominate passive survival
 // (iter 2 diagnosis: 0.01/frame × 36000 = +360 reward >> 200 stage1 clear,
@@ -164,7 +171,12 @@ struct EpisodeEnv {
 impl EpisodeEnv {
     fn new(seed: u32, max_steps_per_run: u32, runs_per_episode: u32) -> Result<Self, String> {
         let bundle = load_default().map_err(|err| err.to_string())?;
-        let account = AccountSnapshot::default();
+        let mut account = AccountSnapshot::default();
+        if let Some(start_stage) = forced_start_stage() {
+            account.selected_start_stage = start_stage;
+            account.highest_start_stage_unlocked = start_stage.max(1);
+            account.highest_stage_cleared = start_stage.saturating_sub(1);
+        }
         let engine = Engine::new(
             bundle.clone(),
             EngineConfig {
@@ -218,11 +230,16 @@ impl EpisodeEnv {
         self.step_count = 0;
         self.last_score = 0.0;
         self.last_level = 1;
-        self.last_stage = 1;
+        self.last_stage = forced_start_stage().unwrap_or(1);
         self.current_upgrades.clear();
         self.current_relics.clear();
         self.current_shop.clear();
         self.account = AccountSnapshot::default();
+        if let Some(start_stage) = forced_start_stage() {
+            self.account.selected_start_stage = start_stage;
+            self.account.highest_start_stage_unlocked = start_stage.max(1);
+            self.account.highest_stage_cleared = start_stage.saturating_sub(1);
+        }
         self.phase = EnvPhase::Run;
         self.cleared_stages.clear();
         self.runs_in_episode = 0;
@@ -511,6 +528,10 @@ impl EpisodeEnv {
         let next_seed = self
             .seed
             .wrapping_add(self.runs_in_episode.wrapping_mul(0x9E3779B1));
+        if let Some(start_stage) = forced_start_stage() {
+            self.account.selected_start_stage = start_stage;
+            self.account.highest_start_stage_unlocked = start_stage.max(1);
+        }
         self.engine.reset(
             Some(next_seed),
             Some(engine_account_context(&self.bundle, &self.account)),
@@ -518,7 +539,7 @@ impl EpisodeEnv {
         self.step_count = 0;
         self.last_score = 0.0;
         self.last_level = 1;
-        self.last_stage = 1;
+        self.last_stage = forced_start_stage().unwrap_or(1);
         self.current_upgrades.clear();
         self.current_relics.clear();
         self.phase = EnvPhase::Run;

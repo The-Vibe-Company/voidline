@@ -94,7 +94,68 @@ def hparam_grid() -> list[Variant]:
     ]
 
 
-GRIDS = {"reward": reward_grid, "hparam": hparam_grid}
+# -- Iter-3 multi-hypothesis sweep ----------------------------------------
+# Eight orthogonal "what could break stage 1 progression" hypotheses run in
+# parallel on Modal. Each variant warm-starts from /models/<hash>/oracle.zip
+# (iter 2's checkpoint) so we don't re-pay the random-init burn-in cost.
+def iter3_grid() -> list[Variant]:
+    base = {"VOIDLINE_REWARD_STAGE_SCALE": "1.0", "VOIDLINE_REWARD_DENSE_SCALE": "1.0"}
+    variants = [
+        Variant(
+            id="h1_bigger_stage",
+            env_vars={**base, "VOIDLINE_REWARD_STAGE_SCALE": "10.0"},
+            train_args=["--timesteps", "4000000"],
+        ),
+        Variant(
+            id="h2_smaller_survival",
+            env_vars={**base, "VOIDLINE_REWARD_SURVIVAL": "0.001",
+                      "VOIDLINE_REWARD_STAGE_SCALE": "5.0"},
+            train_args=["--timesteps", "4000000"],
+        ),
+        Variant(
+            id="h3_force_stage1_only",
+            env_vars={**base, "VOIDLINE_FORCE_START_STAGE": "1",
+                      "VOIDLINE_REWARD_STAGE_SCALE": "10.0",
+                      "VOIDLINE_RUNS_PER_EPISODE": "2"},
+            train_args=["--timesteps", "4000000"],
+        ),
+        Variant(
+            id="h4_force_stage3",
+            env_vars={**base, "VOIDLINE_FORCE_START_STAGE": "3",
+                      "VOIDLINE_REWARD_STAGE_SCALE": "10.0",
+                      "VOIDLINE_RUNS_PER_EPISODE": "2"},
+            train_args=["--timesteps", "4000000"],
+        ),
+        Variant(
+            id="h5_no_death_penalty",
+            env_vars={**base, "VOIDLINE_REWARD_DEATH_PENALTY": "0",
+                      "VOIDLINE_REWARD_STAGE_SCALE": "10.0"},
+            train_args=["--timesteps", "4000000"],
+        ),
+        Variant(
+            id="h6_bigger_lr",
+            env_vars={**base, "VOIDLINE_PPO_LR": "1e-3",
+                      "VOIDLINE_REWARD_STAGE_SCALE": "10.0",
+                      "VOIDLINE_PPO_ENT_COEF": "0.02"},
+            train_args=["--timesteps", "4000000"],
+        ),
+        Variant(
+            id="h7_longer_8M",
+            env_vars={**base, "VOIDLINE_REWARD_STAGE_SCALE": "10.0"},
+            train_args=["--timesteps", "8000000"],
+        ),
+        Variant(
+            id="h8_short_runs_max18k",
+            env_vars={**base, "VOIDLINE_MAX_STEPS_PER_RUN": "18000",
+                      "VOIDLINE_REWARD_STAGE_SCALE": "10.0",
+                      "VOIDLINE_RUNS_PER_EPISODE": "12"},
+            train_args=["--timesteps", "4000000"],
+        ),
+    ]
+    return variants
+
+
+GRIDS = {"reward": reward_grid, "hparam": hparam_grid, "iter3": iter3_grid}
 
 
 @SWEEP_APP.function(
