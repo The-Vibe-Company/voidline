@@ -20,6 +20,7 @@ use crate::account::{
     current_rarity_profile, current_rarity_rank, meta_level, unlocked_build_tags,
     unlocked_technology_ids, AccountSnapshot,
 };
+use crate::champion::ChampionRunPolicy;
 
 #[cfg(feature = "learned-policy")]
 use crate::learned_policy::LearnedPolicy;
@@ -28,8 +29,7 @@ use crate::learned_policy::LearnedPolicy;
 #[serde(rename_all = "kebab-case")]
 pub enum PlayerProfileId {
     Idle,
-    ExpertHuman,
-    Optimizer,
+    Champion,
     LearnedHuman,
     LearnedOptimizer,
     LearnedExplorer,
@@ -40,8 +40,7 @@ impl PlayerProfileId {
     pub fn as_str(&self) -> &'static str {
         match self {
             PlayerProfileId::Idle => "idle",
-            PlayerProfileId::ExpertHuman => "expert-human",
-            PlayerProfileId::Optimizer => "optimizer",
+            PlayerProfileId::Champion => "champion",
             PlayerProfileId::LearnedHuman => "learned-human",
             PlayerProfileId::LearnedOptimizer => "learned-optimizer",
             PlayerProfileId::LearnedExplorer => "learned-explorer",
@@ -65,12 +64,10 @@ impl PlayerProfileId {
 
     pub fn heuristic_fallback(&self) -> PlayerProfileId {
         match self {
-            PlayerProfileId::LearnedOptimizer | PlayerProfileId::LearnedExplorer => {
-                PlayerProfileId::Optimizer
-            }
-            PlayerProfileId::LearnedHuman | PlayerProfileId::LearnedNovice => {
-                PlayerProfileId::ExpertHuman
-            }
+            PlayerProfileId::LearnedHuman
+            | PlayerProfileId::LearnedOptimizer
+            | PlayerProfileId::LearnedExplorer
+            | PlayerProfileId::LearnedNovice => PlayerProfileId::Champion,
             other => other.clone(),
         }
     }
@@ -126,39 +123,45 @@ pub trait RunPolicy {
     ) -> Option<RelicChoiceRecord>;
 }
 
-struct HeuristicRunPolicy {
-    profile: PlayerProfileId,
+pub(crate) fn champion_choose_upgrade(
+    bundle: &DataBundle,
+    snapshot: &EngineSnapshot,
+    choices: &[UpgradeChoiceRecord],
+) -> Option<UpgradeChoiceRecord> {
+    choose_upgrade(bundle, snapshot, choices)
 }
 
-impl HeuristicRunPolicy {
-    fn new(profile: PlayerProfileId) -> Self {
-        Self {
-            profile: profile.heuristic_fallback(),
-        }
-    }
+pub(crate) fn champion_choose_relic(
+    bundle: &DataBundle,
+    snapshot: &EngineSnapshot,
+    choices: &[RelicChoiceRecord],
+) -> Option<RelicChoiceRecord> {
+    choose_relic(bundle, snapshot, choices)
 }
 
-impl RunPolicy for HeuristicRunPolicy {
-    fn movement_keys(&mut self, _bundle: &DataBundle, snapshot: &EngineSnapshot) -> Vec<String> {
-        movement_keys(&self.profile, snapshot)
+struct IdleRunPolicy;
+
+impl RunPolicy for IdleRunPolicy {
+    fn movement_keys(&mut self, _bundle: &DataBundle, _snapshot: &EngineSnapshot) -> Vec<String> {
+        Vec::new()
     }
 
     fn choose_upgrade(
         &mut self,
-        bundle: &DataBundle,
-        snapshot: &EngineSnapshot,
-        choices: &[UpgradeChoiceRecord],
+        _bundle: &DataBundle,
+        _snapshot: &EngineSnapshot,
+        _choices: &[UpgradeChoiceRecord],
     ) -> Option<UpgradeChoiceRecord> {
-        choose_upgrade(bundle, &self.profile, snapshot, choices)
+        None
     }
 
     fn choose_relic(
         &mut self,
-        bundle: &DataBundle,
-        snapshot: &EngineSnapshot,
-        choices: &[RelicChoiceRecord],
+        _bundle: &DataBundle,
+        _snapshot: &EngineSnapshot,
+        _choices: &[RelicChoiceRecord],
     ) -> Option<RelicChoiceRecord> {
-        choose_relic(bundle, &self.profile, snapshot, choices)
+        None
     }
 }
 
@@ -185,24 +188,29 @@ pub fn create_run_policy(
     profile: PlayerProfileId,
     model_dir: Option<&Path>,
 ) -> Result<Box<dyn RunPolicy>, RunPolicyError> {
-    if profile.is_learned() {
-        let path = model_path_for_profile(&profile, model_dir).expect("learned profile path");
-        if cfg!(feature = "learned-policy") {
-            #[cfg(feature = "learned-policy")]
-            {
-                Ok(Box::new(LearnedPolicy::load(profile.as_str(), &path)?))
+    match profile {
+        PlayerProfileId::Idle => Ok(Box::new(IdleRunPolicy)),
+        PlayerProfileId::Champion => Ok(Box::new(ChampionRunPolicy::new())),
+        learned if learned.is_learned() => {
+            let path =
+                model_path_for_profile(&learned, model_dir).expect("learned profile path");
+            if cfg!(feature = "learned-policy") {
+                #[cfg(feature = "learned-policy")]
+                {
+                    Ok(Box::new(LearnedPolicy::load(learned.as_str(), &path)?))
+                }
+                #[cfg(not(feature = "learned-policy"))]
+                unreachable!()
+            } else {
+                Err(RunPolicyError::ModelLoad {
+                    profile: learned.as_str().to_string(),
+                    path,
+                    message: "voidline-meta was built without the learned-policy feature"
+                        .to_string(),
+                })
             }
-            #[cfg(not(feature = "learned-policy"))]
-            unreachable!()
-        } else {
-            Err(RunPolicyError::ModelLoad {
-                profile: profile.as_str().to_string(),
-                path,
-                message: "voidline-meta was built without the learned-policy feature".to_string(),
-            })
         }
-    } else {
-        Ok(Box::new(HeuristicRunPolicy::new(profile)))
+        other => unreachable!("unhandled profile variant: {}", other.as_str()),
     }
 }
 
@@ -454,15 +462,14 @@ fn resolve_pending_decisions(
 
 fn choose_upgrade(
     bundle: &DataBundle,
-    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choices: &[UpgradeChoiceRecord],
 ) -> Option<UpgradeChoiceRecord> {
     choices
         .iter()
         .max_by(|a, b| {
-            let a_score = upgrade_score(bundle, profile, snapshot, a);
-            let b_score = upgrade_score(bundle, profile, snapshot, b);
+            let a_score = upgrade_score(bundle, snapshot, a);
+            let b_score = upgrade_score(bundle, snapshot, b);
             a_score
                 .partial_cmp(&b_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -472,15 +479,14 @@ fn choose_upgrade(
 
 fn choose_relic(
     bundle: &DataBundle,
-    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choices: &[RelicChoiceRecord],
 ) -> Option<RelicChoiceRecord> {
     choices
         .iter()
         .max_by(|a, b| {
-            let a_score = relic_score(bundle, profile, snapshot, a);
-            let b_score = relic_score(bundle, profile, snapshot, b);
+            let a_score = relic_score(bundle, snapshot, a);
+            let b_score = relic_score(bundle, snapshot, b);
             a_score
                 .partial_cmp(&b_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
@@ -490,7 +496,6 @@ fn choose_relic(
 
 fn upgrade_score(
     bundle: &DataBundle,
-    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choice: &UpgradeChoiceRecord,
 ) -> f64 {
@@ -506,24 +511,16 @@ fn upgrade_score(
         .unwrap_or(1.0);
 
     let hp_ratio = snapshot.player.hp / snapshot.player.max_hp.max(1.0);
-    let mut score = base_upgrade_score(upgrade, profile);
+    let mut score = base_upgrade_score(upgrade);
     score *= tier_power;
-    score += synergy_completion_bonus(bundle, snapshot, &upgrade.tags, profile);
+    score += synergy_completion_bonus(bundle, snapshot, &upgrade.tags);
     if upgrade.tags.iter().any(|tag| tag == "shield") && hp_ratio < 0.45 {
-        score += if *profile == PlayerProfileId::Optimizer {
-            16.0
-        } else {
-            26.0
-        };
+        score += 16.0;
     }
     if upgrade.tags.iter().any(|tag| tag == "magnet") && snapshot.state.level <= 4 {
-        score += if *profile == PlayerProfileId::Optimizer {
-            10.0
-        } else {
-            16.0
-        };
+        score += 10.0;
     }
-    if *profile == PlayerProfileId::Optimizer && upgrade.tags.iter().any(|tag| tag == "cannon") {
+    if upgrade.tags.iter().any(|tag| tag == "cannon") {
         score += 8.0;
     }
     score
@@ -531,7 +528,6 @@ fn upgrade_score(
 
 fn relic_score(
     bundle: &DataBundle,
-    profile: &PlayerProfileId,
     snapshot: &EngineSnapshot,
     choice: &RelicChoiceRecord,
 ) -> f64 {
@@ -541,176 +537,50 @@ fn relic_score(
         .find(|r| r.id == choice.relic_id)
         .unwrap_or(&bundle.fallback_relic);
     let hp_ratio = snapshot.player.hp / snapshot.player.max_hp.max(1.0);
-    let mut score = base_relic_score(relic, profile);
-    score += synergy_completion_bonus(bundle, snapshot, &relic.tags, profile);
+    let mut score = base_relic_score(relic);
+    score += synergy_completion_bonus(bundle, snapshot, &relic.tags);
     if relic
         .tags
         .iter()
         .any(|tag| tag == "shield" || tag == "salvage")
         && hp_ratio < 0.45
     {
-        score += if *profile == PlayerProfileId::Optimizer {
-            10.0
-        } else {
-            20.0
-        };
+        score += 10.0;
     }
-    if *profile == PlayerProfileId::Optimizer && relic.tags.iter().any(|tag| tag == "cannon") {
+    if relic.tags.iter().any(|tag| tag == "cannon") {
         score += 7.0;
     }
     score
 }
 
-fn base_upgrade_score(upgrade: &Upgrade, profile: &PlayerProfileId) -> f64 {
-    let optimizer = *profile == PlayerProfileId::Optimizer;
+fn base_upgrade_score(upgrade: &Upgrade) -> f64 {
     match upgrade.id.as_str() {
-        "twin-cannon" => {
-            if optimizer {
-                52.0
-            } else {
-                45.0
-            }
-        }
-        "rail-slug" => {
-            if optimizer {
-                56.0
-            } else {
-                48.0
-            }
-        }
-        "plasma-core" => {
-            if optimizer {
-                54.0
-            } else {
-                44.0
-            }
-        }
-        "pulse-overdrive" => {
-            if optimizer {
-                52.0
-            } else {
-                44.0
-            }
-        }
-        "scatter-loader" => {
-            if optimizer {
-                55.0
-            } else {
-                46.0
-            }
-        }
-        "lance-capacitor" => {
-            if optimizer {
-                52.0
-            } else {
-                44.0
-            }
-        }
-        "drone-uplink" => {
-            if optimizer {
-                49.0
-            } else {
-                45.0
-            }
-        }
-        "kinetic-shield" => {
-            if optimizer {
-                36.0
-            } else {
-                38.0
-            }
-        }
-        "magnet-array" => {
-            if optimizer {
-                40.0
-            } else {
-                36.0
-            }
-        }
-        "crit-array" => {
-            if optimizer {
-                44.0
-            } else {
-                36.0
-            }
-        }
-        "heavy-caliber" => {
-            if optimizer {
-                40.0
-            } else {
-                35.0
-            }
-        }
-        "ion-engine" => {
-            if optimizer {
-                42.0
-            } else {
-                36.0
-            }
-        }
+        "twin-cannon" => 52.0,
+        "rail-slug" => 56.0,
+        "plasma-core" => 54.0,
+        "pulse-overdrive" => 52.0,
+        "scatter-loader" => 55.0,
+        "lance-capacitor" => 52.0,
+        "drone-uplink" => 49.0,
+        "kinetic-shield" => 36.0,
+        "magnet-array" => 40.0,
+        "crit-array" => 44.0,
+        "heavy-caliber" => 40.0,
+        "ion-engine" => 42.0,
         _ => 20.0,
     }
 }
 
-fn base_relic_score(relic: &Relic, profile: &PlayerProfileId) -> f64 {
-    let optimizer = *profile == PlayerProfileId::Optimizer;
+fn base_relic_score(relic: &Relic) -> f64 {
     match relic.id.as_str() {
-        "splitter-matrix" => {
-            if optimizer {
-                56.0
-            } else {
-                48.0
-            }
-        }
-        "rail-focus" => {
-            if optimizer {
-                51.0
-            } else {
-                42.0
-            }
-        }
-        "reactor-surge" => {
-            if optimizer {
-                50.0
-            } else {
-                40.0
-            }
-        }
-        "critical-orbit" => {
-            if optimizer {
-                50.0
-            } else {
-                42.0
-            }
-        }
-        "drone-contract" => {
-            if optimizer {
-                47.0
-            } else {
-                44.0
-            }
-        }
-        "salvage-plating" => {
-            if optimizer {
-                32.0
-            } else {
-                38.0
-            }
-        }
-        "emergency-nanites" => {
-            if optimizer {
-                34.0
-            } else {
-                36.0
-            }
-        }
-        "magnetized-map" => {
-            if optimizer {
-                36.0
-            } else {
-                36.0
-            }
-        }
+        "splitter-matrix" => 56.0,
+        "rail-focus" => 51.0,
+        "reactor-surge" => 50.0,
+        "critical-orbit" => 50.0,
+        "drone-contract" => 47.0,
+        "salvage-plating" => 32.0,
+        "emergency-nanites" => 34.0,
+        "magnetized-map" => 36.0,
         "field-repair" => 24.0,
         _ => 18.0,
     }
@@ -720,14 +590,9 @@ fn synergy_completion_bonus(
     bundle: &DataBundle,
     snapshot: &EngineSnapshot,
     tags: &[String],
-    profile: &PlayerProfileId,
 ) -> f64 {
     let counts = build_tag_counts(bundle, snapshot);
-    let bonus = if *profile == PlayerProfileId::Optimizer {
-        34.0
-    } else {
-        22.0
-    };
+    let bonus = 34.0;
     let tag_count = |tag: &str| *counts.get(tag).unwrap_or(&0);
     let has = |tag: &str| tags.iter().any(|candidate| candidate == tag);
 
@@ -792,114 +657,6 @@ fn build_tag_counts(bundle: &DataBundle, snapshot: &EngineSnapshot) -> HashMap<S
         }
     }
     counts
-}
-
-fn movement_keys(profile: &PlayerProfileId, snapshot: &EngineSnapshot) -> Vec<String> {
-    let (dx, dy) = movement_vector(profile, snapshot);
-    let mut keys = Vec::new();
-    if dx > 0.2 {
-        keys.push("KeyD".to_string());
-    } else if dx < -0.2 {
-        keys.push("KeyA".to_string());
-    }
-    if dy > 0.2 {
-        keys.push("KeyS".to_string());
-    } else if dy < -0.2 {
-        keys.push("KeyW".to_string());
-    }
-    keys
-}
-
-fn movement_vector(profile: &PlayerProfileId, snapshot: &EngineSnapshot) -> (f64, f64) {
-    let px = snapshot.player.x;
-    let py = snapshot.player.y;
-    let mut vx = 0.0;
-    let mut vy = 0.0;
-    let mut nearest_threat = f64::INFINITY;
-
-    for enemy in &snapshot.enemies {
-        let away_x = px - enemy.x;
-        let away_y = py - enemy.y;
-        let dist = (away_x * away_x + away_y * away_y).sqrt().max(1.0);
-        nearest_threat = nearest_threat.min(dist - enemy.radius - snapshot.player.radius);
-        let is_boss = enemy.role == "boss" || enemy.role == "mini-boss";
-        let danger = if is_boss {
-            520.0
-        } else {
-            240.0 + enemy.radius * 2.2
-        };
-        if dist < danger {
-            let weight = ((danger - dist) / danger).powi(2) * if is_boss { 2.4 } else { 1.0 };
-            vx += away_x / dist * weight;
-            vy += away_y / dist * weight;
-        }
-        if is_boss && dist > 300.0 && dist < 760.0 {
-            let tangent = if *profile == PlayerProfileId::Optimizer {
-                0.35
-            } else {
-                0.55
-            };
-            vx += -away_y / dist * tangent;
-            vy += away_x / dist * tangent;
-        }
-    }
-
-    let margin = 260.0;
-    if px < margin {
-        vx += (margin - px) / margin;
-    }
-    if px > snapshot.world.arena_width - margin {
-        vx -= (px - (snapshot.world.arena_width - margin)) / margin;
-    }
-    if py < margin {
-        vy += (margin - py) / margin;
-    }
-    if py > snapshot.world.arena_height - margin {
-        vy -= (py - (snapshot.world.arena_height - margin)) / margin;
-    }
-
-    let collect_threshold = if *profile == PlayerProfileId::Optimizer {
-        220.0
-    } else {
-        320.0
-    };
-    if nearest_threat > collect_threshold {
-        if let Some((tx, ty)) = nearest_orb(snapshot, px, py) {
-            let to_x = tx - px;
-            let to_y = ty - py;
-            let dist = (to_x * to_x + to_y * to_y).sqrt().max(1.0);
-            let pull = if *profile == PlayerProfileId::Optimizer {
-                1.1
-            } else {
-                0.8
-            };
-            vx += to_x / dist * pull;
-            vy += to_y / dist * pull;
-        }
-    }
-
-    normalize(vx, vy)
-}
-
-fn nearest_orb(snapshot: &EngineSnapshot, px: f64, py: f64) -> Option<(f64, f64)> {
-    snapshot
-        .experience_orbs
-        .iter()
-        .min_by(|a, b| {
-            let da = (a.x - px).powi(2) + (a.y - py).powi(2);
-            let db = (b.x - px).powi(2) + (b.y - py).powi(2);
-            da.partial_cmp(&db).unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .map(|orb| (orb.x, orb.y))
-}
-
-fn normalize(x: f64, y: f64) -> (f64, f64) {
-    let len = (x * x + y * y).sqrt();
-    if len <= 1e-9 {
-        (0.0, 0.0)
-    } else {
-        (x / len, y / len)
-    }
 }
 
 fn stats_from_player(player: &SnapshotPlayer) -> RunStatSnapshot {
@@ -977,11 +734,11 @@ mod tests {
         let a = run_active_profile_trial(
             &bundle,
             &account,
-            PlayerProfileId::ExpertHuman,
+            PlayerProfileId::Champion,
             options.clone(),
         )
         .unwrap();
-        let b = run_active_profile_trial(&bundle, &account, PlayerProfileId::ExpertHuman, options)
+        let b = run_active_profile_trial(&bundle, &account, PlayerProfileId::Champion, options)
             .unwrap();
 
         assert_eq!(a.final_pressure, b.final_pressure);
