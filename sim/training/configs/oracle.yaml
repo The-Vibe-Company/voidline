@@ -1,10 +1,12 @@
 n_envs: 8
-max_steps: 3600
-runs_per_episode: 30
-n_steps: 1024
+# 36000 frames per run = 600s game-time = stage 1 boss at end of stage 1.
+# Iter 1 (3600 frames/run, 60s game) capped runs short of any boss spawn.
+max_steps: 36000
+runs_per_episode: 8
+n_steps: 2048
 batch_size: 512
 n_epochs: 8
-gamma: 0.99
+gamma: 0.995
 learning_rate: 3e-4
 ent_coef: 0.01
 clip_range: 0.2

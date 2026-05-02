@@ -86,7 +86,7 @@ def main() -> None:
     parser.add_argument(
         "--timesteps",
         type=int,
-        default=int(os.environ.get("VOIDLINE_RL_TIMESTEPS", "2000000")),
+        default=int(os.environ.get("VOIDLINE_RL_TIMESTEPS", "4000000")),
     )
     parser.add_argument("--seed", type=int, default=1109)
     parser.add_argument("--config-dir", type=Path, default=Path(__file__).resolve().parents[1] / "configs")

@@ -171,7 +171,7 @@ def _build_voidline_py(env: dict[str, str]) -> None:
     # the per-package layout cargo expects. The nuclear option (wipe the
     # release tree once per marker bump) is fast in practice and only fires
     # when this constant changes.
-    rebuild_marker_value = "20260501f-oracle-iter1"
+    rebuild_marker_value = "20260502a-oracle-iter2"
     cargo_target = Path(env.get("CARGO_TARGET_DIR", str(REMOTE_REPO / "sim" / "target")))
     marker = cargo_target / ".voidline-rebuild-marker-py"
     cargo_target.mkdir(parents=True, exist_ok=True)
