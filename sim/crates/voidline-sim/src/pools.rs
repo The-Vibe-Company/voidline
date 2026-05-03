@@ -6,7 +6,7 @@ use crate::entities::{
 };
 use crate::state::EntityCounters;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EntityPools {
     pub enemy_pool: Vec<Enemy>,
     pub bullet_pool: Vec<Bullet>,

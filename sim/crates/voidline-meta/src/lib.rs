@@ -14,4 +14,7 @@ pub use account::{AccountSnapshot, MetaUpgradeKind, RunOutcome};
 pub use campaign::{run_meta_campaign, CampaignOptions, CampaignResult, CampaignTimelineEntry};
 pub use env::{MetaAction, MetaProgressionEnv, StepResult};
 pub use policies::{MetaPolicy, PolicyId};
-pub use profiles::{PlayerProfileId, ProfileRunSummary, RunPolicy, RunPolicyError};
+pub use profiles::{
+    expert_action, lookahead_expert_action, lookahead_movement, ExpertAction, PlayerProfileId,
+    ProfileRunSummary, RunPolicy, RunPolicyError,
+};

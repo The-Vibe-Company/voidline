@@ -6,7 +6,7 @@
 use std::collections::HashMap;
 
 use serde::Serialize;
-use voidline_data::catalogs::{Relic, Upgrade};
+use voidline_data::catalogs::{MetaUpgrade, Relic, Upgrade};
 use voidline_data::dsl::{CappedIntStat, CappedPctStat, EffectOp, PercentStat};
 use voidline_data::DataBundle;
 use voidline_sim::engine::{EngineSnapshot, RelicChoiceRecord, UpgradeChoiceRecord};
@@ -14,7 +14,9 @@ use voidline_sim::engine::{EngineSnapshot, RelicChoiceRecord, UpgradeChoiceRecor
 pub const MOVEMENT_ACTIONS: usize = 9;
 pub const UPGRADE_ACTIONS: usize = 5;
 pub const RELIC_ACTIONS: usize = 4;
-pub const ACTION_LOGITS: usize = MOVEMENT_ACTIONS + UPGRADE_ACTIONS + RELIC_ACTIONS;
+pub const SHOP_ACTIONS: usize = 9; // 0 = next-run, 1..8 = pick affordable slot k
+pub const ACTION_LOGITS: usize =
+    MOVEMENT_ACTIONS + UPGRADE_ACTIONS + RELIC_ACTIONS + SHOP_ACTIONS;
 
 pub const SCALAR_DIM: usize = 32;
 pub const ENEMY_BUCKETS: usize = 4;
@@ -24,10 +26,34 @@ pub const TAG_DIM: usize = 8;
 pub const CHOICE_FEATURE_DIM: usize = 16;
 pub const UPGRADE_CHOICE_SLOTS: usize = UPGRADE_ACTIONS - 1;
 pub const RELIC_CHOICE_SLOTS: usize = RELIC_ACTIONS - 1;
+pub const SHOP_CHOICE_SLOTS: usize = SHOP_ACTIONS - 1;
 pub const UPGRADE_CHOICE_DIM: usize = UPGRADE_CHOICE_SLOTS * CHOICE_FEATURE_DIM;
 pub const RELIC_CHOICE_DIM: usize = RELIC_CHOICE_SLOTS * CHOICE_FEATURE_DIM;
-pub const OBS_VECTOR_DIM: usize =
-    SCALAR_DIM + ENEMY_DIM + TAG_DIM + UPGRADE_CHOICE_DIM + RELIC_CHOICE_DIM;
+pub const SHOP_CHOICE_DIM: usize = SHOP_CHOICE_SLOTS * CHOICE_FEATURE_DIM;
+pub const OBS_VECTOR_DIM: usize = SCALAR_DIM
+    + ENEMY_DIM
+    + TAG_DIM
+    + UPGRADE_CHOICE_DIM
+    + RELIC_CHOICE_DIM
+    + SHOP_CHOICE_DIM;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EnvPhase {
+    Run,
+    Shop,
+}
+
+/// Lightweight shop slot record for RL observation/action wiring.
+/// Mirrors a `MetaUpgrade` candidate that is currently affordable+unlocked
+/// for the active account.
+#[derive(Debug, Clone)]
+pub struct ShopChoiceRecord {
+    pub upgrade_id: String,
+    pub kind: String,
+    pub cost: u64,
+    pub current_level: u32,
+    pub max_level: u32,
+}
 
 pub const BUILD_TAGS: [&str; TAG_DIM] = [
     "cannon", "salvage", "magnet", "shield", "pierce", "drone", "crit", "mobility",
@@ -41,6 +67,7 @@ pub struct EncodedObservation {
     pub owned_tags: Vec<f32>,
     pub upgrade_choices: Vec<f32>,
     pub relic_choices: Vec<f32>,
+    pub shop_choices: Vec<f32>,
 }
 
 impl EncodedObservation {
@@ -51,6 +78,7 @@ impl EncodedObservation {
         out.extend_from_slice(&self.owned_tags);
         out.extend_from_slice(&self.upgrade_choices);
         out.extend_from_slice(&self.relic_choices);
+        out.extend_from_slice(&self.shop_choices);
         out
     }
 }
@@ -61,6 +89,7 @@ pub struct ActionMask {
     pub movement: Vec<bool>,
     pub upgrade_pick: Vec<bool>,
     pub relic_pick: Vec<bool>,
+    pub shop_pick: Vec<bool>,
 }
 
 impl ActionMask {
@@ -69,6 +98,7 @@ impl ActionMask {
         out.extend_from_slice(&self.movement);
         out.extend_from_slice(&self.upgrade_pick);
         out.extend_from_slice(&self.relic_pick);
+        out.extend_from_slice(&self.shop_pick);
         out
     }
 }
@@ -78,6 +108,7 @@ pub struct RlAction {
     pub movement: usize,
     pub upgrade_pick: usize,
     pub relic_pick: usize,
+    pub shop_pick: usize,
 }
 
 impl Default for RlAction {
@@ -86,6 +117,7 @@ impl Default for RlAction {
             movement: 0,
             upgrade_pick: 0,
             relic_pick: 0,
+            shop_pick: 0,
         }
     }
 }
@@ -95,18 +127,22 @@ pub fn encode_observation(
     snapshot: &EngineSnapshot,
     upgrade_choices: &[UpgradeChoiceRecord],
     relic_choices: &[RelicChoiceRecord],
+    shop_choices: &[ShopChoiceRecord],
+    phase: EnvPhase,
 ) -> EncodedObservation {
-    let scalar = encode_scalar(snapshot);
+    let scalar = encode_scalar(snapshot, phase);
     let enemies = encode_enemies(bundle, snapshot);
     let owned_tags = encode_owned_tags(bundle, snapshot);
     let upgrade_choices = encode_upgrade_choices(bundle, upgrade_choices);
     let relic_choices = encode_relic_choices(bundle, relic_choices);
+    let shop_choices = encode_shop_choices(bundle, shop_choices);
     let encoded = EncodedObservation {
         scalar,
         enemies,
         owned_tags,
         upgrade_choices,
         relic_choices,
+        shop_choices,
     };
     debug_assert_eq!(encoded.flatten().len(), OBS_VECTOR_DIM);
     encoded
@@ -116,15 +152,24 @@ pub fn action_mask(
     snapshot: &EngineSnapshot,
     upgrade_choices: &[UpgradeChoiceRecord],
     relic_choices: &[RelicChoiceRecord],
+    shop_choices: &[ShopChoiceRecord],
+    phase: EnvPhase,
 ) -> ActionMask {
-    let mut movement = vec![true; MOVEMENT_ACTIONS];
-    if snapshot.state.mode == "gameover" {
-        movement.fill(false);
+    let in_run = phase == EnvPhase::Run;
+    let in_shop = phase == EnvPhase::Shop;
+
+    // Movement: only meaningful in Run; in Shop force noop.
+    let mut movement = vec![false; MOVEMENT_ACTIONS];
+    if in_run && snapshot.state.mode != "gameover" {
+        for entry in movement.iter_mut() {
+            *entry = true;
+        }
+    } else {
         movement[0] = true;
     }
 
     let mut upgrade_pick = vec![false; UPGRADE_ACTIONS];
-    if snapshot.state.pending_upgrades > 0 && !upgrade_choices.is_empty() {
+    if in_run && snapshot.state.pending_upgrades > 0 && !upgrade_choices.is_empty() {
         for idx in 0..upgrade_choices.len().min(UPGRADE_CHOICE_SLOTS) {
             upgrade_pick[idx + 1] = true;
         }
@@ -133,7 +178,7 @@ pub fn action_mask(
     }
 
     let mut relic_pick = vec![false; RELIC_ACTIONS];
-    if snapshot.state.pending_chests > 0 && !relic_choices.is_empty() {
+    if in_run && snapshot.state.pending_chests > 0 && !relic_choices.is_empty() {
         for idx in 0..relic_choices.len().min(RELIC_CHOICE_SLOTS) {
             relic_pick[idx + 1] = true;
         }
@@ -141,10 +186,22 @@ pub fn action_mask(
         relic_pick[0] = true;
     }
 
+    // Shop: action[0] = NextRun (always allowed in shop), 1..K = pick affordable slot.
+    let mut shop_pick = vec![false; SHOP_ACTIONS];
+    if in_shop {
+        shop_pick[0] = true;
+        for idx in 0..shop_choices.len().min(SHOP_CHOICE_SLOTS) {
+            shop_pick[idx + 1] = true;
+        }
+    } else {
+        shop_pick[0] = true;
+    }
+
     ActionMask {
         movement,
         upgrade_pick,
         relic_pick,
+        shop_pick,
     }
 }
 
@@ -194,6 +251,7 @@ pub fn select_masked_argmax(logits: &[f32], mask: &[bool]) -> usize {
 pub fn action_from_logits(logits: &[f32], mask: &ActionMask) -> RlAction {
     let movement_end = MOVEMENT_ACTIONS;
     let upgrade_end = movement_end + UPGRADE_ACTIONS;
+    let relic_end = upgrade_end + RELIC_ACTIONS;
     RlAction {
         movement: select_masked_argmax(&logits[0..movement_end.min(logits.len())], &mask.movement),
         upgrade_pick: if logits.len() >= upgrade_end {
@@ -201,18 +259,25 @@ pub fn action_from_logits(logits: &[f32], mask: &ActionMask) -> RlAction {
         } else {
             0
         },
-        relic_pick: if logits.len() >= ACTION_LOGITS {
-            select_masked_argmax(&logits[upgrade_end..ACTION_LOGITS], &mask.relic_pick)
+        relic_pick: if logits.len() >= relic_end {
+            select_masked_argmax(&logits[upgrade_end..relic_end], &mask.relic_pick)
+        } else {
+            0
+        },
+        shop_pick: if logits.len() >= ACTION_LOGITS {
+            select_masked_argmax(&logits[relic_end..ACTION_LOGITS], &mask.shop_pick)
         } else {
             0
         },
     }
 }
 
-fn encode_scalar(snapshot: &EngineSnapshot) -> Vec<f32> {
+fn encode_scalar(snapshot: &EngineSnapshot, phase: EnvPhase) -> Vec<f32> {
     let player = &snapshot.player;
     let state = &snapshot.state;
     let world = &snapshot.world;
+    // We keep SCALAR_DIM = 32 by collapsing the gameover flag (now redundant
+    // with the phase indicator) and reusing the slot for the run/shop phase.
     fixed_vec::<SCALAR_DIM>([
         norm(player.hp, player.max_hp.max(1.0)),
         norm(player.max_hp, 250.0),
@@ -245,7 +310,7 @@ fn encode_scalar(snapshot: &EngineSnapshot) -> Vec<f32> {
         bool_f32(state.pending_upgrades > 0),
         bool_f32(state.pending_chests > 0),
         bool_f32(state.stage_boss_active),
-        bool_f32(state.mode == "gameover"),
+        bool_f32(phase == EnvPhase::Shop),
     ])
 }
 
@@ -357,6 +422,23 @@ fn encode_relic_choices(bundle: &DataBundle, choices: &[RelicChoiceRecord]) -> V
     out
 }
 
+fn encode_shop_choices(bundle: &DataBundle, choices: &[ShopChoiceRecord]) -> Vec<f32> {
+    let mut out = vec![0.0; SHOP_CHOICE_DIM];
+    for (slot, choice) in choices.iter().take(SHOP_CHOICE_SLOTS).enumerate() {
+        let Some(meta) = bundle
+            .meta_upgrades
+            .iter()
+            .find(|candidate| candidate.id == choice.upgrade_id)
+        else {
+            continue;
+        };
+        let features = choice_features_for_meta(meta, choice);
+        let base = slot * CHOICE_FEATURE_DIM;
+        out[base..base + CHOICE_FEATURE_DIM].copy_from_slice(&features);
+    }
+    out
+}
+
 fn choice_features_for_upgrade(upgrade: &Upgrade, tier_power: f64) -> [f32; CHOICE_FEATURE_DIM] {
     let mut out = tag_features(&upgrade.tags);
     out[0] = 1.0;
@@ -370,6 +452,42 @@ fn choice_features_for_relic(relic: &Relic) -> [f32; CHOICE_FEATURE_DIM] {
     out[0] = 1.0;
     out[1] = 1.0;
     add_effect_features(&mut out, &relic.effects);
+    out
+}
+
+fn choice_features_for_meta(
+    meta: &MetaUpgrade,
+    record: &ShopChoiceRecord,
+) -> [f32; CHOICE_FEATURE_DIM] {
+    // Shop slots reuse the same 16-dim feature schema as in-run draft slots.
+    // The tag block is currently sourced from the meta upgrade's tag (single
+    // string). Cost/level normalize against generous caps so the agent has a
+    // stable signal across the catalogue.
+    let mut tags: Vec<String> = Vec::new();
+    if let Some(tag) = &meta.tag {
+        tags.push(tag.clone());
+    }
+    let mut out = tag_features(&tags);
+    out[0] = 1.0;
+    out[1] = norm(record.cost as f64, 1000.0);
+    // Reuse slot 15 as a normalised level/level-cap progress indicator so the
+    // agent can tell "fresh unlock" from "almost maxed" without an ID lookup.
+    let max_level = record.max_level.max(1) as f32;
+    out[15] = (record.current_level as f32) / max_level;
+    // Encode kind via tag-style flags in the unused crit/mobility slots when
+    // the meta upgrade doesn't carry a build tag of its own.
+    match meta.kind.as_str() {
+        "unique" => {
+            out[8] += 0.5; // crit slot doubles as "unique" indicator
+        }
+        "rarity" => {
+            out[9] += 0.5; // mobility slot doubles as "rarity" indicator
+        }
+        "utility" => {
+            out[9] += 1.0;
+        }
+        _ => {}
+    }
     out
 }
 
@@ -482,7 +600,14 @@ mod tests {
         let mut engine = Engine::new(bundle.clone(), EngineConfig::default());
         let upgrades = engine.draft_upgrades(4);
         let relics = engine.draft_relics(3);
-        let obs = encode_observation(&bundle, &engine.snapshot(), &upgrades, &relics);
+        let obs = encode_observation(
+            &bundle,
+            &engine.snapshot(),
+            &upgrades,
+            &relics,
+            &[],
+            EnvPhase::Run,
+        );
         let flat = obs.flatten();
 
         assert_eq!(flat.len(), OBS_VECTOR_DIM);
@@ -492,17 +617,51 @@ mod tests {
         assert_eq!(obs.owned_tags.len(), TAG_DIM);
         assert_eq!(obs.upgrade_choices.len(), UPGRADE_CHOICE_DIM);
         assert_eq!(obs.relic_choices.len(), RELIC_CHOICE_DIM);
+        assert_eq!(obs.shop_choices.len(), SHOP_CHOICE_DIM);
     }
 
     #[test]
     fn action_mask_allows_noop_when_no_decision_is_pending() {
         let bundle = load_default().unwrap();
         let engine = Engine::new(bundle, EngineConfig::default());
-        let mask = action_mask(&engine.snapshot(), &[], &[]);
+        let mask = action_mask(&engine.snapshot(), &[], &[], &[], EnvPhase::Run);
 
         assert_eq!(mask.movement.len(), MOVEMENT_ACTIONS);
         assert_eq!(mask.upgrade_pick, vec![true, false, false, false, false]);
         assert_eq!(mask.relic_pick, vec![true, false, false, false]);
+        // Shop noop slot is always allowed; in Run phase the rest is masked.
+        assert_eq!(mask.shop_pick.len(), SHOP_ACTIONS);
+        assert!(mask.shop_pick[0]);
+        assert!(mask.shop_pick.iter().skip(1).all(|allowed| !*allowed));
         assert_eq!(mask.flatten().len(), ACTION_LOGITS);
+    }
+
+    #[test]
+    fn shop_phase_unmasks_affordable_slots() {
+        let bundle = load_default().unwrap();
+        let engine = Engine::new(bundle, EngineConfig::default());
+        let shop = vec![
+            ShopChoiceRecord {
+                upgrade_id: "card:twin-cannon".to_string(),
+                kind: "card".to_string(),
+                cost: 40,
+                current_level: 0,
+                max_level: 4,
+            },
+            ShopChoiceRecord {
+                upgrade_id: "rarity:rare-signal".to_string(),
+                kind: "rarity".to_string(),
+                cost: 50,
+                current_level: 0,
+                max_level: 3,
+            },
+        ];
+        let mask = action_mask(&engine.snapshot(), &[], &[], &shop, EnvPhase::Shop);
+
+        assert!(mask.movement.iter().skip(1).all(|allowed| !*allowed));
+        assert!(mask.shop_pick[0]); // NextRun always allowed
+        assert!(mask.shop_pick[1]); // first affordable slot
+        assert!(mask.shop_pick[2]); // second affordable slot
+        assert!(mask.shop_pick.iter().skip(3).all(|allowed| !*allowed));
     }
 }

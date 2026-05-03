@@ -4,21 +4,26 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TRAINING_DIR="$REPO_ROOT/sim/training"
-PERSONAS=(learned-human learned-optimizer learned-explorer learned-novice)
+PERSONAS=(oracle)
 
 usage() {
   cat >&2 <<'EOF'
-usage: scripts/balance-dispatch.sh <quick|full|train|pull> [args...]
+usage: scripts/balance-dispatch.sh <quick|full|train|test-card|hardcoded|bc|sweep|pull> [args...]
 
 Commands:
-  quick   Modal balance trend check, CPU, target <5 min
-  full    Modal deep balance report, big CPU
-  train   Modal H100 RL training, persists ONNX models
-  pull    Pull Modal models/reports into .context
+  quick      Modal balance trend check via oracle RL agent (CPU, ~10 min)
+  full       Modal deep balance report via oracle RL agent (big CPU, ~3-4h)
+  train      Modal H100 RL training, persists oracle .zip + .onnx
+  test-card  Force a target upgrade into draft/shop and verdict it (CPU)
+  hardcoded  Run the heuristic baseline agent (decision gate for BC pipeline)
+  bc         Roll out hardcoded + Behavior Cloning → oracle.zip warm-start
+  sweep      Fan out N H100 training jobs in parallel
+  pull       Pull Modal models/reports into .context
 
 Options:
-  --dry-run     print resolved Modal command/resources without launching
-  pull --reports  pull reports instead of models
+  --dry-run            print resolved Modal command/resources without launching
+  --target-upgrade-id  (test-card) ID of the upgrade/relic/meta to evaluate
+  pull --reports       pull reports instead of models
 EOF
 }
 
@@ -76,7 +81,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 case "$COMMAND" in
-  quick|full|train|pull)
+  quick|full|train|test-card|hardcoded|bc|sweep|pull)
     ;;
   *)
     echo "unknown balance command: $COMMAND" >&2
@@ -158,7 +163,7 @@ RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-${BALANCE_HASH}"
 case "$COMMAND" in
   quick)
     RESOURCE_CLASS="cpu-burst"
-    TIMEOUT_SECONDS=270
+    TIMEOUT_SECONDS=1800
     ;;
   full)
     RESOURCE_CLASS="big-cpu-burst"
@@ -167,6 +172,23 @@ case "$COMMAND" in
   train)
     RESOURCE_CLASS="h100-burst"
     TIMEOUT_SECONDS=21480
+    ;;
+  test-card)
+    RESOURCE_CLASS="cpu-burst"
+    TIMEOUT_SECONDS=1200
+    ;;
+  hardcoded)
+    RESOURCE_CLASS="cpu-burst"
+    TIMEOUT_SECONDS=1800
+    ;;
+  bc)
+    RESOURCE_CLASS="cpu-burst"
+    TIMEOUT_SECONDS=3600
+    ;;
+  sweep)
+    # Sweeps fan out N H100 H100 jobs in parallel via voidline_rl.sweep::main.
+    RESOURCE_CLASS="h100-burst"
+    TIMEOUT_SECONDS=$((60 * 60))
     ;;
   pull)
     RESOURCE_CLASS="local-pull"
@@ -209,12 +231,12 @@ if [[ "$COMMAND" == "pull" ]]; then
       MODEL_SOURCE="$TMP_DIR"
     fi
     for persona in "${PERSONAS[@]}"; do
-      if [[ ! -s "$MODEL_SOURCE/$persona.onnx" ]]; then
-        echo "Modal model pull is missing $persona.onnx for balance hash $BALANCE_HASH" >&2
+      if [[ ! -s "$MODEL_SOURCE/$persona.zip" && ! -s "$MODEL_SOURCE/$persona.onnx" ]]; then
+        echo "Modal model pull is missing $persona.{zip,onnx} for balance hash $BALANCE_HASH" >&2
         exit 1
       fi
     done
-    find "$MODEL_SOURCE" -maxdepth 1 \( -name '*.onnx' -o -name '*.json' \) -exec cp {} "$MODEL_DIR"/ \;
+    find "$MODEL_SOURCE" -maxdepth 1 \( -name '*.zip' -o -name '*.onnx' -o -name '*.json' \) -exec cp {} "$MODEL_DIR"/ \;
     echo "Pulled Modal RL models for $BALANCE_HASH into $MODEL_DIR"
   else
     mkdir -p "$REPORT_DIR"
@@ -233,6 +255,12 @@ fi
 echo "[balance-dispatch] backend=modal command=$COMMAND resource=$RESOURCE_CLASS run_id=$RUN_ID" >&2
 cd "$REPO_ROOT"
 export PYTHONPATH="$TRAINING_DIR${PYTHONPATH:+:$PYTHONPATH}"
+
+if [[ "$COMMAND" == "sweep" ]]; then
+  # Sweep has its own Modal app + entrypoint — flags are forwarded raw.
+  exec uvx modal run -m voidline_rl.sweep::main "${EXTRA_ARGS[@]}"
+fi
+
 exec uvx modal run -m voidline_rl.modal_app::main \
   --command "$COMMAND" \
   --extra-args-json "$JSON_ARGS" \

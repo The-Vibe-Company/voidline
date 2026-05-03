@@ -15,6 +15,9 @@ OBS_SHAPES = {
     "owned_tags": (8,),
     "upgrade_choices": (64,),
     "relic_choices": (48,),
+    # 8 shop slots × 16 features each. Slot population is catalog-invariant —
+    # the env exposes the K cheapest affordable purchases sorted ascending.
+    "shop_choices": (128,),
 }
 
 
@@ -41,10 +44,19 @@ def convert_observation(raw: dict[str, Any]) -> dict[str, np.ndarray]:
 class VoidlineEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, seed: int = 0, max_steps: int = 3600):
+    def __init__(
+        self,
+        seed: int = 0,
+        max_steps: int = 3600,
+        runs_per_episode: int = 150,
+    ):
         super().__init__()
-        self._env = voidline_py.Env(seed=seed, max_steps=max_steps)
-        self.action_space = spaces.MultiDiscrete([9, 5, 4])
+        self._env = voidline_py.Env(
+            seed=seed, max_steps=max_steps, runs_per_episode=runs_per_episode
+        )
+        # MultiDiscrete([9, 5, 4, 9]) = movement, draft, relic, shop.
+        # Shop dimension exposes 8 affordable slots + slot 0 = NextRun.
+        self.action_space = spaces.MultiDiscrete([9, 5, 4, 9])
         self.observation_space = spaces.Dict(
             {
                 key: spaces.Box(low=-1.0, high=1.0, shape=shape, dtype=np.float32)
@@ -71,8 +83,10 @@ class VoidlineEnv(gym.Env):
         return np.asarray(raw["flat"], dtype=bool)
 
 
-def make_env(seed: int = 0, max_steps: int = 3600):
+def make_env(seed: int = 0, max_steps: int = 3600, runs_per_episode: int = 150):
     def _factory() -> VoidlineEnv:
-        return VoidlineEnv(seed=seed, max_steps=max_steps)
+        return VoidlineEnv(
+            seed=seed, max_steps=max_steps, runs_per_episode=runs_per_episode
+        )
 
     return _factory

@@ -460,6 +460,236 @@ fn resolve_pending_decisions(
     }
 }
 
+/// Lookahead receding-horizon control. For each candidate movement
+/// action (8-way + noop), clones the engine, applies the action's key
+/// set, simulates `lookahead_frames` frames without further input, and
+/// scores the resulting state. Returns the (dx, dy) of the best
+/// candidate. The 8-way encoding is matched to `movement_keys` so the
+/// caller can pass the result to `snap_movement` or to
+/// `EngineInput.keys` directly.
+///
+/// Score function (higher = better):
+///   + score_delta × 1          — damage dealt translates 1:1 into score
+///   + xp_delta × 5             — level-ups are crucial
+///   + engage_bonus             — count of enemies in auto-fire range × 0.4
+///   + survival_frames × 0.05   — small bonus for staying alive longer
+///   - hp_loss × 30             — taking a hit is bad but recoverable
+///   - died × 5000              — dying eliminates this branch
+///   - nearest_enemy_proximity  — penalize collision-imminent positions
+const FIRE_ENGAGE_RADIUS: f64 = 620.0;
+const FIRE_ENGAGE_PER_ENEMY: f64 = 0.4;
+
+pub fn lookahead_movement(
+    engine: &Engine,
+    lookahead_frames: u32,
+    step_seconds: f64,
+) -> (f64, f64) {
+    // 9 candidate movement actions encoded same as `voidline_meta::obs::movement_keys`.
+    const CANDIDATES: [(f64, f64, &[&str]); 9] = [
+        (0.0, 0.0, &[]),
+        (0.0, -1.0, &["KeyW"]),
+        (1.0, 0.0, &["KeyD"]),
+        (0.0, 1.0, &["KeyS"]),
+        (-1.0, 0.0, &["KeyA"]),
+        (0.7071, -0.7071, &["KeyW", "KeyD"]),
+        (0.7071, 0.7071, &["KeyD", "KeyS"]),
+        (-0.7071, 0.7071, &["KeyS", "KeyA"]),
+        (-0.7071, -0.7071, &["KeyA", "KeyW"]),
+    ];
+
+    let mut best_score = f64::NEG_INFINITY;
+    let mut best_dx = 0.0;
+    let mut best_dy = 0.0;
+
+    for (dx, dy, keys) in CANDIDATES.iter() {
+        let mut probe = engine.clone();
+        let snapshot_before = probe.snapshot();
+        let hp_before = snapshot_before.player.hp;
+        let xp_before = snapshot_before.state.xp as f64;
+        let score_before = snapshot_before.state.score;
+        let level_before = snapshot_before.state.level;
+
+        probe.set_input(EngineInput {
+            keys: keys.iter().map(|k| (*k).to_string()).collect(),
+            pointer_x: 0.0,
+            pointer_y: 0.0,
+            pointer_inside: false,
+            control_mode: "keyboard".to_string(),
+        });
+
+        let mut survived_frames: u32 = 0;
+        let mut died = false;
+        for _ in 0..lookahead_frames {
+            probe.step(step_seconds);
+            survived_frames += 1;
+            let snap = probe.snapshot();
+            if snap.state.mode == "gameover" {
+                died = true;
+                break;
+            }
+        }
+
+        let snapshot_after = probe.snapshot();
+        let hp_after = snapshot_after.player.hp;
+        let xp_after = snapshot_after.state.xp as f64;
+        let score_after = snapshot_after.state.score;
+        let level_after = snapshot_after.state.level;
+
+        let hp_loss = (hp_before - hp_after).max(0.0);
+        let xp_delta = (xp_after - xp_before).max(0.0);
+        let score_delta = (score_after - score_before).max(0.0);
+        let level_delta = level_after.saturating_sub(level_before) as f64;
+
+        let mut nearest_proximity_penalty = 0.0;
+        let mut engage_bonus = 0.0;
+        for enemy in &snapshot_after.enemies {
+            let edx = enemy.x - snapshot_after.player.x;
+            let edy = enemy.y - snapshot_after.player.y;
+            let dist = (edx * edx + edy * edy).sqrt();
+            let safe = enemy.radius + snapshot_after.player.radius + 60.0;
+            if dist < safe {
+                let danger = ((safe - dist) / safe).clamp(0.0, 1.0);
+                nearest_proximity_penalty += danger.powi(2) * 30.0;
+            }
+            // Reward staying within auto-fire range so enemies actually
+            // get killed instead of the agent kiting indefinitely.
+            if dist < FIRE_ENGAGE_RADIUS && dist >= safe {
+                let proximity = 1.0 - (dist / FIRE_ENGAGE_RADIUS).clamp(0.0, 1.0);
+                let weight = match enemy.role.as_str() {
+                    "boss" => 2.0,
+                    "mini-boss" => 1.4,
+                    _ => 1.0,
+                };
+                engage_bonus += proximity * weight * FIRE_ENGAGE_PER_ENEMY;
+            }
+        }
+
+        let mut score = score_delta;
+        score -= hp_loss * 30.0;
+        if died {
+            score -= 5000.0;
+        }
+        score += xp_delta * 5.0;
+        // level_delta intentionally omitted — bonus of 100/level was
+        // pulling the agent into XP traps. Keep xp_delta × 5 instead.
+        let _ = level_delta;
+        score += engage_bonus;
+        score -= nearest_proximity_penalty;
+        score += (survived_frames as f64) * 0.05;
+
+        if score > best_score {
+            best_score = score;
+            best_dx = *dx;
+            best_dy = *dy;
+        }
+    }
+
+    (best_dx, best_dy)
+}
+
+/// Lookahead-aware variant of `expert_action`. Replaces the greedy
+/// movement heuristic with `lookahead_movement` while keeping the
+/// hand-tuned upgrade/relic scoring from main.
+pub fn lookahead_expert_action(
+    bundle: &DataBundle,
+    profile: &PlayerProfileId,
+    engine: &Engine,
+    upgrade_choices: &[UpgradeChoiceRecord],
+    relic_choices: &[RelicChoiceRecord],
+    lookahead_frames: u32,
+    step_seconds: f64,
+) -> ExpertAction {
+    let snapshot = engine.snapshot();
+    let (mx, my) = lookahead_movement(engine, lookahead_frames, step_seconds);
+
+    let upgrade_slot = if upgrade_choices.is_empty() {
+        None
+    } else {
+        let best = choose_upgrade(bundle, profile, &snapshot, upgrade_choices);
+        best.and_then(|chosen| {
+            upgrade_choices
+                .iter()
+                .position(|c| c.upgrade_id == chosen.upgrade_id && c.tier_id == chosen.tier_id)
+        })
+    };
+
+    let relic_slot = if relic_choices.is_empty() {
+        None
+    } else {
+        let best = choose_relic(bundle, profile, &snapshot, relic_choices);
+        best.and_then(|chosen| {
+            relic_choices
+                .iter()
+                .position(|c| c.relic_id == chosen.relic_id)
+        })
+    };
+
+    ExpertAction {
+        movement_dx: mx,
+        movement_dy: my,
+        upgrade_slot,
+        relic_slot,
+    }
+}
+
+/// Per-step expert action for the in-run env. Wraps the existing
+/// `Optimizer`/`ExpertHuman` heuristic so the RL training pipeline can
+/// reuse it as a baseline + BC seed without going through the
+/// `run_active_profile_trial` orchestration. Returns ``None`` for
+/// upgrade/relic picks if there is nothing offered, or no choice is
+/// dominant.
+///
+/// `upgrade_choices` and `relic_choices` are the engine's currently
+/// drafted slots (caller is responsible for ensuring the env is
+/// actually offering them). The boolean result fields map directly to
+/// the slot indices the RL action uses (i.e. ``Some(slot_index)``
+/// means action = slot_index + 1).
+pub struct ExpertAction {
+    pub movement_dx: f64,
+    pub movement_dy: f64,
+    pub upgrade_slot: Option<usize>,
+    pub relic_slot: Option<usize>,
+}
+
+pub fn expert_action(
+    bundle: &DataBundle,
+    profile: &PlayerProfileId,
+    snapshot: &EngineSnapshot,
+    upgrade_choices: &[UpgradeChoiceRecord],
+    relic_choices: &[RelicChoiceRecord],
+) -> ExpertAction {
+    let (mx, my) = movement_vector(profile, snapshot);
+
+    let upgrade_slot = if upgrade_choices.is_empty() {
+        None
+    } else {
+        let best = choose_upgrade(bundle, profile, snapshot, upgrade_choices);
+        best.and_then(|chosen| {
+            upgrade_choices
+                .iter()
+                .position(|c| c.upgrade_id == chosen.upgrade_id && c.tier_id == chosen.tier_id)
+        })
+    };
+
+    let relic_slot = if relic_choices.is_empty() {
+        None
+    } else {
+        let best = choose_relic(bundle, profile, snapshot, relic_choices);
+        best.and_then(|chosen| {
+            relic_choices
+                .iter()
+                .position(|c| c.relic_id == chosen.relic_id)
+        })
+    };
+
+    ExpertAction {
+        movement_dx: mx,
+        movement_dy: my,
+        upgrade_slot,
+        relic_slot,
+    }
+}
+
 fn choose_upgrade(
     bundle: &DataBundle,
     snapshot: &EngineSnapshot,
