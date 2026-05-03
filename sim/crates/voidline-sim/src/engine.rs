@@ -117,9 +117,22 @@ pub struct EngineSnapshot {
     pub experience_orbs: Vec<SnapshotExperienceOrb>,
     pub powerup_orbs: Vec<SnapshotPowerupOrb>,
     pub chests: Vec<SnapshotChest>,
+    pub enemy_deaths: Vec<SnapshotEnemyDeath>,
     pub counters: SnapshotCounters,
     pub owned_upgrades: Vec<OwnedUpgradeRecord>,
     pub owned_relics: Vec<OwnedRelicRecord>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotEnemyDeath {
+    pub x: f64,
+    pub y: f64,
+    pub radius: f64,
+    pub kind: String,
+    pub role: String,
+    pub color: String,
+    pub accent: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -1304,6 +1317,24 @@ fn snapshot_from_engine(engine: &Engine) -> EngineSnapshot {
                 vy: chest.vy,
                 radius: chest.radius,
                 age: chest.age,
+            })
+            .collect(),
+        enemy_deaths: engine
+            .sim
+            .state
+            .deaths_this_frame
+            .iter()
+            .map(|death| {
+                let (color, accent) = enemy_colors(engine, death.kind, death.role);
+                SnapshotEnemyDeath {
+                    x: death.x,
+                    y: death.y,
+                    radius: death.radius,
+                    kind: death.kind.as_str().to_string(),
+                    role: enemy_role_str(death.role).to_string(),
+                    color,
+                    accent,
+                }
             })
             .collect(),
         counters: SnapshotCounters {

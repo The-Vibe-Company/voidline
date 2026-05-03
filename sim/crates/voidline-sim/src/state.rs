@@ -2,6 +2,17 @@
 
 use std::collections::HashMap;
 
+use crate::entities::{EnemyKind, EnemyRole};
+
+#[derive(Debug, Clone)]
+pub struct EnemyDeathEvent {
+    pub x: f64,
+    pub y: f64,
+    pub radius: f64,
+    pub kind: EnemyKind,
+    pub role: EnemyRole,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameMode {
     Menu,
@@ -50,6 +61,7 @@ pub struct GameState {
     pub bombs_carried: u32,
     pub run_boss_stages: Vec<u32>,
     pub run_reward_claimed: bool,
+    pub deaths_this_frame: Vec<EnemyDeathEvent>,
 }
 
 impl Default for GameState {
@@ -89,6 +101,7 @@ impl Default for GameState {
             bombs_carried: 0,
             run_boss_stages: Vec::new(),
             run_reward_claimed: false,
+            deaths_this_frame: Vec::new(),
         }
     }
 }

@@ -22,6 +22,7 @@ import {
   unlockedRelics,
   world,
 } from "../state";
+import { burst } from "../entities/particles";
 import { findRelic } from "../game/relic-catalog";
 import { findUpgrade } from "../game/upgrade-catalog";
 import { upgradeTiers } from "../game/balance";
@@ -141,6 +142,15 @@ interface RustSnapshot {
   experienceOrbs: ExperienceOrb[];
   powerupOrbs: PowerupOrb[];
   chests: ChestEntity[];
+  enemyDeaths: Array<{
+    x: number;
+    y: number;
+    radius: number;
+    kind: "scout" | "hunter" | "brute";
+    role: "normal" | "mini-boss" | "boss";
+    color: string;
+    accent: string;
+  }>;
   counters: {
     nextEnemyId: number;
     nextBulletId: number;
@@ -213,7 +223,7 @@ export function stepRustSimulation(dt: number): void {
     controlMode: state.controlMode,
   });
   rustEngine.step(dt);
-  syncRustSnapshot({ preserveModalMode: true });
+  syncRustSnapshot({ preserveModalMode: true, emitVisualEvents: true });
 }
 
 export function seedRustStress(config: RustStressConfig): void {
@@ -327,7 +337,10 @@ function buildAccountContext(): RustEngineAccountContext {
   };
 }
 
-function syncRustSnapshot(options: { preserveModalMode: boolean }): void {
+function syncRustSnapshot(options: {
+  preserveModalMode: boolean;
+  emitVisualEvents?: boolean;
+}): void {
   if (!engine) return;
   const snapshot = engine.snapshot() as RustSnapshot;
   lastSnapshot = snapshot;
@@ -345,6 +358,9 @@ function syncRustSnapshot(options: { preserveModalMode: boolean }): void {
   syncList(experienceOrbs, snapshot.experienceOrbs);
   syncList(powerupOrbs, snapshot.powerupOrbs);
   syncList(chests, snapshot.chests);
+  if (options.emitVisualEvents && snapshot.enemyDeaths.length > 0) {
+    spawnDeathBursts(snapshot.enemyDeaths);
+  }
   syncLoadout(snapshot);
   counters.nextEnemyId = snapshot.counters.nextEnemyId;
   counters.nextBulletId = snapshot.counters.nextBulletId;
@@ -399,6 +415,17 @@ function syncLoadout(snapshot: RustSnapshot): void {
 function syncList<T>(target: T[], next: T[]): void {
   target.length = 0;
   target.push(...next);
+}
+
+function spawnDeathBursts(deaths: RustSnapshot["enemyDeaths"]): void {
+  const scale = deaths.length > 24 ? Math.max(0.25, 24 / deaths.length) : 1;
+  for (const death of deaths) {
+    const baseCount = death.role === "boss" ? 60 : death.role === "mini-boss" ? 36 : 14;
+    const count = Math.max(3, Math.round(baseCount * scale));
+    const speed = death.role === "boss" ? 320 : death.role === "mini-boss" ? 240 : 180;
+    burst(death.x, death.y, death.color, count, speed);
+    burst(death.x, death.y, death.accent, Math.max(2, Math.round(count * 0.35)), speed * 0.7);
+  }
 }
 
 export function clearRustVisualState(): void {
