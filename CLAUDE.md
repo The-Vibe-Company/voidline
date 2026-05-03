@@ -84,13 +84,13 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 
 ## Stratégie IA pour balance — deux systèmes complémentaires
 
-L'équilibrage repose sur deux IA spécialisées et complémentaires. **Tout rapport `balance:quick` / `balance:full` doit faire tourner les deux** afin que les warnings `op-pick` / `dead-pick` et les `runs_to_stageN_clear` reflètent du vrai design, pas un bot faible.
+L'équilibrage cible deux IA spécialisées et complémentaires. **Aujourd'hui, seul Champion (mouvement) tourne**, plus les 4 personas RL existantes ; le bot upgrade/relic dédié est prévu pour un PR ultérieur. Une fois le second système livré, tout rapport `balance:quick` / `balance:full` devra faire tourner les deux pour que les warnings `op-pick` / `dead-pick` et les `runs_to_stageN_clear` reflètent du vrai design, pas un bot faible.
 
-1. **Bot Champion — mouvement & collecte XP** (Rust, heuristique, déterministe).
+1. **Bot Champion — mouvement & collecte XP** (Rust, heuristique, déterministe). **Implémenté.**
    Vit dans `sim/crates/voidline-meta/src/champion.rs`. Combine Velocity Obstacles (cônes de collision en espace de vélocité), champ de potentiel TTC (time-to-collision), mini-MPC à horizon court (rollouts de candidates) et routage greedy d'orbes. C'est l'unique profil heuristique skilled exposé via `--player-profile champion` (et `--player-profile skilled`). Il **remplace** les anciens `expert-human` / `optimizer`. Mesure le **plafond de skill mécanique** d'un build : si Champion ne survit pas, c'est que le knob est trop dur.
 
-2. **Bot Upgrade/Relic — choix au level-up et après boss** (RL, futur PR).
-   À implémenter ultérieurement. Entraînement Modal H100, ONNX chargé via `learned_policy.rs`. Spécialisé pour maximiser le score attendu sur le choix d'upgrades (level-up) et de reliques (chest/boss). Mesure le **plafond stratégique** d'un build : si une carte est dominée alors que Champion la pioche systématiquement, c'est un signal `op-pick` réel.
+2. **Bot Upgrade/Relic — choix au level-up et après boss** (RL). **À implémenter (futur PR).**
+   Entraînement Modal H100, ONNX chargé via `learned_policy.rs`. Spécialisé pour maximiser le score attendu sur le choix d'upgrades (level-up) et de reliques (chest/boss). Mesurera le **plafond stratégique** d'un build : si une carte est dominée alors que Champion la pioche systématiquement, c'est un signal `op-pick` réel. En attendant ce système, les choix d'upgrades/reliques restent gérés par le scoring heuristique de `profiles.rs` (mode optimizer-like) et par les 4 personas learned-* existantes.
 
 Le Champion sert aussi d'**expert demonstrator** pour de futurs RL (movement ou choix-de-cartes) entraînés par imitation learning.
 
