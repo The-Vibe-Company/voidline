@@ -91,7 +91,7 @@ image = (
 )
 
 COMMAND_TIMEOUT_SECONDS = {
-    "quick": 270,
+    "quick": 60 * 30,
     "full": 60 * 60 * 4 - 120,
     "train": 60 * 60 * 6 - 120,
 }
@@ -164,6 +164,25 @@ def _build_voidline_py(env: dict[str, str]) -> None:
     wheel_dir = Path("/tmp/voidline-py-wheel")
     shutil.rmtree(wheel_dir, ignore_errors=True)
     wheel_dir.mkdir(parents=True, exist_ok=True)
+
+    # The persistent cargo-target volume occasionally retains stale .so
+    # artefacts past mtime-based fingerprinting (e.g. cdylib output from a
+    # previous experimental branch with extra action slots). `cargo clean -p`
+    # is unreliable because maturin's cdylib lives in `release/` rather than
+    # the per-package layout cargo expects. Wiping the release tree once per
+    # marker bump is fast and only fires when this constant changes.
+    rebuild_marker_value = "20260503-single-stat-cards"
+    cargo_target = Path(env.get("CARGO_TARGET_DIR", str(REMOTE_REPO / "sim" / "target")))
+    marker = cargo_target / ".voidline-rebuild-marker-py"
+    cargo_target.mkdir(parents=True, exist_ok=True)
+    current = marker.read_text(encoding="utf-8") if marker.exists() else ""
+    if current.strip() != rebuild_marker_value:
+        for victim in (cargo_target / "release", cargo_target / "debug"):
+            try:
+                shutil.rmtree(victim)
+            except FileNotFoundError:
+                pass
+        marker.write_text(rebuild_marker_value + "\n", encoding="utf-8")
     subprocess.run(
         [
             "maturin",
@@ -193,9 +212,9 @@ def _require_models(model_dir: Path) -> None:
 
 def _heuristic_args(mode: str, output_path: Path, checkpoint_dir: Path) -> list[str]:
     if mode == "quick":
-        campaigns, runs, max_pressure, trial_seconds, max_seconds = 2, 8, 60, 360, 55
+        campaigns, runs, max_pressure, trial_seconds, max_seconds = 2, 60, 60, 360, 600
     else:
-        campaigns, runs, max_pressure, trial_seconds, max_seconds = 12, 120, 80, 720, 360
+        campaigns, runs, max_pressure, trial_seconds, max_seconds = 12, 120, 80, 720, 1500
     return [
         "bash",
         "scripts/meta-progression-report.sh",
@@ -226,28 +245,28 @@ def _learned_args(mode: str, model_dir: Path, output_path: Path) -> list[str]:
         sizing = [
             "--quick",
             "--campaigns",
-            "1",
-            "--runs",
             "2",
+            "--runs",
+            "30",
             "--max-pressure",
-            "20",
+            "60",
             "--trial-seconds",
-            "90",
+            "360",
             "--max-seconds",
-            "45",
+            "600",
         ]
     else:
         sizing = [
             "--campaigns",
             "6",
             "--runs",
-            "16",
+            "120",
             "--max-pressure",
-            "60",
+            "80",
             "--trial-seconds",
-            "480",
+            "720",
             "--max-seconds",
-            "240",
+            "1500",
         ]
     return [
         "python3",
@@ -408,7 +427,7 @@ def _run_command(
     volumes={"/reports": reports_volume, "/models": models_volume, str(CACHE_ROOT): cache_volume},
     cpu=32,
     memory=65536,
-    timeout=60 * 5,
+    timeout=60 * 35,
 )
 def run_balance_quick(command: str, extra_args_json: str, git_sha: str, balance_hash: str, run_id: str) -> dict[str, object]:
     return _run_command(command, extra_args_json, git_sha, balance_hash, run_id, "cpu-burst")

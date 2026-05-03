@@ -1404,6 +1404,79 @@ struct ReportRunOutput {
     policy_results: Vec<(PlayerProfileId, Vec<(PolicyId, Vec<CampaignResult>)>)>,
 }
 
+fn write_progressive_report(
+    args: &Args,
+    settings: &RunSettings,
+    data_hash: &str,
+    start: &Instant,
+    completed_profiles: &[ProfileSection],
+    in_progress_sections: &[PolicySection],
+    in_progress_profile: &PlayerProfileId,
+) {
+    let mut profiles = completed_profiles.to_vec();
+    if !in_progress_sections.is_empty() {
+        profiles.push(ProfileSection {
+            player_profile: in_progress_profile.as_str().to_string(),
+            policies: in_progress_sections.to_vec(),
+        });
+    }
+    let compatibility_policies = profiles
+        .first()
+        .map(|profile| profile.policies.clone())
+        .unwrap_or_default();
+    let report = Report {
+        generated_at: chrono_now_utc(),
+        config: report_config_from(args, settings, data_hash, start.elapsed().as_secs_f64()),
+        profiles,
+        policies: compatibility_policies,
+    };
+    write_json_report(&args.output, &report);
+}
+
+fn report_config_from(
+    args: &Args,
+    settings: &RunSettings,
+    _data_hash: &str,
+    elapsed_seconds: f64,
+) -> ReportConfig {
+    ReportConfig {
+        quick: args.quick,
+        campaigns: settings.campaigns,
+        runs_per_campaign: settings.runs,
+        max_pressure: settings.max_pressure,
+        trial_seconds: settings.trial_seconds,
+        seed: args.seed,
+        player_profile_arg: args.player_profile.as_str().to_string(),
+        player_profiles: settings
+            .player_profiles
+            .iter()
+            .map(|profile| profile.as_str().to_string())
+            .collect(),
+        model_dir: settings
+            .model_dir
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        policy_set: args.policy_set.as_str().to_string(),
+        phase: args.phase.as_str().to_string(),
+        phase_isolated: args.phase.is_isolated(),
+        checkpoint_in: args
+            .checkpoint_in
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        checkpoint_out: args
+            .checkpoint_out
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        check_target: args
+            .check_target
+            .as_ref()
+            .map(|target| target.as_str().to_string()),
+        thresholds: settings.thresholds.clone(),
+        threads: rayon::current_num_threads(),
+        elapsed_seconds,
+    }
+}
+
 fn run_report(
     args: &Args,
     bundle: &DataBundle,
@@ -1424,14 +1497,29 @@ fn run_report(
     let start = Instant::now();
     let mut profiles = Vec::new();
     let mut policy_results_by_profile = Vec::new();
+    let mut partial = false;
 
-    for player_profile in &settings.player_profiles {
+    'outer: for player_profile in &settings.player_profiles {
         let mut options = settings.base_options.clone();
         options.player_profile = player_profile.clone();
         let mut sections = Vec::new();
         let mut policy_results = Vec::new();
 
         for policy in policy_ids(&args.policy_set) {
+            // Before starting an expensive policy, bail out if the budget is
+            // already gone. Whatever profiles/policies completed so far are
+            // kept and serialized below.
+            if check_budget(&start, args.max_seconds) {
+                partial = true;
+                if !sections.is_empty() {
+                    profiles.push(ProfileSection {
+                        player_profile: player_profile.as_str().to_string(),
+                        policies: sections,
+                    });
+                    policy_results_by_profile.push((player_profile.clone(), policy_results));
+                }
+                break 'outer;
+            }
             eprintln!("[profile:{}][{}]", player_profile.as_str(), policy.as_str());
             let initial_checkpoints = match args.phase.checkpoint_stage() {
                 Some(stage) => Some(load_or_generate_checkpoints(
@@ -1454,7 +1542,17 @@ fn run_report(
             );
             sections.push(build_section(policy, settings.runs, &results));
             policy_results.push((policy, results));
-            check_budget(&start, args.max_seconds);
+            // Persist what we have after every policy so a hard kill (Modal
+            // function timeout, SIGTERM) still leaves a usable report.
+            write_progressive_report(
+                args,
+                settings,
+                data_hash,
+                &start,
+                &profiles,
+                &sections,
+                player_profile,
+            );
         }
 
         profiles.push(ProfileSection {
@@ -1462,6 +1560,9 @@ fn run_report(
             policies: sections,
         });
         policy_results_by_profile.push((player_profile.clone(), policy_results));
+    }
+    if partial {
+        eprintln!("voidline-cli: returning partial report after wall-clock budget hit");
     }
 
     let elapsed = start.elapsed();
@@ -1471,42 +1572,7 @@ fn run_report(
         .unwrap_or_default();
     let report = Report {
         generated_at: chrono_now_utc(),
-        config: ReportConfig {
-            quick: args.quick,
-            campaigns: settings.campaigns,
-            runs_per_campaign: settings.runs,
-            max_pressure: settings.max_pressure,
-            trial_seconds: settings.trial_seconds,
-            seed: args.seed,
-            player_profile_arg: args.player_profile.as_str().to_string(),
-            player_profiles: settings
-                .player_profiles
-                .iter()
-                .map(|profile| profile.as_str().to_string())
-                .collect(),
-            model_dir: settings
-                .model_dir
-                .as_ref()
-                .map(|path| path.display().to_string()),
-            policy_set: args.policy_set.as_str().to_string(),
-            phase: args.phase.as_str().to_string(),
-            phase_isolated: args.phase.is_isolated(),
-            checkpoint_in: args
-                .checkpoint_in
-                .as_ref()
-                .map(|path| path.display().to_string()),
-            checkpoint_out: args
-                .checkpoint_out
-                .as_ref()
-                .map(|path| path.display().to_string()),
-            check_target: args
-                .check_target
-                .as_ref()
-                .map(|target| target.as_str().to_string()),
-            thresholds: settings.thresholds.clone(),
-            threads: rayon::current_num_threads(),
-            elapsed_seconds: elapsed.as_secs_f64(),
-        },
+        config: report_config_from(args, settings, data_hash, elapsed.as_secs_f64()),
         profiles,
         policies: compatibility_policies,
     };
@@ -2099,15 +2165,16 @@ fn hash_bytes(bytes: &[u8]) -> String {
     format!("fnv1a64:{hash:016x}")
 }
 
-fn check_budget(start: &Instant, budget_seconds: f64) {
+fn check_budget(start: &Instant, budget_seconds: f64) -> bool {
     if start.elapsed() > Duration::from_secs_f64(budget_seconds) {
         eprintln!(
-            "ABORT: wall-clock budget {:.0}s exceeded (elapsed {:.0}s)",
+            "BUDGET: wall-clock budget {:.0}s exceeded (elapsed {:.0}s); finalizing partial report",
             budget_seconds,
             start.elapsed().as_secs_f64(),
         );
-        std::process::exit(2);
+        return true;
     }
+    false
 }
 
 fn resolve_output_path(path: &PathBuf) -> PathBuf {
