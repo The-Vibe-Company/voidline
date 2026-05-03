@@ -1,20 +1,25 @@
 # Voidline — Agent Guide
 
-## ⚠️ RÈGLE PRIORITAIRE — Mesurer sur Modal avant chaque commit gameplay
+## ⚠️ RÈGLE PRIORITAIRE — `npm run balance:check` avant chaque commit gameplay
 
-Avant tout commit qui touche un composant de gameplay (`src/game/balance.ts`, `src/game/*-catalog.ts`, `src/systems/synergies.ts`, `src/simulation/`, `sim/crates/voidline-{sim,data,meta}/`), tu DOIS lancer `npm run balance:quick` sur Modal et lire le rapport. C'est la seule façon de prouver que le changement ne casse pas l'équilibre (clear rates, runs cibles par stage, warnings `op-pick` / `dead-pick`).
+Avant tout commit qui touche un composant de gameplay (`src/game/balance.ts`, `src/game/*-catalog.ts`, `src/systems/synergies.ts`, `src/simulation/`, `sim/crates/`), tu DOIS lancer `npm run balance:check` localement et lire le rapport.
 
-- Pas d'estimation. Pas de chiffre inventé pour des coûts, yields, courbes ou caps : passer par Modal, lire les pick rates / clear rates / `runs_to_stage{1,2,3}_clear` réels.
-- Si `balance:quick` ne passe pas (ex. ONNX manquant), lancer `npm run balance:train` d'abord, puis `balance:quick`.
-- Si l'outillage est en panne, le dire explicitement et demander la donnée à l'utilisateur AVANT de finaliser le commit.
-- Une formule lue dans le code n'est PAS une mesure : elle décrit un calcul, pas une distribution.
+- Champion heuristique, déterministe, < 2 min, pas de Modal, pas de réseau, pas d'ONNX.
+- `--check-target balance` fait crasher la commande si un gate 20 / 50 / 100 est violé.
+- Output dans `.context/balance-check.json` (gitignoré). Lire `runs_to_stage{1,2,3}_clear`, clear rates, warnings `op-pick` / `dead-pick`.
+- Pas de chiffres inventés pour les coûts / yields / courbes : passer par le rapport.
+- Une formule lue dans le code n'est PAS une mesure ; toujours croiser avec un run réel.
 
-Cibles de progression (à reverifier dans le rapport) :
+Cibles de progression (vérifiées par `--check-target balance`) :
 - Stage 1 clear : 10–20 runs cumulés
 - Stage 2 clear : ~50 runs cumulés
 - Stage 3 clear : ~100 runs cumulés
 
 Aucun pilote, arme, carte, upgrade, relique ou synergie ne doit créer un build dominant qui trivialise ces fenêtres.
+
+### Et le RL ?
+
+L'ancien scaffolding RL (Modal + sb3-contrib + 4 personas ONNX + voidline-py) a été retiré : c'était fragile, mal câblé sur le catalogue, et ne mesurait rien d'utile. Un futur PR ajoutera un agent RL **dédié au choix d'upgrade**, spécialisé pour maximiser le score attendu d'un build. En attendant, Champion + scoring heuristique de `profiles.rs` sont la source de vérité pour les warnings `op-pick` / `dead-pick` et les gates de progression.
 
 ---
 
@@ -136,15 +141,11 @@ Hooks runtime (`src/systems/account.ts`) :
 
 ---
 
-## Sim Rust + RL
+## Sim Rust
 
 Le port Rust dans `sim/` exécute jusqu'à 100k campagnes en quelques secondes via `rayon`. `data/balance.json` (généré depuis TS) est la source unique.
 
-Deux IA pour valider la balance :
-- **Champion** (heuristique, déterministe, `voidline-meta/src/champion.rs`) : Velocity Obstacles + champ TTC + mini-MPC + routage greedy d'orbes. Mesure le plafond mécanique d'un build. Profil `--player-profile champion` ou `skilled`.
-- **Personas RL** (ONNX, `learned_policy.rs`) : 4 personas (`learned-human|optimizer|explorer|novice`). Mesurent le plafond stratégique. Entraînement Modal H100, modèles persistés par hash de `data/balance.json` dans le volume `voidline-rl-models`.
-
-Un bot dédié pour les choix d'upgrades/reliques est prévu en futur PR ; en attendant, scoring heuristique de `profiles.rs` + 4 personas learned.
+Champion (`sim/crates/voidline-meta/src/champion.rs`) est l'unique pilote pour les rapports balance : heuristique déterministe — Velocity Obstacles + champ TTC + mini-MPC + routage greedy d'orbes. Il mesure le plafond mécanique d'un build et alimente `npm run balance:check`. Le scoring heuristique d'upgrades/reliques vit dans `voidline-meta/src/profiles.rs` ; un futur RL spécialisé "max out le build" viendra le remplacer pour les choix de cartes.
 
 ---
 
@@ -168,20 +169,13 @@ Un bot dédié pour les choix d'upgrades/reliques est prévu en futur PR ; en at
 - `npm run data:check` — vérifie que `data/balance.json` est à jour
 - `cd sim && cargo test --workspace`
 
-### Balance (Modal uniquement)
+### Balance (local Champion uniquement)
 
-Toute mesure d'équilibrage passe par Modal. Pas de check / report / train balance en local. Pas de workflow CI pour la balance. Local sert à lancer Modal, exporter `data/balance.json`, lancer les tests standard, récupérer les artefacts.
+- `npm run balance:check` — wrapper local autour de `voidline-cli` avec `--player-profile champion --policy-set focused --check-target balance`. < 2 min, déterministe, exit non-zéro si un gate 20 / 50 / 100 est violé. Output dans `.context/balance-check.json`. Override via env vars : `VOIDLINE_BALANCE_CHECK_CAMPAIGNS`, `_RUNS`, `_BUDGET`, `_OUTPUT`.
 
-- `npm run balance:quick` — rapport rapide (<5 min cible). Combine Champion heuristique + 4 personas learned.
-- `npm run balance:full` — rapport profond (peut dépasser 5 min) pour décisions importantes.
-- `npm run balance:train` — entraîne / exporte les ONNX sur H100. À relancer quand `data/balance.json` ou l'encodeur d'observation change.
-- `npm run balance:pull` — récupère les ONNX dans `.context/rl-models`. `-- --reports` récupère les rapports dans `.context/balance-reports`.
+Le rapport expose : `runs_to_stage{1,2,3}_clear`, `cumulative_runs_to_stage*_clear`, clear / death rates, pick rates upgrades / reliques, warnings `op-pick` / `dead-pick`, snapshots de stats. Pour valider un changement : exécuter avant/après, lire les deltas.
 
-`quick` et `full` échouent si les ONNX manquent → lancer `train` d'abord. Volumes : `voidline-rl-models`, `voidline-balance-reports`, `voidline-balance-cache`.
-
-Le rapport balance expose : `runs_to_stage{1,2,3}_clear`, `cumulative_runs_to_stage*_clear`, clear / death rates, pick rates upgrades / reliques, warnings `op-pick` / `dead-pick`, snapshots de stats. Pour valider un changement : exécuter avant/après, lire les deltas.
-
-Options CLI avancées (`--player-profile`, `--campaigns`, `--runs`, `--max-pressure`, `--trial-seconds`, `--seed`, `--sweep path=v1,v2`, `--set path=value`) : pour replay d'historique ou investigation. Ne pas les ajouter aux scripts npm sans raison. Sweeps ne modifient pas `data/balance.json` ; exporter ensuite via `data:export` si un knob est retenu.
+Options CLI avancées (`--campaigns`, `--runs`, `--max-pressure`, `--trial-seconds`, `--seed`, `--sweep path=v1,v2`, `--set path=value`) : pour replay d'historique ou investigation, en passant directement par `scripts/meta-progression-report.sh`. Ne pas multiplier les scripts npm. Sweeps ne modifient pas `data/balance.json` ; exporter ensuite via `data:export` si un knob est retenu.
 
 Historique : `--record-history` ajoute une entrée JSONL dans `data/balance-profile-history.jsonl` (refuse worktree dirty sans `--allow-dirty-history`).
 
@@ -222,7 +216,7 @@ Pas de test pour : rendu Canvas/DOM (`src/render/*`), forwarders 1-liner, consta
 
 - `npm test` avant chaque commit (single run)
 - `npm run typecheck` doit aussi passer
-- `npm run balance:quick` sur Modal avant tout commit gameplay (voir règle prioritaire)
+- `npm run balance:check` localement avant tout commit gameplay (voir règle prioritaire)
 - Un PR sans test pour une logique modifiée doit le justifier explicitement
 
 ---

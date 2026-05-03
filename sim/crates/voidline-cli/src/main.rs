@@ -21,18 +21,13 @@ use voidline_meta::campaign::{
 use voidline_meta::policies::{
     FocusedAttackPolicy, GreedyCheapPolicy, HoarderPolicy, MetaPolicy, PolicyId, RandomPolicy,
 };
-use voidline_meta::profiles::{default_model_dir, model_path_for_profile, RunStatSnapshot};
+use voidline_meta::profiles::RunStatSnapshot;
 use voidline_meta::{PlayerProfileId, ProfileRunSummary};
 
 #[derive(Clone, Debug, ValueEnum)]
 enum PlayerProfileArg {
     Idle,
     Champion,
-    LearnedHuman,
-    LearnedOptimizer,
-    LearnedExplorer,
-    LearnedNovice,
-    LearnedAll,
     Skilled,
     All,
 }
@@ -42,11 +37,6 @@ impl PlayerProfileArg {
         match self {
             PlayerProfileArg::Idle => "idle",
             PlayerProfileArg::Champion => "champion",
-            PlayerProfileArg::LearnedHuman => "learned-human",
-            PlayerProfileArg::LearnedOptimizer => "learned-optimizer",
-            PlayerProfileArg::LearnedExplorer => "learned-explorer",
-            PlayerProfileArg::LearnedNovice => "learned-novice",
-            PlayerProfileArg::LearnedAll => "learned-all",
             PlayerProfileArg::Skilled => "skilled",
             PlayerProfileArg::All => "all",
         }
@@ -56,16 +46,6 @@ impl PlayerProfileArg {
         match self {
             PlayerProfileArg::Idle => vec![PlayerProfileId::Idle],
             PlayerProfileArg::Champion => vec![PlayerProfileId::Champion],
-            PlayerProfileArg::LearnedHuman => vec![PlayerProfileId::LearnedHuman],
-            PlayerProfileArg::LearnedOptimizer => vec![PlayerProfileId::LearnedOptimizer],
-            PlayerProfileArg::LearnedExplorer => vec![PlayerProfileId::LearnedExplorer],
-            PlayerProfileArg::LearnedNovice => vec![PlayerProfileId::LearnedNovice],
-            PlayerProfileArg::LearnedAll => vec![
-                PlayerProfileId::LearnedHuman,
-                PlayerProfileId::LearnedOptimizer,
-                PlayerProfileId::LearnedExplorer,
-                PlayerProfileId::LearnedNovice,
-            ],
             PlayerProfileArg::Skilled => vec![PlayerProfileId::Champion],
             PlayerProfileArg::All => vec![PlayerProfileId::Idle, PlayerProfileId::Champion],
         }
@@ -186,10 +166,6 @@ struct Args {
     /// Player profile used by the run simulator
     #[arg(long, value_enum, default_value = "idle")]
     player_profile: PlayerProfileArg,
-
-    /// Directory containing learned RL ONNX models.
-    #[arg(long)]
-    model_dir: Option<PathBuf>,
 
     /// Base seed used to derive deterministic campaign/run seeds
     #[arg(long, default_value_t = 1109)]
@@ -431,7 +407,6 @@ struct ReportConfig {
     seed: u32,
     player_profile_arg: String,
     player_profiles: Vec<String>,
-    model_dir: Option<String>,
     policy_set: String,
     phase: String,
     phase_isolated: bool,
@@ -477,7 +452,6 @@ struct RunSettings {
     max_pressure: u32,
     trial_seconds: f64,
     player_profiles: Vec<PlayerProfileId>,
-    model_dir: Option<PathBuf>,
     thresholds: Phase1Thresholds,
     base_options: CampaignOptions,
 }
@@ -495,6 +469,10 @@ struct CheckpointFile {
 
 impl Default for Phase1Thresholds {
     fn default() -> Self {
+        // Design gates from CLAUDE.md: a good user clears stage 1 in 10-20
+        // runs, stage 2 around 50 runs, stage 3 around 100 runs cumulatively.
+        // The Champion heuristic is meant to mimic that "good user" — when
+        // its upgrade-picking is strong enough we want these enforced.
         Self {
             champion_stage1_p50_min: 10.0,
             champion_stage1_p50_max: 20.0,
@@ -503,10 +481,12 @@ impl Default for Phase1Thresholds {
             champion_stage2_p50_max: 60.0,
             champion_stage3_p50_min: 85.0,
             champion_stage3_p50_max: 115.0,
-            min_campaigns_for_check: 12,
-            min_runs_for_check: 120,
-            min_trial_seconds_for_check: 660.0,
-            min_min_max_pressure_for_check: 50,
+            // Sample-shape floors sized for `npm run balance:check` defaults
+            // (2 campaigns × 120 runs × 360s trials).
+            min_campaigns_for_check: 2,
+            min_runs_for_check: 60,
+            min_trial_seconds_for_check: 300.0,
+            min_min_max_pressure_for_check: 30,
         }
     }
 }
@@ -1367,10 +1347,6 @@ fn resolve_settings(args: &Args) -> RunSettings {
     let max_pressure = args.max_pressure.unwrap_or(profile.max_pressure);
     let trial_seconds = args.trial_seconds.unwrap_or(profile.trial_seconds);
     let player_profiles = args.player_profile.expand();
-    let model_dir = player_profiles
-        .iter()
-        .any(PlayerProfileId::is_learned)
-        .then(|| args.model_dir.clone().unwrap_or_else(default_model_dir));
     let thresholds = Phase1Thresholds::default();
     let base_options = CampaignOptions {
         seed: args.seed,
@@ -1381,7 +1357,6 @@ fn resolve_settings(args: &Args) -> RunSettings {
         step_seconds: 1.0 / 60.0,
         max_decisions_per_run: 16,
         player_profile: PlayerProfileId::Idle,
-        learned_model_dir: model_dir.clone(),
         initial_account: None,
         initial_run_index: 0,
         initial_unlock_run_index: HashMap::new(),
@@ -1392,7 +1367,6 @@ fn resolve_settings(args: &Args) -> RunSettings {
         max_pressure,
         trial_seconds,
         player_profiles,
-        model_dir,
         thresholds,
         base_options,
     }
@@ -1452,10 +1426,6 @@ fn report_config_from(
             .iter()
             .map(|profile| profile.as_str().to_string())
             .collect(),
-        model_dir: settings
-            .model_dir
-            .as_ref()
-            .map(|path| path.display().to_string()),
         policy_set: args.policy_set.as_str().to_string(),
         phase: args.phase.as_str().to_string(),
         phase_isolated: args.phase.is_isolated(),
@@ -1645,32 +1615,6 @@ fn summary_row(
     }
 }
 
-fn validate_learned_models(settings: &RunSettings) -> Result<(), String> {
-    let learned_profiles = settings
-        .player_profiles
-        .iter()
-        .filter(|profile| profile.is_learned())
-        .collect::<Vec<_>>();
-    if learned_profiles.is_empty() {
-        return Ok(());
-    }
-    let Some(model_dir) = settings.model_dir.as_deref() else {
-        return Err("learned profiles require --model-dir or VOIDLINE_RL_MODEL_DIR".to_string());
-    };
-    for profile in learned_profiles {
-        let path = model_path_for_profile(profile, Some(model_dir))
-            .ok_or_else(|| format!("no model path for {}", profile.as_str()))?;
-        if !path.exists() {
-            return Err(format!(
-                "missing RL model for {}: {}",
-                profile.as_str(),
-                path.display()
-            ));
-        }
-    }
-    Ok(())
-}
-
 fn main() {
     let args = Args::parse();
 
@@ -1706,10 +1650,6 @@ fn main() {
         });
 
     let settings = resolve_settings(&args);
-    validate_learned_models(&settings).unwrap_or_else(|err| {
-        eprintln!("{err}");
-        std::process::exit(2);
-    });
     let variation_mode = !fixed_overrides.is_empty() || !sweep_axes.is_empty();
     if variation_mode {
         if args.record_history {
@@ -2016,12 +1956,6 @@ fn build_replay_command(args: &Args, output_path: &PathBuf) -> String {
         shell_word(&output_path.display().to_string())
     ));
     parts.push(format!("--player-profile {}", args.player_profile.as_str()));
-    if let Some(model_dir) = &args.model_dir {
-        parts.push(format!(
-            "--model-dir {}",
-            shell_word(&model_dir.display().to_string())
-        ));
-    }
     parts.push(format!("--policy-set {}", args.policy_set.as_str()));
     parts.push(format!("--phase {}", args.phase.as_str()));
     parts.push(format!("--seed {}", args.seed));
@@ -2231,7 +2165,6 @@ mod tests {
             trial_seconds: Some(660.0),
             threads: Some(1),
             player_profile: PlayerProfileArg::Skilled,
-            model_dir: None,
             seed: 1234,
             check_target: Some(CheckTargetArg::Balance),
             policy_set: PolicySetArg::Focused,
@@ -2338,7 +2271,6 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["champion".to_string()],
-                model_dir: None,
                 policy_set: "focused".to_string(),
                 phase: "full".to_string(),
                 phase_isolated: false,
@@ -2540,7 +2472,6 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["champion".to_string()],
-                model_dir: None,
                 policy_set: "all".to_string(),
                 phase: "full".to_string(),
                 phase_isolated: false,

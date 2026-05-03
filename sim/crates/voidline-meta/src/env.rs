@@ -2,7 +2,6 @@
 //! actions to a policy. Each `step` either purchases a meta-upgrade or
 //! runs one trial via `voidline_sim::Sim`.
 
-use std::path::PathBuf;
 
 use voidline_data::DataBundle;
 
@@ -47,7 +46,6 @@ pub enum StepKind {
         profile: ProfileRunSummary,
     },
     Failed(PurchaseError),
-    PolicyFailed(String),
 }
 
 pub struct MetaProgressionEnv<'a> {
@@ -60,7 +58,6 @@ pub struct MetaProgressionEnv<'a> {
     pub step_seconds: f64,
     pub player_profile: PlayerProfileId,
     pub max_decisions_per_run: u32,
-    pub learned_model_dir: Option<PathBuf>,
 }
 
 impl<'a> MetaProgressionEnv<'a> {
@@ -75,7 +72,6 @@ impl<'a> MetaProgressionEnv<'a> {
             step_seconds: 1.0 / 60.0,
             player_profile: PlayerProfileId::Idle,
             max_decisions_per_run: 16,
-            learned_model_dir: None,
         }
     }
 
@@ -238,7 +234,7 @@ impl<'a> MetaProgressionEnv<'a> {
     }
 
     fn run_active_trial(&mut self, seed: u32) -> StepResult {
-        let profile = match run_active_profile_trial(
+        let profile = run_active_profile_trial(
             self.bundle,
             &self.account,
             self.player_profile.clone(),
@@ -248,20 +244,8 @@ impl<'a> MetaProgressionEnv<'a> {
                 max_pressure: self.max_pressure,
                 step_seconds: self.step_seconds,
                 max_decisions_per_run: self.max_decisions_per_run,
-                learned_model_dir: self.learned_model_dir.clone(),
             },
-        ) {
-            Ok(profile) => profile,
-            Err(err) => {
-                return StepResult {
-                    reward: 0.0,
-                    done: true,
-                    kind: StepKind::PolicyFailed(err.to_string()),
-                    crystals_after: self.account.crystals,
-                    final_pressure: None,
-                };
-            }
-        };
+        );
         let final_pressure = profile.final_pressure;
         let outcome = RunOutcome {
             elapsed_seconds: profile.elapsed_seconds,
@@ -291,25 +275,3 @@ impl<'a> MetaProgressionEnv<'a> {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use voidline_data::load_default;
-
-    use crate::profiles::PlayerProfileId;
-
-    use super::{MetaAction, MetaProgressionEnv, StepKind};
-
-    #[test]
-    fn policy_load_failure_is_terminal() {
-        let bundle = load_default().unwrap();
-        let mut env = MetaProgressionEnv::new(&bundle, 0);
-        env.player_profile = PlayerProfileId::LearnedHuman;
-        env.learned_model_dir = Some(std::env::temp_dir().join("voidline-missing-env-models"));
-
-        let result = env.step(MetaAction::NextRun);
-
-        assert!(result.done);
-        assert!(matches!(result.kind, StepKind::PolicyFailed(_)));
-        assert_eq!(env.run_index, 0);
-    }
-}

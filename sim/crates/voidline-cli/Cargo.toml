@@ -12,7 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 voidline-data = { path = "../voidline-data" }
-voidline-meta = { path = "../voidline-meta", features = ["learned-policy"] }
+voidline-meta = { path = "../voidline-meta" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rayon = { workspace = true }
