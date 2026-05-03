@@ -14,7 +14,7 @@ use crate::powerups::maybe_drop_powerup;
 use crate::rng::Mulberry32;
 use crate::roguelike::base_pressure_for_stage;
 use crate::spatial_grid::SpatialGrid;
-use crate::state::{EntityCounters, GameMode, GameState};
+use crate::state::{EnemyDeathEvent, EntityCounters, GameMode, GameState};
 use crate::world::World;
 
 /// Side-effects emitted while updating enemies that the simulation loop must
@@ -406,6 +406,13 @@ pub fn kill_enemy(
     suppress_drops: bool,
 ) {
     let snapshot = enemies[index].clone();
+    state.deaths_this_frame.push(EnemyDeathEvent {
+        x: snapshot.x,
+        y: snapshot.y,
+        radius: snapshot.radius,
+        kind: snapshot.kind,
+        role: snapshot.role,
+    });
     release_enemy(pools, enemies, index);
     state.phase_kills += 1;
     let kind_key = snapshot.kind.as_str().to_string();
@@ -667,6 +674,94 @@ mod tests {
 
         assert!(upper_dir.1 < 0.0);
         assert!(lower_dir.1 > 0.0);
+    }
+
+    #[test]
+    fn kill_enemy_pushes_one_death_event() {
+        let bundle = load_default().expect("balance.json");
+        let mut player = Player::new(&bundle.balance.player.stats);
+        let mut world = World::default();
+        let mut state = GameState::default();
+        let mut counters = EntityCounters::default();
+        counters.reset();
+        let mut pools = EntityPools::default();
+        let mut enemies = vec![normal_enemy_at_player(&player)];
+        enemies[0].x = 1234.0;
+        enemies[0].y = 5678.0;
+        let mut chests = Vec::new();
+        let mut xp = Vec::new();
+        let mut pups = Vec::new();
+        let mut rng = Mulberry32::new(42);
+
+        kill_enemy(
+            &bundle.balance,
+            &mut pools,
+            &mut counters,
+            &mut state,
+            &mut player,
+            &mut world,
+            &mut enemies,
+            &mut chests,
+            &mut xp,
+            &mut pups,
+            &mut rng,
+            0,
+            true,
+        );
+
+        assert_eq!(state.deaths_this_frame.len(), 1);
+        let death = &state.deaths_this_frame[0];
+        assert_eq!(death.kind, EnemyKind::Scout);
+        assert_eq!(death.role, EnemyRole::Normal);
+        assert!((death.x - 1234.0).abs() < 1e-9);
+        assert!((death.y - 5678.0).abs() < 1e-9);
+        assert!(enemies.is_empty());
+    }
+
+    #[test]
+    fn killing_n_enemies_pushes_n_death_events() {
+        let bundle = load_default().expect("balance.json");
+        let mut player = Player::new(&bundle.balance.player.stats);
+        let mut world = World::default();
+        let mut state = GameState::default();
+        let mut counters = EntityCounters::default();
+        counters.reset();
+        let mut pools = EntityPools::default();
+        let mut enemies: Vec<Enemy> = (0..5)
+            .map(|i| {
+                let mut e = normal_enemy_at_player(&player);
+                e.id = (i + 1) as u32;
+                e.x = (i as f64) * 50.0;
+                e
+            })
+            .collect();
+        let mut chests = Vec::new();
+        let mut xp = Vec::new();
+        let mut pups = Vec::new();
+        let mut rng = Mulberry32::new(7);
+
+        let mut i = enemies.len();
+        while i > 0 {
+            i -= 1;
+            kill_enemy(
+                &bundle.balance,
+                &mut pools,
+                &mut counters,
+                &mut state,
+                &mut player,
+                &mut world,
+                &mut enemies,
+                &mut chests,
+                &mut xp,
+                &mut pups,
+                &mut rng,
+                i,
+                true,
+            );
+        }
+
+        assert_eq!(state.deaths_this_frame.len(), 5);
+        assert!(enemies.is_empty());
     }
 
     #[test]

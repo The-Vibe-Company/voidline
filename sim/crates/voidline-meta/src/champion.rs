@@ -630,6 +630,7 @@ mod tests {
             experience_orbs: vec![],
             powerup_orbs: vec![],
             chests: vec![],
+            enemy_deaths: vec![],
             counters: voidline_sim::engine::SnapshotCounters {
                 next_enemy_id: 1,
                 next_bullet_id: 1,

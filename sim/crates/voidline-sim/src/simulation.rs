@@ -422,6 +422,7 @@ impl Sim {
         let capped_dt = dt.min(0.033).max(0.0);
         self.world.time += capped_dt;
         self.world.shake = (self.world.shake - capped_dt * 18.0).max(0.0);
+        self.state.deaths_this_frame.clear();
 
         if self.state.mode != GameMode::Playing {
             return;
