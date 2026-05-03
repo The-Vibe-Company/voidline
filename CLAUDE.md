@@ -82,6 +82,18 @@ Le repo héberge un **port headless de la sim en Rust** dans `sim/` (Cargo works
 
 **Toute mesure d'équilibrage passe par Modal.** Ne lance pas de check/report/train balance en local et n'ajoute pas de workflow CI pour la balance. Le local sert seulement à lancer Modal, à exporter `data/balance.json`, à lancer les tests standard, et à récupérer des artefacts avec `balance:pull`.
 
+## Stratégie IA pour balance — deux systèmes complémentaires
+
+L'équilibrage cible deux IA spécialisées et complémentaires. **Aujourd'hui, seul Champion (mouvement) tourne**, plus les 4 personas RL existantes ; le bot upgrade/relic dédié est prévu pour un PR ultérieur. Une fois le second système livré, tout rapport `balance:quick` / `balance:full` devra faire tourner les deux pour que les warnings `op-pick` / `dead-pick` et les `runs_to_stageN_clear` reflètent du vrai design, pas un bot faible.
+
+1. **Bot Champion — mouvement & collecte XP** (Rust, heuristique, déterministe). **Implémenté.**
+   Vit dans `sim/crates/voidline-meta/src/champion.rs`. Combine Velocity Obstacles (cônes de collision en espace de vélocité), champ de potentiel TTC (time-to-collision), mini-MPC à horizon court (rollouts de candidates) et routage greedy d'orbes. C'est l'unique profil heuristique skilled exposé via `--player-profile champion` (et `--player-profile skilled`). Il **remplace** les anciens `expert-human` / `optimizer`. Mesure le **plafond de skill mécanique** d'un build : si Champion ne survit pas, c'est que le knob est trop dur.
+
+2. **Bot Upgrade/Relic — choix au level-up et après boss** (RL). **À implémenter (futur PR).**
+   Entraînement Modal H100, ONNX chargé via `learned_policy.rs`. Spécialisé pour maximiser le score attendu sur le choix d'upgrades (level-up) et de reliques (chest/boss). Mesurera le **plafond stratégique** d'un build : si une carte est dominée alors que Champion la pioche systématiquement, c'est un signal `op-pick` réel. En attendant ce système, les choix d'upgrades/reliques restent gérés par le scoring heuristique de `profiles.rs` (mode optimizer-like) et par les 4 personas learned-* existantes.
+
+Le Champion sert aussi d'**expert demonstrator** pour de futurs RL (movement ou choix-de-cartes) entraînés par imitation learning.
+
 ## Architecture (rappel)
 
 - **Logique gameplay** (testable): `sim/crates/voidline-sim` est la source de vérité. TypeScript garde les catalogues/UI, les inputs, le rendu et les wrappers WASM.
@@ -145,7 +157,7 @@ Le harness TS (`src/game/balance-simulation.ts`) a été supprimé : il était t
 
 Pour la difficulté, ne pas exposer une forêt de paramètres dans les scripts courants. Utiliser uniquement :
 
-- `npm run balance:quick` pour voir les tendances rapidement. Cette commande combine profils skilled heuristiques (`expert-human`, `optimizer`) et personas learned RL. Elle doit rester sous 5 minutes sur Modal après warm cache.
+- `npm run balance:quick` pour voir les tendances rapidement. Cette commande combine le profil heuristique skilled `champion` et les personas learned RL. Elle doit rester sous 5 minutes sur Modal après warm cache.
 - `npm run balance:full` pour un rapport plus profond quand une décision de design dépend de la mesure. Cette commande peut dépasser 5 minutes.
 - `npm run balance:train` pour régénérer les modèles learned RL quand `data/balance.json` ou l'encodeur d'observation change. Les modèles restent hors git dans le volume Modal `voidline-rl-models`, par hash de `data/balance.json`.
 - `npm run balance:pull -- --reports` pour récupérer les rapports dans `.context/balance-reports`; `npm run balance:pull` récupère les ONNX dans `.context/rl-models`.

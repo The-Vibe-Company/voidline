@@ -2,6 +2,7 @@
 
 pub mod account;
 pub mod campaign;
+pub mod champion;
 pub mod env;
 #[cfg(feature = "learned-policy")]
 pub mod learned_policy;

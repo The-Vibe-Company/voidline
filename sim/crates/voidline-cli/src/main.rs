@@ -27,8 +27,7 @@ use voidline_meta::{PlayerProfileId, ProfileRunSummary};
 #[derive(Clone, Debug, ValueEnum)]
 enum PlayerProfileArg {
     Idle,
-    ExpertHuman,
-    Optimizer,
+    Champion,
     LearnedHuman,
     LearnedOptimizer,
     LearnedExplorer,
@@ -42,8 +41,7 @@ impl PlayerProfileArg {
     fn as_str(&self) -> &'static str {
         match self {
             PlayerProfileArg::Idle => "idle",
-            PlayerProfileArg::ExpertHuman => "expert-human",
-            PlayerProfileArg::Optimizer => "optimizer",
+            PlayerProfileArg::Champion => "champion",
             PlayerProfileArg::LearnedHuman => "learned-human",
             PlayerProfileArg::LearnedOptimizer => "learned-optimizer",
             PlayerProfileArg::LearnedExplorer => "learned-explorer",
@@ -57,8 +55,7 @@ impl PlayerProfileArg {
     fn expand(&self) -> Vec<PlayerProfileId> {
         match self {
             PlayerProfileArg::Idle => vec![PlayerProfileId::Idle],
-            PlayerProfileArg::ExpertHuman => vec![PlayerProfileId::ExpertHuman],
-            PlayerProfileArg::Optimizer => vec![PlayerProfileId::Optimizer],
+            PlayerProfileArg::Champion => vec![PlayerProfileId::Champion],
             PlayerProfileArg::LearnedHuman => vec![PlayerProfileId::LearnedHuman],
             PlayerProfileArg::LearnedOptimizer => vec![PlayerProfileId::LearnedOptimizer],
             PlayerProfileArg::LearnedExplorer => vec![PlayerProfileId::LearnedExplorer],
@@ -69,14 +66,8 @@ impl PlayerProfileArg {
                 PlayerProfileId::LearnedExplorer,
                 PlayerProfileId::LearnedNovice,
             ],
-            PlayerProfileArg::Skilled => {
-                vec![PlayerProfileId::ExpertHuman, PlayerProfileId::Optimizer]
-            }
-            PlayerProfileArg::All => vec![
-                PlayerProfileId::Idle,
-                PlayerProfileId::ExpertHuman,
-                PlayerProfileId::Optimizer,
-            ],
+            PlayerProfileArg::Skilled => vec![PlayerProfileId::Champion],
+            PlayerProfileArg::All => vec![PlayerProfileId::Idle, PlayerProfileId::Champion],
         }
     }
 }
@@ -401,12 +392,9 @@ struct VariationResult {
 struct VariationSummaryRow {
     variation: String,
     overrides: Vec<OverrideSpec>,
-    expert_human_stage1_p50: Option<f64>,
-    expert_human_stage2_p50: Option<f64>,
-    expert_human_stage3_p50: Option<f64>,
-    optimizer_stage1_p50: Option<f64>,
-    optimizer_stage2_p50: Option<f64>,
-    optimizer_stage3_p50: Option<f64>,
+    champion_stage1_p50: Option<f64>,
+    champion_stage2_p50: Option<f64>,
+    champion_stage3_p50: Option<f64>,
     stage1_clear_rate: Option<f64>,
     stage2_clear_rate: Option<f64>,
     stage3_clear_rate: Option<f64>,
@@ -419,16 +407,13 @@ struct VariationSummaryRow {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct Phase1Thresholds {
-    expert_human_stage1_p50_min: f64,
-    expert_human_stage1_p50_max: f64,
-    expert_human_stage1_p75_max: f64,
-    optimizer_stage1_p50_min: f64,
-    expert_human_stage2_p50_min: f64,
-    expert_human_stage2_p50_max: f64,
-    optimizer_stage2_p50_min: f64,
-    expert_human_stage3_p50_min: f64,
-    expert_human_stage3_p50_max: f64,
-    optimizer_stage3_p50_min: f64,
+    champion_stage1_p50_min: f64,
+    champion_stage1_p50_max: f64,
+    champion_stage1_p75_max: f64,
+    champion_stage2_p50_min: f64,
+    champion_stage2_p50_max: f64,
+    champion_stage3_p50_min: f64,
+    champion_stage3_p50_max: f64,
     min_campaigns_for_check: u32,
     min_runs_for_check: u32,
     min_trial_seconds_for_check: f64,
@@ -511,16 +496,13 @@ struct CheckpointFile {
 impl Default for Phase1Thresholds {
     fn default() -> Self {
         Self {
-            expert_human_stage1_p50_min: 10.0,
-            expert_human_stage1_p50_max: 20.0,
-            expert_human_stage1_p75_max: 45.0,
-            optimizer_stage1_p50_min: 5.0,
-            expert_human_stage2_p50_min: 40.0,
-            expert_human_stage2_p50_max: 60.0,
-            optimizer_stage2_p50_min: 20.0,
-            expert_human_stage3_p50_min: 85.0,
-            expert_human_stage3_p50_max: 115.0,
-            optimizer_stage3_p50_min: 45.0,
+            champion_stage1_p50_min: 10.0,
+            champion_stage1_p50_max: 20.0,
+            champion_stage1_p75_max: 45.0,
+            champion_stage2_p50_min: 40.0,
+            champion_stage2_p50_max: 60.0,
+            champion_stage3_p50_min: 85.0,
+            champion_stage3_p50_max: 115.0,
             min_campaigns_for_check: 12,
             min_runs_for_check: 120,
             min_trial_seconds_for_check: 660.0,
@@ -1567,8 +1549,7 @@ fn summary_row(
     passed: bool,
     check_errors: &[String],
 ) -> VariationSummaryRow {
-    let expert = focused_section(report, "expert-human");
-    let optimizer = focused_section(report, "optimizer");
+    let champion = focused_section(report, "champion");
     let warning_count = report
         .profiles
         .iter()
@@ -1585,15 +1566,12 @@ fn summary_row(
     VariationSummaryRow {
         variation: variation.to_string(),
         overrides: overrides.to_vec(),
-        expert_human_stage1_p50: expert.and_then(|section| section.runs_to_stage1_clear.p50),
-        expert_human_stage2_p50: expert.and_then(|section| section.runs_to_stage2_clear.p50),
-        expert_human_stage3_p50: expert.and_then(|section| section.runs_to_stage3_clear.p50),
-        optimizer_stage1_p50: optimizer.and_then(|section| section.runs_to_stage1_clear.p50),
-        optimizer_stage2_p50: optimizer.and_then(|section| section.runs_to_stage2_clear.p50),
-        optimizer_stage3_p50: optimizer.and_then(|section| section.runs_to_stage3_clear.p50),
-        stage1_clear_rate: expert.map(|section| section.stage1_clear_rate),
-        stage2_clear_rate: expert.map(|section| section.stage2_clear_rate),
-        stage3_clear_rate: expert.map(|section| section.stage3_clear_rate),
+        champion_stage1_p50: champion.and_then(|section| section.runs_to_stage1_clear.p50),
+        champion_stage2_p50: champion.and_then(|section| section.runs_to_stage2_clear.p50),
+        champion_stage3_p50: champion.and_then(|section| section.runs_to_stage3_clear.p50),
+        stage1_clear_rate: champion.map(|section| section.stage1_clear_rate),
+        stage2_clear_rate: champion.map(|section| section.stage2_clear_rate),
+        stage3_clear_rate: champion.map(|section| section.stage3_clear_rate),
         warning_count,
         op_pick_count,
         passed,
@@ -1823,82 +1801,53 @@ fn run_balance_checks(report: &Report, check_target: &CheckTargetArg) -> Result<
             })
     };
 
-    match focused("expert-human").and_then(|section| section.runs_to_stage1_clear.p50) {
+    match focused("champion").and_then(|section| section.runs_to_stage1_clear.p50) {
         Some(p50)
-            if p50 >= thresholds.expert_human_stage1_p50_min
-                && p50 <= thresholds.expert_human_stage1_p50_max => {}
+            if p50 >= thresholds.champion_stage1_p50_min
+                && p50 <= thresholds.champion_stage1_p50_max => {}
         Some(p50) => errors.push(format!(
-            "expert-human focused-attack p50 runsToStage1Clear {p50:.1} outside {:.1}-{:.1}",
-            thresholds.expert_human_stage1_p50_min, thresholds.expert_human_stage1_p50_max
+            "champion focused-attack p50 runsToStage1Clear {p50:.1} outside {:.1}-{:.1}",
+            thresholds.champion_stage1_p50_min, thresholds.champion_stage1_p50_max
         )),
         None => errors.push(
-            "expert-human focused-attack never cleared phase 1 in sampled campaigns".to_string(),
+            "champion focused-attack never cleared phase 1 in sampled campaigns".to_string(),
         ),
     }
 
-    match focused("expert-human").and_then(|section| section.runs_to_stage1_clear.p75) {
-        Some(p75) if p75 <= thresholds.expert_human_stage1_p75_max => {}
+    match focused("champion").and_then(|section| section.runs_to_stage1_clear.p75) {
+        Some(p75) if p75 <= thresholds.champion_stage1_p75_max => {}
         Some(p75) => errors.push(format!(
-            "expert-human focused-attack p75 runsToStage1Clear {p75:.1} exceeds {:.1}",
-            thresholds.expert_human_stage1_p75_max
-        )),
-        None => {}
-    }
-
-    match focused("optimizer").and_then(|section| section.runs_to_stage1_clear.p50) {
-        Some(p50) if p50 >= thresholds.optimizer_stage1_p50_min => {}
-        Some(p50) => errors.push(format!(
-            "optimizer focused-attack p50 runsToStage1Clear {p50:.1} below exploit floor {:.1}",
-            thresholds.optimizer_stage1_p50_min
+            "champion focused-attack p75 runsToStage1Clear {p75:.1} exceeds {:.1}",
+            thresholds.champion_stage1_p75_max
         )),
         None => {}
     }
 
     if matches!(check_target, CheckTargetArg::Balance) {
-        match focused("expert-human").and_then(|section| section.runs_to_stage2_clear.p50) {
+        match focused("champion").and_then(|section| section.runs_to_stage2_clear.p50) {
             Some(p50)
-                if p50 >= thresholds.expert_human_stage2_p50_min
-                    && p50 <= thresholds.expert_human_stage2_p50_max => {}
+                if p50 >= thresholds.champion_stage2_p50_min
+                    && p50 <= thresholds.champion_stage2_p50_max => {}
             Some(p50) => errors.push(format!(
-                "expert-human focused-attack p50 runsToStage2Clear {p50:.1} outside {:.1}-{:.1}",
-                thresholds.expert_human_stage2_p50_min, thresholds.expert_human_stage2_p50_max
+                "champion focused-attack p50 runsToStage2Clear {p50:.1} outside {:.1}-{:.1}",
+                thresholds.champion_stage2_p50_min, thresholds.champion_stage2_p50_max
             )),
             None => errors.push(
-                "expert-human focused-attack never cleared phase 2 in sampled campaigns"
-                    .to_string(),
+                "champion focused-attack never cleared phase 2 in sampled campaigns".to_string(),
             ),
         }
 
-        match focused("optimizer").and_then(|section| section.runs_to_stage2_clear.p50) {
-            Some(p50) if p50 >= thresholds.optimizer_stage2_p50_min => {}
-            Some(p50) => errors.push(format!(
-                "optimizer focused-attack p50 runsToStage2Clear {p50:.1} below post-phase exploit floor {:.1}",
-                thresholds.optimizer_stage2_p50_min
-            )),
-            None => {}
-        }
-
-        match focused("expert-human").and_then(|section| section.runs_to_stage3_clear.p50) {
+        match focused("champion").and_then(|section| section.runs_to_stage3_clear.p50) {
             Some(p50)
-                if p50 >= thresholds.expert_human_stage3_p50_min
-                    && p50 <= thresholds.expert_human_stage3_p50_max => {}
+                if p50 >= thresholds.champion_stage3_p50_min
+                    && p50 <= thresholds.champion_stage3_p50_max => {}
             Some(p50) => errors.push(format!(
-                "expert-human focused-attack p50 runsToStage3Clear {p50:.1} outside {:.1}-{:.1}",
-                thresholds.expert_human_stage3_p50_min, thresholds.expert_human_stage3_p50_max
+                "champion focused-attack p50 runsToStage3Clear {p50:.1} outside {:.1}-{:.1}",
+                thresholds.champion_stage3_p50_min, thresholds.champion_stage3_p50_max
             )),
             None => errors.push(
-                "expert-human focused-attack never cleared phase 3 in sampled campaigns"
-                    .to_string(),
+                "champion focused-attack never cleared phase 3 in sampled campaigns".to_string(),
             ),
-        }
-
-        match focused("optimizer").and_then(|section| section.runs_to_stage3_clear.p50) {
-            Some(p50) if p50 >= thresholds.optimizer_stage3_p50_min => {}
-            Some(p50) => errors.push(format!(
-                "optimizer focused-attack p50 runsToStage3Clear {p50:.1} below phase 3 exploit floor {:.1}",
-                thresholds.optimizer_stage3_p50_min
-            )),
-            None => {}
         }
 
         for profile in &report.profiles {
@@ -2304,19 +2253,12 @@ mod tests {
 
     fn checkable_report() -> Report {
         let thresholds = Phase1Thresholds::default();
-        let expert = policy_section(
+        let champion = policy_section(
             "focused-attack",
-            Some(thresholds.expert_human_stage1_p50_min),
-            Some(thresholds.expert_human_stage1_p75_max),
-            Some(thresholds.expert_human_stage2_p50_min),
-            Some(thresholds.expert_human_stage3_p50_min),
-        );
-        let optimizer = policy_section(
-            "focused-attack",
-            Some(thresholds.optimizer_stage1_p50_min),
-            Some(thresholds.optimizer_stage1_p50_min),
-            Some(thresholds.optimizer_stage2_p50_min),
-            Some(thresholds.optimizer_stage3_p50_min),
+            Some(thresholds.champion_stage1_p50_min),
+            Some(thresholds.champion_stage1_p75_max),
+            Some(thresholds.champion_stage2_p50_min),
+            Some(thresholds.champion_stage3_p50_min),
         );
         Report {
             generated_at: "epoch:0".to_string(),
@@ -2328,7 +2270,7 @@ mod tests {
                 trial_seconds: thresholds.min_trial_seconds_for_check,
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
-                player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
+                player_profiles: vec!["champion".to_string()],
                 model_dir: None,
                 policy_set: "focused".to_string(),
                 phase: "full".to_string(),
@@ -2340,11 +2282,8 @@ mod tests {
                 threads: 1,
                 elapsed_seconds: 0.0,
             },
-            profiles: vec![
-                profile_section("expert-human", expert.clone()),
-                profile_section("optimizer", optimizer),
-            ],
-            policies: vec![expert],
+            profiles: vec![profile_section("champion", champion.clone())],
+            policies: vec![champion],
         }
     }
 
@@ -2375,26 +2314,24 @@ mod tests {
     fn phase1_check_skips_stage2_thresholds() {
         let mut report = checkable_report();
         report.profiles[0].policies[0].runs_to_stage2_clear.p50 = Some(1.0);
-        report.profiles[1].policies[0].runs_to_stage2_clear.p50 = Some(1.0);
         report.profiles[0].policies[0].runs_to_stage3_clear.p50 = Some(1.0);
-        report.profiles[1].policies[0].runs_to_stage3_clear.p50 = Some(1.0);
 
         assert!(run_balance_checks(&report, &CheckTargetArg::Phase1).is_ok());
         assert!(run_balance_checks(&report, &CheckTargetArg::Balance).is_err());
     }
 
     #[test]
-    fn balance_checks_fail_without_expert_profile() {
+    fn balance_checks_fail_without_champion_profile() {
         let mut report = checkable_report();
         report
             .profiles
-            .retain(|profile| profile.player_profile != "expert-human");
+            .retain(|profile| profile.player_profile != "champion");
 
         let errors = run_balance_checks(&report, &CheckTargetArg::Balance).unwrap_err();
 
         assert!(errors
             .iter()
-            .any(|error| error.contains("expert-human focused-attack never cleared")));
+            .any(|error| error.contains("champion focused-attack never cleared")));
     }
 
     #[test]
@@ -2466,7 +2403,7 @@ mod tests {
         let file = CheckpointFile {
             schema_version: 1,
             base_data_hash: "fnv1a64:test".to_string(),
-            profile: "expert-human".to_string(),
+            profile: "champion".to_string(),
             policy: "focused-attack".to_string(),
             checkpoint_stage: 2,
             checkpoints: vec![checkpoint],
@@ -2535,7 +2472,7 @@ mod tests {
                 trial_seconds: 1.0,
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
-                player_profiles: vec!["expert-human".to_string(), "optimizer".to_string()],
+                player_profiles: vec!["champion".to_string()],
                 model_dir: None,
                 policy_set: "all".to_string(),
                 phase: "full".to_string(),
