@@ -1,0 +1,43 @@
+src/types.ts
+  e415c3a4ccd0ef9e 51,57-58
+src/game/meta-upgrade-catalog.test.ts
+  e415c3a4ccd0ef9e 30,36-37
+src/game/balance.ts
+  e415c3a4ccd0ef9e 358
+src/game/balance.test.ts
+  e415c3a4ccd0ef9e 294-297,385,389
+sim/crates/voidline-sim/src/effects.rs
+  e415c3a4ccd0ef9e 258,266-277,279
+sim/crates/voidline-data/src/balance.rs
+  e415c3a4ccd0ef9e 272
+data/balance.json
+  e415c3a4ccd0ef9e 226,459-472,575,584-597,611,641,655,657,665-696,1084-1115,1273-1331
+src/game/upgrade-catalog.ts
+  e415c3a4ccd0ef9e 92-104,108,196,198,200-213,222,242,251,256-260,263-289
+CLAUDE.md
+  e415c3a4ccd0ef9e 23-42
+src/game/upgrade-catalog-shape.test.ts
+  e415c3a4ccd0ef9e 1-77
+src/game/meta-upgrade-catalog.ts
+  e415c3a4ccd0ef9e 146-158,226-251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f6891440fdff35427dbd5c8f6a54f0cf875717c9",
+  "prompts": {
+    "e415c3a4ccd0ef9e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee2457e9-f516-4dec-80ef-6df0e8955d34",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 838,
+      "total_deletions": 37,
+      "accepted_lines": 390,
+      "overriden_lines": 0
+    }
+  }
+}
