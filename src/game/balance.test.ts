@@ -291,7 +291,10 @@ describe("upgrade effects", () => {
     const damageTarget = createPlayerState();
     findUpgrade("rail-slug").apply(tier("standard"), damageTarget);
     expect(damageTarget.damage).toBeCloseTo(24 * (1 + damageEffect));
-    expect(damageTarget.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
+
+    const velocityTarget = createPlayerState();
+    findUpgrade("velocity-tuner").apply(tier("standard"), velocityTarget);
+    expect(velocityTarget.bulletSpeed).toBeCloseTo(610 * (1 + bulletSpeedEffect));
   });
 
   it("applies defensive and utility upgrades to an isolated player", () => {
@@ -379,11 +382,11 @@ describe("multiplicative upgrade additivity", () => {
   it("sums contributions from different upgrades sharing the same stat", () => {
     const target = createPlayerState();
     findUpgrade("rail-slug").apply(tier("standard"), target);
-    findUpgrade("lance-capacitor").apply(tier("standard"), target);
+    findUpgrade("pulse-armament").apply(tier("standard"), target);
 
     const expected =
       balance.player.stats.damage *
-      (1 + balance.upgrade.effects.damage + 0.18);
+      (1 + balance.upgrade.effects.damage + 0.16);
     expect(target.damage).toBeCloseTo(expected);
   });
 

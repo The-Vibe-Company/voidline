@@ -255,16 +255,28 @@ mod tests {
     }
 
     #[test]
-    fn rail_slug_standard_boosts_damage_and_bullet_speed() {
+    fn rail_slug_standard_boosts_damage_only() {
         let bundle = load_default().unwrap();
         let mut player = fresh_player(&bundle);
         let upgrade = find_upgrade(&bundle, "rail-slug");
         let tier = find_tier(&bundle, "standard");
         run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
         let dmg = bundle.balance.upgrade.effects.damage;
-        let bs = bundle.balance.upgrade.effects.bullet_speed;
         assert!((player.damage - 24.0 * (1.0 + dmg)).abs() < 1e-12);
+        // rail-slug is single-stat damage now; bullet_speed is provided by velocity-tuner.
+        assert!((player.bullet_speed - 610.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn velocity_tuner_standard_boosts_bullet_speed_only() {
+        let bundle = load_default().unwrap();
+        let mut player = fresh_player(&bundle);
+        let upgrade = find_upgrade(&bundle, "velocity-tuner");
+        let tier = find_tier(&bundle, "standard");
+        run_effects(&upgrade.effects, tier.power, &bundle.balance, &mut player);
+        let bs = bundle.balance.upgrade.effects.bullet_speed;
         assert!((player.bullet_speed - 610.0 * (1.0 + bs)).abs() < 1e-12);
+        assert!((player.damage - 24.0).abs() < 1e-12);
     }
 
     #[test]
@@ -480,8 +492,6 @@ mod tests {
             player.bonus.damage_pct,
             cap,
         );
-        // bullet_speed leg uses uncapped addPct, so it should keep accumulating.
-        assert!(player.bonus.bullet_speed_pct > cap);
     }
 
     #[test]

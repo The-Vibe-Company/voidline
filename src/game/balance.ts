@@ -355,6 +355,7 @@ export const upgradeBalance = {
     pickupRadius: 0.36,
     bulletRadius: 0.24,
     projectileDamageFactor: 0.6,
+    pierceDamageFactor: 0.5,
     droneExtraThreshold: 1.65,
   },
 };

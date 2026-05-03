@@ -20,6 +20,26 @@ Voir `sim/README.md` pour l'architecture complète et les workflows de maintenan
 
 ---
 
+## ⚠️ RÈGLE PRIORITAIRE — Cartes single-stat, malus pour les stats OP
+
+Une carte d'upgrade run-time (`src/game/upgrade-catalog.ts`) doit augmenter **un seul attribut** à la fois. Les cartes ne stackent jamais deux buffs purs : si une carte modifie deux stats positives sans contrepartie, splitter la carte en deux.
+
+Exception : une carte peut combiner plusieurs effets uniquement si l'un d'eux est un **malus explicite** (op DSL avec `factor < 1` sur un `scaleCurrentPct`, ou `amount < 0` sur un `addPct` / `addCappedPctBonus`).
+
+Les stats dites « OP » par nature — celles dont l'augmentation multiplie la puissance au lieu de l'additionner — doivent **toujours** embarquer un malus damage proportionnel :
+
+- `addCapped projectileCount +N` → `scaleCurrentPct damage` avec `factor < 1` (cf. `balance.upgrade.effects.projectileDamageFactor`).
+- `addCapped pierce +N` → `scaleCurrentPct damage` avec `factor < 1` (cf. `balance.upgrade.effects.pierceDamageFactor`).
+- Toute future stat multiplicative (multi-frappe, ricochet, etc.) suit la même règle.
+
+Pour les reviewers (humains et IA) : refuser une carte qui ajoute projectiles ou pierce sans malus damage. Pour Claude : avant de proposer un nouvel `Upgrade`, vérifier mentalement chacun de ses effets — s'il y a deux buffs purs, splitter en deux cartes ; s'il y a un buff OP non compensé, ajouter le malus.
+
+Le test invariant `src/game/upgrade-catalog-shape.test.ts` parcourt tout `upgradePool` et fait échouer la suite si la règle est violée. Ne pas le contourner — corriger la carte.
+
+Cette règle ne s'applique pas aux **reliques** (`relic-catalog.ts`), qui sont des drops temporaires de run et peuvent porter des effets multi-stat thématiques.
+
+---
+
 ## ⚠️ RÈGLE PRIORITAIRE — Jamais d'hypothèse, toujours mesurer
 
 Avant de proposer des chiffres de balance, de coût, de yield, de courbe de progression ou tout autre choix calibré sur des valeurs empiriques : **mesurer**, jamais estimer.
