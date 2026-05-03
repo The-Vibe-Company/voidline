@@ -118,6 +118,7 @@ impl PhaseArg {
     fn is_isolated(&self) -> bool {
         matches!(self, PhaseArg::Stage2 | PhaseArg::Stage3)
     }
+
 }
 
 #[derive(Parser, Debug)]
@@ -1807,54 +1808,98 @@ fn run_balance_checks(report: &Report, check_target: &CheckTargetArg) -> Result<
             })
     };
 
-    match focused("champion").and_then(|section| section.runs_to_stage1_clear.p50) {
-        Some(p50)
-            if p50 >= thresholds.champion_stage1_p50_min
-                && p50 <= thresholds.champion_stage1_p50_max => {}
-        Some(p50) => errors.push(format!(
-            "champion focused-attack p50 runsToStage1Clear {p50:.1} outside {:.1}-{:.1}",
-            thresholds.champion_stage1_p50_min, thresholds.champion_stage1_p50_max
-        )),
-        None => errors.push(
-            "champion focused-attack never cleared phase 1 in sampled campaigns".to_string(),
-        ),
-    }
+    let validated_stages: &[u32] = match report.config.phase.as_str() {
+        "stage2" => &[2],
+        "stage3" => &[3],
+        _ => &[1, 2, 3],
+    };
 
-    match focused("champion").and_then(|section| section.runs_to_stage1_clear.p75) {
-        Some(p75) if p75 <= thresholds.champion_stage1_p75_max => {}
-        Some(p75) => errors.push(format!(
-            "champion focused-attack p75 runsToStage1Clear {p75:.1} exceeds {:.1}",
-            thresholds.champion_stage1_p75_max
-        )),
-        None => {}
-    }
+    let validate_stage = |stage: u32, errors: &mut Vec<String>| {
+        if !validated_stages.contains(&stage) {
+            return;
+        }
+        let label = match stage {
+            1 => "1",
+            2 => "2",
+            3 => "3",
+            _ => return,
+        };
+        let (min, max, p75_max) = match stage {
+            1 => (
+                thresholds.champion_stage1_p50_min,
+                thresholds.champion_stage1_p50_max,
+                Some(thresholds.champion_stage1_p75_max),
+            ),
+            2 => (
+                thresholds.champion_stage2_p50_min,
+                thresholds.champion_stage2_p50_max,
+                None,
+            ),
+            3 => (
+                thresholds.champion_stage3_p50_min,
+                thresholds.champion_stage3_p50_max,
+                None,
+            ),
+            _ => return,
+        };
+        let section = match focused("champion") {
+            Some(section) => section,
+            None => {
+                errors.push(format!(
+                    "champion focused-attack never cleared phase {label} in sampled campaigns"
+                ));
+                return;
+            }
+        };
+        // For stage 1 we accept either cumulative (preferred) or the
+        // legacy local field, since the report aliases them when the
+        // simulator started from run 0. Tests set the local field only.
+        let cumulative = match stage {
+            1 => section
+                .cumulative_runs_to_stage1_clear
+                .p50
+                .or(section.runs_to_stage1_clear.p50),
+            2 => section
+                .cumulative_runs_to_stage2_clear
+                .p50
+                .or(section.runs_to_stage2_clear.p50),
+            3 => section
+                .cumulative_runs_to_stage3_clear
+                .p50
+                .or(section.runs_to_stage3_clear.p50),
+            _ => None,
+        };
+        let p75 = match stage {
+            1 => section
+                .cumulative_runs_to_stage1_clear
+                .p75
+                .or(section.runs_to_stage1_clear.p75),
+            _ => None,
+        };
+        match cumulative {
+            Some(p50) if p50 >= min && p50 <= max => {}
+            Some(p50) => errors.push(format!(
+                "champion focused-attack p50 cumulativeRunsToStage{label}Clear {p50:.1} outside {min:.1}-{max:.1}"
+            )),
+            None => errors.push(format!(
+                "champion focused-attack never cleared phase {label} in sampled campaigns"
+            )),
+        }
+        if let Some(p75_max) = p75_max {
+            match p75 {
+                Some(p75) if p75 <= p75_max => {}
+                Some(p75) => errors.push(format!(
+                    "champion focused-attack p75 cumulativeRunsToStage{label}Clear {p75:.1} exceeds {p75_max:.1}"
+                )),
+                None => {}
+            }
+        }
+    };
 
+    validate_stage(1, &mut errors);
     if matches!(check_target, CheckTargetArg::Balance) {
-        match focused("champion").and_then(|section| section.runs_to_stage2_clear.p50) {
-            Some(p50)
-                if p50 >= thresholds.champion_stage2_p50_min
-                    && p50 <= thresholds.champion_stage2_p50_max => {}
-            Some(p50) => errors.push(format!(
-                "champion focused-attack p50 runsToStage2Clear {p50:.1} outside {:.1}-{:.1}",
-                thresholds.champion_stage2_p50_min, thresholds.champion_stage2_p50_max
-            )),
-            None => errors.push(
-                "champion focused-attack never cleared phase 2 in sampled campaigns".to_string(),
-            ),
-        }
-
-        match focused("champion").and_then(|section| section.runs_to_stage3_clear.p50) {
-            Some(p50)
-                if p50 >= thresholds.champion_stage3_p50_min
-                    && p50 <= thresholds.champion_stage3_p50_max => {}
-            Some(p50) => errors.push(format!(
-                "champion focused-attack p50 runsToStage3Clear {p50:.1} outside {:.1}-{:.1}",
-                thresholds.champion_stage3_p50_min, thresholds.champion_stage3_p50_max
-            )),
-            None => errors.push(
-                "champion focused-attack never cleared phase 3 in sampled campaigns".to_string(),
-            ),
-        }
+        validate_stage(2, &mut errors);
+        validate_stage(3, &mut errors);
 
         for profile in &report.profiles {
             for policy in &profile.policies {
@@ -2314,6 +2359,12 @@ mod tests {
         let mut report = checkable_report();
         report.profiles[0].policies[0].runs_to_stage2_clear.p50 = Some(1.0);
         report.profiles[0].policies[0].runs_to_stage3_clear.p50 = Some(1.0);
+        report.profiles[0].policies[0]
+            .cumulative_runs_to_stage2_clear
+            .p50 = Some(1.0);
+        report.profiles[0].policies[0]
+            .cumulative_runs_to_stage3_clear
+            .p50 = Some(1.0);
 
         assert!(run_balance_checks(&report, &CheckTargetArg::Phase1).is_ok());
         assert!(run_balance_checks(&report, &CheckTargetArg::Balance).is_err());

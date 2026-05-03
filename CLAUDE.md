@@ -7,7 +7,6 @@ Avant tout commit qui touche un composant de gameplay (`src/game/balance.ts`, `s
 - Champion heuristique, déterministe, < 2 min, pas de Modal, pas de réseau, pas d'ONNX.
 - `--check-target balance` fait crasher la commande si un gate 20 / 50 / 100 est violé.
 - Output dans `.context/balance-check.json` (gitignoré). Lire `runs_to_stage{1,2,3}_clear`, clear rates, warnings `op-pick` / `dead-pick`.
-- Pas de chiffres inventés pour les coûts / yields / courbes : passer par le rapport.
 - Une formule lue dans le code n'est PAS une mesure ; toujours croiser avec un run réel.
 
 Cibles de progression (vérifiées par `--check-target balance`) :
@@ -16,10 +15,6 @@ Cibles de progression (vérifiées par `--check-target balance`) :
 - Stage 3 clear : ~100 runs cumulés
 
 Aucun pilote, arme, carte, upgrade, relique ou synergie ne doit créer un build dominant qui trivialise ces fenêtres.
-
-### Et le RL ?
-
-L'ancien scaffolding RL (Modal + sb3-contrib + 4 personas ONNX + voidline-py) a été retiré : c'était fragile, mal câblé sur le catalogue, et ne mesurait rien d'utile. Un futur PR ajoutera un agent RL **dédié au choix d'upgrade**, spécialisé pour maximiser le score attendu d'un build. En attendant, Champion + scoring heuristique de `profiles.rs` sont la source de vérité pour les warnings `op-pick` / `dead-pick` et les gates de progression.
 
 ---
 
@@ -36,19 +31,11 @@ L'ancien scaffolding RL (Modal + sb3-contrib + 4 personas ONNX + voidline-py) a 
 
 ---
 
-## ⚠️ RÈGLE PRIORITAIRE — Cartes single-stat, malus pour les stats OP
-
-Une carte d'upgrade run-time (`src/game/upgrade-catalog.ts`) doit augmenter **un seul attribut** à la fois. Pas de stack de deux buffs purs : splitter la carte en deux.
-
-Exception : multi-effets autorisés uniquement si l'un est un **malus explicite** (`scaleCurrentPct factor < 1`, ou `addPct`/`addCappedPctBonus amount < 0`).
+## Les upgrades
+- Une carte d'upgrades doit augmenter un seul attribut à la fois.
+- Certains multi-effets sont autorisés par exemple pour des bonus trop bons (Penetration +1 vient avec un malus de dommage pour chaque penetration, projectiles +1, diminue les dégats globaux).
 
 Stats OP par nature (multiplient la puissance plutôt que de l'additionner) → toujours assorties d'un malus damage proportionnel :
-
-- `addCapped projectileCount +N` → `scaleCurrentPct damage` avec `factor < 1` (`balance.upgrade.effects.projectileDamageFactor`).
-- `addCapped pierce +N` → idem (`balance.upgrade.effects.pierceDamageFactor`).
-- Toute future stat multiplicative (multi-frappe, ricochet, etc.) suit la même règle.
-
-Le test invariant `src/game/upgrade-catalog-shape.test.ts` parcourt `upgradePool` et fait échouer la suite si la règle est violée. Ne pas le contourner — corriger la carte. Cette règle ne s'applique pas aux **reliques** (drops temporaires multi-stat OK).
 
 ---
 
@@ -57,36 +44,18 @@ Le test invariant `src/game/upgrade-catalog-shape.test.ts` parcourt `upgradePool
 Rogue-lite spatial browser-first. Boucle :
 
 1. **Run** : tir auto sur ennemi le plus proche ; le joueur gère déplacement, positionnement, picks d'upgrades, reliques temporaires.
-2. **Stage** : 10 minutes, puis boss. Battre le boss enchaîne au stage suivant dans la même run.
+2. **Stage** : un stage dure exactement **10 minutes**. À 3 min et 6 min, deux **hordes** de 30 s déferlent (`balance.hordes.startsSeconds = [180, 360]`). À 10 min pile, le **boss** apparaît — le timer de stage s'arrête là, le joueur a **autant de temps qu'il veut pour le battre**. Tuer le boss enchaîne au stage suivant dans la même run, sans réinitialisation.
 3. **Mort** : recap (temps, niveau, boss battus, records, cristaux).
 4. **Hangar** : cristaux → unlocks permanents (personnages, armes, cartes de run, cartes de rareté, options).
 5. **Loop** : nouveaux builds débloqués ; battre stage 1 ouvre le départ direct stage 2 (bonus cristaux, pas de puissance gratuite).
 
 Le fun vient du **buildcraft**, pas d'inflation brute des stats permanentes. Les synergies (`src/systems/synergies.ts`) sont le cœur : armes/technos/reliques portent des build tags (`cannon`, `salvage`, `magnet`, `shield`, `pierce`, `drone`, `crit`) qui orientent les drafts. Une nouvelle feature renforce un chemin de build lisible plutôt qu'ajouter une ressource parallèle.
 
-Densité cible : ~3× le baseline historique d'ennemis vivants à l'écran. Multiplicateur via les knobs centraux ; XP / score / powerups / économie rééquilibrés pour ne pas accélérer la meta gratuitement.
-
-La **home** est un hangar jouable, pas une landing : le premier écran lance une run, montre les cristaux, choisit perso/arme/stage, achète, lit les objectifs.
-
 ---
 
 ## Architecture
 
 Stack : TypeScript 5.6 strict + Vite + Phaser 4 (WebGL) + Vitest. Logique gameplay = Rust (`sim/crates/voidline-sim`), TypeScript garde catalogues/UI/inputs/rendu/wrappers WASM.
-
-Flux : `main.ts` → `initializeRustSimulationEngine()` → `createSimulation()` → `bindInput()` → `createVoidlineGame()` (Phaser). Chaque frame : `BattleScene.preupdate()` → `stepSimulation()` (WASM) synchronise le snapshot Rust → `BattleScene` rend, `updateHud()` lit l'état. Unidirectionnel.
-
-- État centralisé : `src/state.ts` (mutation in-place ; `enemies`, `bullets`, `experienceOrbs`, `chests`).
-- Tick : `src/simulation/simulation.ts` exporte `stepSimulation(input, deltaMs)`.
-- Rendu Phaser (non testé) : `src/phaser/{game.ts, scenes/BattleScene, pools.ts, textures.ts}`.
-- Rendu DOM (non testé) : `src/render/*` (HUD, hangar, perf overlay).
-- Entrée : `src/game/input.ts` (tester les handlers, pas `addEventListener`).
-
-### Home / Hangar
-
-Trois écrans dans `#hangarOverlay` (`title`, `loadout`, `shop`), bascule via `data-active`. Chrome flottant : cristaux haut-droite, cog haut-droite, retour haut-gauche (subscreens uniquement). Raccourcis : `L` Loadout, `B` Boutique, `Espace`/`Entrée` JOUER, `Échap` retour.
-
-Rendu dans `src/render/hangar.ts` (`bindCockpit`, `renderCockpit`, `showHangarTitle`). `src/render/hud.ts` n'expose plus que `showHangar()`, `showSettings()`, `closeSettings()`.
 
 ---
 
@@ -126,18 +95,8 @@ Source unique : `src/game/meta-upgrade-catalog.ts`. Quatre kinds :
 
 - **unique** (`maxLevel: 1`) : armes (`scatter|lance|drone`), persos (`runner|tank|engineer`), `extra-choice` (+1 pick au level-up).
 - **card** (`maxLevel: 4`) : cartes individuelles. L1 débloque l'upgrade, L2/3/4 débloquent Rare/Prototype/Singularity. Starter cards peuvent avoir `baseLevel: 1`.
-- **rarity** (`maxLevel: 3`) : poids globaux Rare/Prototype/Singularity sans bypass des caps de carte.
+- **rarity** (`maxLevel: 3`, pour l'instant 3, on augmentera plus tard) : poids globaux Rare/Prototype/Singularity sans bypass des caps de carte.
 - **utility** : options meta (ex. multiplicateur cristaux, bounty boss).
-
-Helpers : `findMetaUpgrade`, `metaUpgradeLevel`, `nextLevelCost`, `canPurchaseLevel`, `unlockedTechnologyIdsFromMeta`, `unlockedBuildTagsFromMeta`. Achat : `purchaseMetaUpgradeLevel(id)` dans `src/systems/account.ts`.
-
-Hooks runtime (`src/systems/account.ts`) :
-- `currentUpgradeTierCaps()` : caps Standard→Singularity par `upgradeId`.
-- `currentRarityProfile()` : niveaux Rare/Prototype/Singularity → poids des tiers Rust.
-- `currentLevelUpChoiceCount()` : `3 + (extra-choice ? 1 : 0)`. Aucun autre bonus de choix ne se cumule.
-- `currentCrystalRewardMultiplier()` : contrat cristal capé à +15%.
-
-**Migration legacy** (idempotente, `sanitizeAccountProgress` → `migrateLegacyUnlocks`) : `weapon:*`/`character:*` legacy → niveaux uniques ; `technology:*` legacy → refund cristaux ; `category:*` / `unique:reroll` → refund + supprimés. localStorage : `voidline:metaProgress:v1`.
 
 ---
 
@@ -193,34 +152,8 @@ Historique : `--record-history` ajoute une entrée JSONL dans `data/balance-prof
 
 Pas de test pour : rendu Canvas/DOM (`src/render/*`), forwarders 1-liner, constantes/types/getters triviaux, modifs cosmétiques, wiring d'event listeners.
 
-### Principes
-
-- **Behavior, not implementation.** Un refactor interne ne doit pas casser le test.
-- **Invariants > examples.** Préfère propriétés universelles (monotonie, bornes, conservation) à un cas chiffré unique. `balance.test.ts` itère sur 50 niveaux pour la courbe XP — pattern de référence.
-- **Une intention par test.** Le `it(...)` décrit UN comportement.
-- **AAA structuré.** Pas de `if`/`try`/`for` masqué dans le test.
-- **Déterministe & isolé.** Pas de `Math.random` non-seedé, pas de `Date.now()`, pas de timers réels (`vi.useFakeTimers()`), pas d'état global qui fuit.
-- **Rapide** (< 50 ms par test unitaire).
-- **Échoue pour la bonne raison.** Casse volontairement le code testé avant de committer le test, vérifie qu'il pointe le vrai problème.
-
-### Anti-patterns interdits
-
-- Tautologie (`expect(add(2,3)).toBe(2+3)` qui réimplémente la formule)
-- Mock-the-world (mocks plus lourds que la logique testée)
-- Snapshot non-déterministe
-- Test "couvre la ligne" sans assertion métier
-- Sleeps / timers réels (`setTimeout(..., 100)` flaky)
-- Test couplé à l'ordre via état partagé
-
-### Workflow
-
-- `npm test` avant chaque commit (single run)
-- `npm run typecheck` doit aussi passer
-- `npm run balance:check` localement avant tout commit gameplay (voir règle prioritaire)
-- Un PR sans test pour une logique modifiée doit le justifier explicitement
-
 ---
 
 ## Conductor
 
-Le repo tourne dans Conductor. Chaque workspace a un port (`CONDUCTOR_PORT`). Configurations cloud demandant un port → renseigner `_port` avec ce port. Script Conductor local dans `conductor.json`.
+Le repo tourne dans Conductor. Chaque workspace a un port (`CONDUCTOR_PORT`). Script Conductor local dans `conductor.json`.
