@@ -6,13 +6,8 @@ authors.workspace = true
 license.workspace = true
 description = "Meta-progression env, policies, and campaign runner for Voidline."
 
-[features]
-default = []
-learned-policy = ["dep:tract-onnx"]
-
 [dependencies]
 voidline-data = { path = "../voidline-data" }
 voidline-sim = { path = "../voidline-sim" }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tract-onnx = { workspace = true, optional = true }

@@ -21,18 +21,13 @@ use voidline_meta::campaign::{
 use voidline_meta::policies::{
     FocusedAttackPolicy, GreedyCheapPolicy, HoarderPolicy, MetaPolicy, PolicyId, RandomPolicy,
 };
-use voidline_meta::profiles::{default_model_dir, model_path_for_profile, RunStatSnapshot};
+use voidline_meta::profiles::RunStatSnapshot;
 use voidline_meta::{PlayerProfileId, ProfileRunSummary};
 
 #[derive(Clone, Debug, ValueEnum)]
 enum PlayerProfileArg {
     Idle,
     Champion,
-    LearnedHuman,
-    LearnedOptimizer,
-    LearnedExplorer,
-    LearnedNovice,
-    LearnedAll,
     Skilled,
     All,
 }
@@ -42,11 +37,6 @@ impl PlayerProfileArg {
         match self {
             PlayerProfileArg::Idle => "idle",
             PlayerProfileArg::Champion => "champion",
-            PlayerProfileArg::LearnedHuman => "learned-human",
-            PlayerProfileArg::LearnedOptimizer => "learned-optimizer",
-            PlayerProfileArg::LearnedExplorer => "learned-explorer",
-            PlayerProfileArg::LearnedNovice => "learned-novice",
-            PlayerProfileArg::LearnedAll => "learned-all",
             PlayerProfileArg::Skilled => "skilled",
             PlayerProfileArg::All => "all",
         }
@@ -56,16 +46,6 @@ impl PlayerProfileArg {
         match self {
             PlayerProfileArg::Idle => vec![PlayerProfileId::Idle],
             PlayerProfileArg::Champion => vec![PlayerProfileId::Champion],
-            PlayerProfileArg::LearnedHuman => vec![PlayerProfileId::LearnedHuman],
-            PlayerProfileArg::LearnedOptimizer => vec![PlayerProfileId::LearnedOptimizer],
-            PlayerProfileArg::LearnedExplorer => vec![PlayerProfileId::LearnedExplorer],
-            PlayerProfileArg::LearnedNovice => vec![PlayerProfileId::LearnedNovice],
-            PlayerProfileArg::LearnedAll => vec![
-                PlayerProfileId::LearnedHuman,
-                PlayerProfileId::LearnedOptimizer,
-                PlayerProfileId::LearnedExplorer,
-                PlayerProfileId::LearnedNovice,
-            ],
             PlayerProfileArg::Skilled => vec![PlayerProfileId::Champion],
             PlayerProfileArg::All => vec![PlayerProfileId::Idle, PlayerProfileId::Champion],
         }
@@ -138,6 +118,7 @@ impl PhaseArg {
     fn is_isolated(&self) -> bool {
         matches!(self, PhaseArg::Stage2 | PhaseArg::Stage3)
     }
+
 }
 
 #[derive(Parser, Debug)]
@@ -186,10 +167,6 @@ struct Args {
     /// Player profile used by the run simulator
     #[arg(long, value_enum, default_value = "idle")]
     player_profile: PlayerProfileArg,
-
-    /// Directory containing learned RL ONNX models.
-    #[arg(long)]
-    model_dir: Option<PathBuf>,
 
     /// Base seed used to derive deterministic campaign/run seeds
     #[arg(long, default_value_t = 1109)]
@@ -431,7 +408,6 @@ struct ReportConfig {
     seed: u32,
     player_profile_arg: String,
     player_profiles: Vec<String>,
-    model_dir: Option<String>,
     policy_set: String,
     phase: String,
     phase_isolated: bool,
@@ -477,7 +453,6 @@ struct RunSettings {
     max_pressure: u32,
     trial_seconds: f64,
     player_profiles: Vec<PlayerProfileId>,
-    model_dir: Option<PathBuf>,
     thresholds: Phase1Thresholds,
     base_options: CampaignOptions,
 }
@@ -495,6 +470,10 @@ struct CheckpointFile {
 
 impl Default for Phase1Thresholds {
     fn default() -> Self {
+        // Design gates from CLAUDE.md: a good user clears stage 1 in 10-20
+        // runs, stage 2 around 50 runs, stage 3 around 100 runs cumulatively.
+        // The Champion heuristic is meant to mimic that "good user" — when
+        // its upgrade-picking is strong enough we want these enforced.
         Self {
             champion_stage1_p50_min: 10.0,
             champion_stage1_p50_max: 20.0,
@@ -503,10 +482,12 @@ impl Default for Phase1Thresholds {
             champion_stage2_p50_max: 60.0,
             champion_stage3_p50_min: 85.0,
             champion_stage3_p50_max: 115.0,
-            min_campaigns_for_check: 12,
-            min_runs_for_check: 120,
-            min_trial_seconds_for_check: 660.0,
-            min_min_max_pressure_for_check: 50,
+            // Sample-shape floors sized for `npm run balance:check` defaults
+            // (2 campaigns × 120 runs × 360s trials).
+            min_campaigns_for_check: 2,
+            min_runs_for_check: 60,
+            min_trial_seconds_for_check: 300.0,
+            min_min_max_pressure_for_check: 30,
         }
     }
 }
@@ -1367,10 +1348,6 @@ fn resolve_settings(args: &Args) -> RunSettings {
     let max_pressure = args.max_pressure.unwrap_or(profile.max_pressure);
     let trial_seconds = args.trial_seconds.unwrap_or(profile.trial_seconds);
     let player_profiles = args.player_profile.expand();
-    let model_dir = player_profiles
-        .iter()
-        .any(PlayerProfileId::is_learned)
-        .then(|| args.model_dir.clone().unwrap_or_else(default_model_dir));
     let thresholds = Phase1Thresholds::default();
     let base_options = CampaignOptions {
         seed: args.seed,
@@ -1381,7 +1358,6 @@ fn resolve_settings(args: &Args) -> RunSettings {
         step_seconds: 1.0 / 60.0,
         max_decisions_per_run: 16,
         player_profile: PlayerProfileId::Idle,
-        learned_model_dir: model_dir.clone(),
         initial_account: None,
         initial_run_index: 0,
         initial_unlock_run_index: HashMap::new(),
@@ -1392,7 +1368,6 @@ fn resolve_settings(args: &Args) -> RunSettings {
         max_pressure,
         trial_seconds,
         player_profiles,
-        model_dir,
         thresholds,
         base_options,
     }
@@ -1402,6 +1377,75 @@ fn resolve_settings(args: &Args) -> RunSettings {
 struct ReportRunOutput {
     report: Report,
     policy_results: Vec<(PlayerProfileId, Vec<(PolicyId, Vec<CampaignResult>)>)>,
+}
+
+fn write_progressive_report(
+    args: &Args,
+    settings: &RunSettings,
+    data_hash: &str,
+    start: &Instant,
+    completed_profiles: &[ProfileSection],
+    in_progress_sections: &[PolicySection],
+    in_progress_profile: &PlayerProfileId,
+) {
+    let mut profiles = completed_profiles.to_vec();
+    if !in_progress_sections.is_empty() {
+        profiles.push(ProfileSection {
+            player_profile: in_progress_profile.as_str().to_string(),
+            policies: in_progress_sections.to_vec(),
+        });
+    }
+    let compatibility_policies = profiles
+        .first()
+        .map(|profile| profile.policies.clone())
+        .unwrap_or_default();
+    let report = Report {
+        generated_at: chrono_now_utc(),
+        config: report_config_from(args, settings, data_hash, start.elapsed().as_secs_f64()),
+        profiles,
+        policies: compatibility_policies,
+    };
+    write_json_report(&args.output, &report);
+}
+
+fn report_config_from(
+    args: &Args,
+    settings: &RunSettings,
+    _data_hash: &str,
+    elapsed_seconds: f64,
+) -> ReportConfig {
+    ReportConfig {
+        quick: args.quick,
+        campaigns: settings.campaigns,
+        runs_per_campaign: settings.runs,
+        max_pressure: settings.max_pressure,
+        trial_seconds: settings.trial_seconds,
+        seed: args.seed,
+        player_profile_arg: args.player_profile.as_str().to_string(),
+        player_profiles: settings
+            .player_profiles
+            .iter()
+            .map(|profile| profile.as_str().to_string())
+            .collect(),
+        policy_set: args.policy_set.as_str().to_string(),
+        phase: args.phase.as_str().to_string(),
+        phase_isolated: args.phase.is_isolated(),
+        checkpoint_in: args
+            .checkpoint_in
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        checkpoint_out: args
+            .checkpoint_out
+            .as_ref()
+            .map(|path| path.display().to_string()),
+        check_target: args
+            .check_target
+            .as_ref()
+            .map(|target| target.as_str().to_string()),
+        thresholds: settings.thresholds.clone(),
+        threads: rayon::current_num_threads(),
+        elapsed_seconds,
+    }
 }
 
 fn run_report(
@@ -1424,14 +1468,29 @@ fn run_report(
     let start = Instant::now();
     let mut profiles = Vec::new();
     let mut policy_results_by_profile = Vec::new();
+    let mut partial = false;
 
-    for player_profile in &settings.player_profiles {
+    'outer: for player_profile in &settings.player_profiles {
         let mut options = settings.base_options.clone();
         options.player_profile = player_profile.clone();
         let mut sections = Vec::new();
         let mut policy_results = Vec::new();
 
         for policy in policy_ids(&args.policy_set) {
+            // Before starting an expensive policy, bail out if the budget is
+            // already gone. Whatever profiles/policies completed so far are
+            // kept and serialized below.
+            if check_budget(&start, args.max_seconds) {
+                partial = true;
+                if !sections.is_empty() {
+                    profiles.push(ProfileSection {
+                        player_profile: player_profile.as_str().to_string(),
+                        policies: sections,
+                    });
+                    policy_results_by_profile.push((player_profile.clone(), policy_results));
+                }
+                break 'outer;
+            }
             eprintln!("[profile:{}][{}]", player_profile.as_str(), policy.as_str());
             let initial_checkpoints = match args.phase.checkpoint_stage() {
                 Some(stage) => Some(load_or_generate_checkpoints(
@@ -1454,7 +1513,17 @@ fn run_report(
             );
             sections.push(build_section(policy, settings.runs, &results));
             policy_results.push((policy, results));
-            check_budget(&start, args.max_seconds);
+            // Persist what we have after every policy so a hard kill (Modal
+            // function timeout, SIGTERM) still leaves a usable report.
+            write_progressive_report(
+                args,
+                settings,
+                data_hash,
+                &start,
+                &profiles,
+                &sections,
+                player_profile,
+            );
         }
 
         profiles.push(ProfileSection {
@@ -1462,6 +1531,9 @@ fn run_report(
             policies: sections,
         });
         policy_results_by_profile.push((player_profile.clone(), policy_results));
+    }
+    if partial {
+        eprintln!("voidline-cli: returning partial report after wall-clock budget hit");
     }
 
     let elapsed = start.elapsed();
@@ -1471,42 +1543,7 @@ fn run_report(
         .unwrap_or_default();
     let report = Report {
         generated_at: chrono_now_utc(),
-        config: ReportConfig {
-            quick: args.quick,
-            campaigns: settings.campaigns,
-            runs_per_campaign: settings.runs,
-            max_pressure: settings.max_pressure,
-            trial_seconds: settings.trial_seconds,
-            seed: args.seed,
-            player_profile_arg: args.player_profile.as_str().to_string(),
-            player_profiles: settings
-                .player_profiles
-                .iter()
-                .map(|profile| profile.as_str().to_string())
-                .collect(),
-            model_dir: settings
-                .model_dir
-                .as_ref()
-                .map(|path| path.display().to_string()),
-            policy_set: args.policy_set.as_str().to_string(),
-            phase: args.phase.as_str().to_string(),
-            phase_isolated: args.phase.is_isolated(),
-            checkpoint_in: args
-                .checkpoint_in
-                .as_ref()
-                .map(|path| path.display().to_string()),
-            checkpoint_out: args
-                .checkpoint_out
-                .as_ref()
-                .map(|path| path.display().to_string()),
-            check_target: args
-                .check_target
-                .as_ref()
-                .map(|target| target.as_str().to_string()),
-            thresholds: settings.thresholds.clone(),
-            threads: rayon::current_num_threads(),
-            elapsed_seconds: elapsed.as_secs_f64(),
-        },
+        config: report_config_from(args, settings, data_hash, elapsed.as_secs_f64()),
         profiles,
         policies: compatibility_policies,
     };
@@ -1579,32 +1616,6 @@ fn summary_row(
     }
 }
 
-fn validate_learned_models(settings: &RunSettings) -> Result<(), String> {
-    let learned_profiles = settings
-        .player_profiles
-        .iter()
-        .filter(|profile| profile.is_learned())
-        .collect::<Vec<_>>();
-    if learned_profiles.is_empty() {
-        return Ok(());
-    }
-    let Some(model_dir) = settings.model_dir.as_deref() else {
-        return Err("learned profiles require --model-dir or VOIDLINE_RL_MODEL_DIR".to_string());
-    };
-    for profile in learned_profiles {
-        let path = model_path_for_profile(profile, Some(model_dir))
-            .ok_or_else(|| format!("no model path for {}", profile.as_str()))?;
-        if !path.exists() {
-            return Err(format!(
-                "missing RL model for {}: {}",
-                profile.as_str(),
-                path.display()
-            ));
-        }
-    }
-    Ok(())
-}
-
 fn main() {
     let args = Args::parse();
 
@@ -1640,10 +1651,6 @@ fn main() {
         });
 
     let settings = resolve_settings(&args);
-    validate_learned_models(&settings).unwrap_or_else(|err| {
-        eprintln!("{err}");
-        std::process::exit(2);
-    });
     let variation_mode = !fixed_overrides.is_empty() || !sweep_axes.is_empty();
     if variation_mode {
         if args.record_history {
@@ -1801,54 +1808,98 @@ fn run_balance_checks(report: &Report, check_target: &CheckTargetArg) -> Result<
             })
     };
 
-    match focused("champion").and_then(|section| section.runs_to_stage1_clear.p50) {
-        Some(p50)
-            if p50 >= thresholds.champion_stage1_p50_min
-                && p50 <= thresholds.champion_stage1_p50_max => {}
-        Some(p50) => errors.push(format!(
-            "champion focused-attack p50 runsToStage1Clear {p50:.1} outside {:.1}-{:.1}",
-            thresholds.champion_stage1_p50_min, thresholds.champion_stage1_p50_max
-        )),
-        None => errors.push(
-            "champion focused-attack never cleared phase 1 in sampled campaigns".to_string(),
-        ),
-    }
+    let validated_stages: &[u32] = match report.config.phase.as_str() {
+        "stage2" => &[2],
+        "stage3" => &[3],
+        _ => &[1, 2, 3],
+    };
 
-    match focused("champion").and_then(|section| section.runs_to_stage1_clear.p75) {
-        Some(p75) if p75 <= thresholds.champion_stage1_p75_max => {}
-        Some(p75) => errors.push(format!(
-            "champion focused-attack p75 runsToStage1Clear {p75:.1} exceeds {:.1}",
-            thresholds.champion_stage1_p75_max
-        )),
-        None => {}
-    }
+    let validate_stage = |stage: u32, errors: &mut Vec<String>| {
+        if !validated_stages.contains(&stage) {
+            return;
+        }
+        let label = match stage {
+            1 => "1",
+            2 => "2",
+            3 => "3",
+            _ => return,
+        };
+        let (min, max, p75_max) = match stage {
+            1 => (
+                thresholds.champion_stage1_p50_min,
+                thresholds.champion_stage1_p50_max,
+                Some(thresholds.champion_stage1_p75_max),
+            ),
+            2 => (
+                thresholds.champion_stage2_p50_min,
+                thresholds.champion_stage2_p50_max,
+                None,
+            ),
+            3 => (
+                thresholds.champion_stage3_p50_min,
+                thresholds.champion_stage3_p50_max,
+                None,
+            ),
+            _ => return,
+        };
+        let section = match focused("champion") {
+            Some(section) => section,
+            None => {
+                errors.push(format!(
+                    "champion focused-attack never cleared phase {label} in sampled campaigns"
+                ));
+                return;
+            }
+        };
+        // For stage 1 we accept either cumulative (preferred) or the
+        // legacy local field, since the report aliases them when the
+        // simulator started from run 0. Tests set the local field only.
+        let cumulative = match stage {
+            1 => section
+                .cumulative_runs_to_stage1_clear
+                .p50
+                .or(section.runs_to_stage1_clear.p50),
+            2 => section
+                .cumulative_runs_to_stage2_clear
+                .p50
+                .or(section.runs_to_stage2_clear.p50),
+            3 => section
+                .cumulative_runs_to_stage3_clear
+                .p50
+                .or(section.runs_to_stage3_clear.p50),
+            _ => None,
+        };
+        let p75 = match stage {
+            1 => section
+                .cumulative_runs_to_stage1_clear
+                .p75
+                .or(section.runs_to_stage1_clear.p75),
+            _ => None,
+        };
+        match cumulative {
+            Some(p50) if p50 >= min && p50 <= max => {}
+            Some(p50) => errors.push(format!(
+                "champion focused-attack p50 cumulativeRunsToStage{label}Clear {p50:.1} outside {min:.1}-{max:.1}"
+            )),
+            None => errors.push(format!(
+                "champion focused-attack never cleared phase {label} in sampled campaigns"
+            )),
+        }
+        if let Some(p75_max) = p75_max {
+            match p75 {
+                Some(p75) if p75 <= p75_max => {}
+                Some(p75) => errors.push(format!(
+                    "champion focused-attack p75 cumulativeRunsToStage{label}Clear {p75:.1} exceeds {p75_max:.1}"
+                )),
+                None => {}
+            }
+        }
+    };
 
+    validate_stage(1, &mut errors);
     if matches!(check_target, CheckTargetArg::Balance) {
-        match focused("champion").and_then(|section| section.runs_to_stage2_clear.p50) {
-            Some(p50)
-                if p50 >= thresholds.champion_stage2_p50_min
-                    && p50 <= thresholds.champion_stage2_p50_max => {}
-            Some(p50) => errors.push(format!(
-                "champion focused-attack p50 runsToStage2Clear {p50:.1} outside {:.1}-{:.1}",
-                thresholds.champion_stage2_p50_min, thresholds.champion_stage2_p50_max
-            )),
-            None => errors.push(
-                "champion focused-attack never cleared phase 2 in sampled campaigns".to_string(),
-            ),
-        }
-
-        match focused("champion").and_then(|section| section.runs_to_stage3_clear.p50) {
-            Some(p50)
-                if p50 >= thresholds.champion_stage3_p50_min
-                    && p50 <= thresholds.champion_stage3_p50_max => {}
-            Some(p50) => errors.push(format!(
-                "champion focused-attack p50 runsToStage3Clear {p50:.1} outside {:.1}-{:.1}",
-                thresholds.champion_stage3_p50_min, thresholds.champion_stage3_p50_max
-            )),
-            None => errors.push(
-                "champion focused-attack never cleared phase 3 in sampled campaigns".to_string(),
-            ),
-        }
+        validate_stage(2, &mut errors);
+        validate_stage(3, &mut errors);
 
         for profile in &report.profiles {
             for policy in &profile.policies {
@@ -1950,12 +2001,6 @@ fn build_replay_command(args: &Args, output_path: &PathBuf) -> String {
         shell_word(&output_path.display().to_string())
     ));
     parts.push(format!("--player-profile {}", args.player_profile.as_str()));
-    if let Some(model_dir) = &args.model_dir {
-        parts.push(format!(
-            "--model-dir {}",
-            shell_word(&model_dir.display().to_string())
-        ));
-    }
     parts.push(format!("--policy-set {}", args.policy_set.as_str()));
     parts.push(format!("--phase {}", args.phase.as_str()));
     parts.push(format!("--seed {}", args.seed));
@@ -2099,15 +2144,16 @@ fn hash_bytes(bytes: &[u8]) -> String {
     format!("fnv1a64:{hash:016x}")
 }
 
-fn check_budget(start: &Instant, budget_seconds: f64) {
+fn check_budget(start: &Instant, budget_seconds: f64) -> bool {
     if start.elapsed() > Duration::from_secs_f64(budget_seconds) {
         eprintln!(
-            "ABORT: wall-clock budget {:.0}s exceeded (elapsed {:.0}s)",
+            "BUDGET: wall-clock budget {:.0}s exceeded (elapsed {:.0}s); finalizing partial report",
             budget_seconds,
             start.elapsed().as_secs_f64(),
         );
-        std::process::exit(2);
+        return true;
     }
+    false
 }
 
 fn resolve_output_path(path: &PathBuf) -> PathBuf {
@@ -2164,7 +2210,6 @@ mod tests {
             trial_seconds: Some(660.0),
             threads: Some(1),
             player_profile: PlayerProfileArg::Skilled,
-            model_dir: None,
             seed: 1234,
             check_target: Some(CheckTargetArg::Balance),
             policy_set: PolicySetArg::Focused,
@@ -2271,7 +2316,6 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["champion".to_string()],
-                model_dir: None,
                 policy_set: "focused".to_string(),
                 phase: "full".to_string(),
                 phase_isolated: false,
@@ -2315,6 +2359,12 @@ mod tests {
         let mut report = checkable_report();
         report.profiles[0].policies[0].runs_to_stage2_clear.p50 = Some(1.0);
         report.profiles[0].policies[0].runs_to_stage3_clear.p50 = Some(1.0);
+        report.profiles[0].policies[0]
+            .cumulative_runs_to_stage2_clear
+            .p50 = Some(1.0);
+        report.profiles[0].policies[0]
+            .cumulative_runs_to_stage3_clear
+            .p50 = Some(1.0);
 
         assert!(run_balance_checks(&report, &CheckTargetArg::Phase1).is_ok());
         assert!(run_balance_checks(&report, &CheckTargetArg::Balance).is_err());
@@ -2473,7 +2523,6 @@ mod tests {
                 seed: 1,
                 player_profile_arg: "skilled".to_string(),
                 player_profiles: vec!["champion".to_string()],
-                model_dir: None,
                 policy_set: "all".to_string(),
                 phase: "full".to_string(),
                 phase_isolated: false,

@@ -89,12 +89,23 @@ export const upgradePool: Upgrade[] = [
         amount: balance.upgrade.effects.damage,
         cap: "damageMul",
       },
+    ],
+    effect(tier) {
+      return `+${percent(balance.upgrade.effects.damage * tier.power)} degats`;
+    },
+  }),
+  defineUpgrade({
+    id: "velocity-tuner",
+    kind: "technology",
+    icon: "VEL",
+    name: "Technologie velocite",
+    description: "Allonge la portee utile en accelerant les projectiles.",
+    tags: ["cannon", "salvage"],
+    effects: [
       { type: "addPct", stat: "bulletSpeed", amount: balance.upgrade.effects.bulletSpeed },
     ],
     effect(tier) {
-      return `+${percent(balance.upgrade.effects.damage * tier.power)} degats, +${percent(
-        balance.upgrade.effects.bulletSpeed * tier.power,
-      )} vitesse`;
+      return `+${percent(balance.upgrade.effects.bulletSpeed * tier.power)} vitesse`;
     },
   }),
   defineUpgrade({
@@ -182,14 +193,24 @@ export const upgradePool: Upgrade[] = [
     weaponId: "pulse",
     icon: "PUL",
     name: "Pulse overdrive",
-    description: "Level-up du Pulse Rifle: cadence et degats stables.",
+    description: "Level-up du Pulse Rifle: pousse la cadence du canon.",
     tags: ["cannon"],
-    effects: [
-      { type: "addPct", stat: "fireRate", amount: 0.2 },
-      { type: "addPct", stat: "damage", amount: 0.16 },
-    ],
+    effects: [{ type: "addPct", stat: "fireRate", amount: 0.2 }],
     effect(tier) {
-      return `+${percent(0.2 * tier.power)} cadence, +${percent(0.16 * tier.power)} degats`;
+      return `+${percent(0.2 * tier.power)} cadence`;
+    },
+  }),
+  defineUpgrade({
+    id: "pulse-armament",
+    kind: "weapon",
+    weaponId: "pulse",
+    icon: "PLD",
+    name: "Pulse armement",
+    description: "Level-up du Pulse Rifle: alourdit la charge des projectiles.",
+    tags: ["cannon"],
+    effects: [{ type: "addPct", stat: "damage", amount: 0.16 }],
+    effect(tier) {
+      return `+${percent(0.16 * tier.power)} degats`;
     },
   }),
   defineUpgrade({
@@ -198,7 +219,7 @@ export const upgradePool: Upgrade[] = [
     weaponId: "scatter",
     icon: "SCT",
     name: "Scatter loader",
-    description: "Level-up du Scatter: densifie la salve et compense les impacts.",
+    description: "Level-up du Scatter: densifie la salve, malus de degats par projectile.",
     tags: ["cannon", "crit"],
     softCap: { stat: "projectileCount", max: balance.upgrade.caps.projectiles },
     effects: [
@@ -214,14 +235,11 @@ export const upgradePool: Upgrade[] = [
         stat: "damage",
         factor: balance.upgrade.effects.projectileDamageFactor,
       },
-      { type: "addPct", stat: "damage", amount: 0.08 },
     ],
     effect(tier) {
       return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, degats actuels ${factor(
         balance.upgrade.effects.projectileDamageFactor,
-      )}, +${percent(
-        0.08 * tier.power,
-      )} degats`;
+      )}`;
     },
   }),
   defineUpgrade({
@@ -230,15 +248,45 @@ export const upgradePool: Upgrade[] = [
     weaponId: "lance",
     icon: "RLG",
     name: "Lance capacitor",
-    description: "Level-up du Rail Lance: penetration et charge de tir.",
+    description: "Level-up du Rail Lance: penetration accrue, malus de degats.",
     tags: ["pierce", "cannon"],
     softCap: { stat: "pierce", max: balance.upgrade.caps.pierce },
     effects: [
       { type: "addCapped", stat: "pierce", amount: 1, cap: "pierce", gainCurve: "stepped" },
-      { type: "addPct", stat: "damage", amount: 0.18 },
+      {
+        type: "scaleCurrentPct",
+        stat: "damage",
+        factor: balance.upgrade.effects.pierceDamageFactor,
+      },
     ],
     effect(tier) {
-      return `+${pierceGain(tier)} penetration, +${percent(0.18 * tier.power)} degats`;
+      return `+${pierceGain(tier)} penetration, degats actuels ${factor(
+        balance.upgrade.effects.pierceDamageFactor,
+      )}`;
+    },
+  }),
+  defineUpgrade({
+    id: "vital-frame",
+    kind: "technology",
+    icon: "HP",
+    name: "Technologie chassis",
+    description: "Renforce la coque pour absorber plus de degats.",
+    tags: ["salvage"],
+    effects: [{ type: "addMaxHp", amount: balance.upgrade.effects.maxHp }],
+    effect(tier) {
+      return `+${Math.round(balance.upgrade.effects.maxHp * tier.power)} PV max`;
+    },
+  }),
+  defineUpgrade({
+    id: "thermal-vampire",
+    kind: "technology",
+    icon: "VMP",
+    name: "Technologie hemo",
+    description: "Convertit une fraction des impacts en regen instantanee.",
+    tags: ["salvage"],
+    effects: [{ type: "addLifesteal", amount: balance.upgrade.effects.lifesteal }],
+    effect(tier) {
+      return `+${(balance.upgrade.effects.lifesteal * tier.power).toFixed(1)} vol de vie`;
     },
   }),
   defineUpgrade({

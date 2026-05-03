@@ -5,8 +5,6 @@
 //! relics, and snapshots stay close to the browser runtime.
 
 use std::collections::HashMap;
-use std::fmt;
-use std::path::{Path, PathBuf};
 
 use serde::Serialize;
 use voidline_data::catalogs::{Relic, Upgrade};
@@ -22,18 +20,11 @@ use crate::account::{
 };
 use crate::champion::ChampionRunPolicy;
 
-#[cfg(feature = "learned-policy")]
-use crate::learned_policy::LearnedPolicy;
-
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum PlayerProfileId {
     Idle,
     Champion,
-    LearnedHuman,
-    LearnedOptimizer,
-    LearnedExplorer,
-    LearnedNovice,
 }
 
 impl PlayerProfileId {
@@ -41,71 +32,13 @@ impl PlayerProfileId {
         match self {
             PlayerProfileId::Idle => "idle",
             PlayerProfileId::Champion => "champion",
-            PlayerProfileId::LearnedHuman => "learned-human",
-            PlayerProfileId::LearnedOptimizer => "learned-optimizer",
-            PlayerProfileId::LearnedExplorer => "learned-explorer",
-            PlayerProfileId::LearnedNovice => "learned-novice",
         }
     }
 
     pub fn is_active(&self) -> bool {
         !matches!(self, PlayerProfileId::Idle)
     }
-
-    pub fn is_learned(&self) -> bool {
-        matches!(
-            self,
-            PlayerProfileId::LearnedHuman
-                | PlayerProfileId::LearnedOptimizer
-                | PlayerProfileId::LearnedExplorer
-                | PlayerProfileId::LearnedNovice
-        )
-    }
-
-    pub fn heuristic_fallback(&self) -> PlayerProfileId {
-        match self {
-            PlayerProfileId::LearnedHuman
-            | PlayerProfileId::LearnedOptimizer
-            | PlayerProfileId::LearnedExplorer
-            | PlayerProfileId::LearnedNovice => PlayerProfileId::Champion,
-            other => other.clone(),
-        }
-    }
 }
-
-#[derive(Debug)]
-pub enum RunPolicyError {
-    MissingModel {
-        profile: String,
-        path: PathBuf,
-    },
-    ModelLoad {
-        profile: String,
-        path: PathBuf,
-        message: String,
-    },
-}
-
-impl fmt::Display for RunPolicyError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            RunPolicyError::MissingModel { profile, path } => {
-                write!(f, "missing RL model for {profile}: {}", path.display())
-            }
-            RunPolicyError::ModelLoad {
-                profile,
-                path,
-                message,
-            } => write!(
-                f,
-                "failed to load RL model for {profile} at {}: {message}",
-                path.display()
-            ),
-        }
-    }
-}
-
-impl std::error::Error for RunPolicyError {}
 
 pub trait RunPolicy {
     fn movement_keys(&mut self, bundle: &DataBundle, snapshot: &EngineSnapshot) -> Vec<String>;
@@ -165,52 +98,10 @@ impl RunPolicy for IdleRunPolicy {
     }
 }
 
-pub fn default_model_dir() -> PathBuf {
-    std::env::var_os("VOIDLINE_RL_MODEL_DIR")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| PathBuf::from(".context/rl-models"))
-}
-
-pub fn model_path_for_profile(
-    profile: &PlayerProfileId,
-    model_dir: Option<&Path>,
-) -> Option<PathBuf> {
-    if !profile.is_learned() {
-        return None;
-    }
-    let dir = model_dir
-        .map(Path::to_path_buf)
-        .unwrap_or_else(default_model_dir);
-    Some(dir.join(format!("{}.onnx", profile.as_str())))
-}
-
-pub fn create_run_policy(
-    profile: PlayerProfileId,
-    model_dir: Option<&Path>,
-) -> Result<Box<dyn RunPolicy>, RunPolicyError> {
+pub fn create_run_policy(profile: PlayerProfileId) -> Box<dyn RunPolicy> {
     match profile {
-        PlayerProfileId::Idle => Ok(Box::new(IdleRunPolicy)),
-        PlayerProfileId::Champion => Ok(Box::new(ChampionRunPolicy::new())),
-        learned if learned.is_learned() => {
-            let path =
-                model_path_for_profile(&learned, model_dir).expect("learned profile path");
-            if cfg!(feature = "learned-policy") {
-                #[cfg(feature = "learned-policy")]
-                {
-                    Ok(Box::new(LearnedPolicy::load(learned.as_str(), &path)?))
-                }
-                #[cfg(not(feature = "learned-policy"))]
-                unreachable!()
-            } else {
-                Err(RunPolicyError::ModelLoad {
-                    profile: learned.as_str().to_string(),
-                    path,
-                    message: "voidline-meta was built without the learned-policy feature"
-                        .to_string(),
-                })
-            }
-        }
-        other => unreachable!("unhandled profile variant: {}", other.as_str()),
+        PlayerProfileId::Idle => Box::new(IdleRunPolicy),
+        PlayerProfileId::Champion => Box::new(ChampionRunPolicy::new()),
     }
 }
 
@@ -256,7 +147,6 @@ pub struct ActiveRunOptions {
     pub max_pressure: u32,
     pub step_seconds: f64,
     pub max_decisions_per_run: u32,
-    pub learned_model_dir: Option<PathBuf>,
 }
 
 pub fn run_active_profile_trial(
@@ -264,9 +154,9 @@ pub fn run_active_profile_trial(
     account: &AccountSnapshot,
     profile: PlayerProfileId,
     options: ActiveRunOptions,
-) -> Result<ProfileRunSummary, RunPolicyError> {
+) -> ProfileRunSummary {
     debug_assert!(profile.is_active());
-    let mut policy = create_run_policy(profile.clone(), options.learned_model_dir.as_deref())?;
+    let mut policy = create_run_policy(profile.clone());
     let mut engine = Engine::new(
         bundle.clone(),
         EngineConfig {
@@ -320,7 +210,7 @@ pub fn run_active_profile_trial(
         steps += 1;
     }
 
-    Ok(finish_summary(summary, &snapshot))
+    finish_summary(summary, &snapshot)
 }
 
 pub fn engine_account_context(
@@ -555,18 +445,22 @@ fn relic_score(
 
 fn base_upgrade_score(upgrade: &Upgrade) -> f64 {
     match upgrade.id.as_str() {
-        "twin-cannon" => 52.0,
         "rail-slug" => 56.0,
-        "plasma-core" => 54.0,
-        "pulse-overdrive" => 52.0,
         "scatter-loader" => 55.0,
-        "lance-capacitor" => 52.0,
+        "plasma-core" => 54.0,
+        "twin-cannon" => 52.0,
+        "pulse-armament" => 52.0,
+        "lance-capacitor" => 50.0,
         "drone-uplink" => 49.0,
-        "kinetic-shield" => 36.0,
-        "magnet-array" => 40.0,
+        "pulse-overdrive" => 48.0,
         "crit-array" => 44.0,
-        "heavy-caliber" => 40.0,
         "ion-engine" => 42.0,
+        "magnet-array" => 40.0,
+        "heavy-caliber" => 40.0,
+        "thermal-vampire" => 38.0,
+        "vital-frame" => 36.0,
+        "kinetic-shield" => 36.0,
+        "velocity-tuner" => 28.0,
         _ => 20.0,
     }
 }
@@ -728,7 +622,6 @@ mod tests {
             max_pressure: 3,
             step_seconds: 1.0 / 60.0,
             max_decisions_per_run: 8,
-            learned_model_dir: None,
         };
 
         let a = run_active_profile_trial(
@@ -736,35 +629,13 @@ mod tests {
             &account,
             PlayerProfileId::Champion,
             options.clone(),
-        )
-        .unwrap();
-        let b = run_active_profile_trial(&bundle, &account, PlayerProfileId::Champion, options)
-            .unwrap();
+        );
+        let b = run_active_profile_trial(&bundle, &account, PlayerProfileId::Champion, options);
 
         assert_eq!(a.final_pressure, b.final_pressure);
         assert_eq!(a.run_level, b.run_level);
         assert_eq!(a.upgrade_picks, b.upgrade_picks);
         assert_eq!(a.relic_picks, b.relic_picks);
         assert!((a.final_stats.hp - b.final_stats.hp).abs() < 1e-9);
-    }
-
-    #[test]
-    fn learned_profile_trial_surfaces_missing_model_error() {
-        let bundle = load_default().unwrap();
-        let account = AccountSnapshot::default();
-        let options = ActiveRunOptions {
-            seed: 42,
-            max_seconds: 1.0,
-            max_pressure: 1,
-            step_seconds: 1.0 / 60.0,
-            max_decisions_per_run: 1,
-            learned_model_dir: Some(std::env::temp_dir().join("voidline-missing-rl-models")),
-        };
-
-        let err =
-            run_active_profile_trial(&bundle, &account, PlayerProfileId::LearnedHuman, options)
-                .unwrap_err();
-
-        assert!(matches!(err, RunPolicyError::MissingModel { .. }));
     }
 }

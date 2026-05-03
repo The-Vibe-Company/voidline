@@ -223,6 +223,7 @@
         "pickupRadius": 0.36,
         "bulletRadius": 0.24,
         "projectileDamageFactor": 0.6,
+        "pierceDamageFactor": 0.5,
         "droneExtraThreshold": 1.65
       }
     },
@@ -267,10 +268,10 @@
       "contactBackoff": 0.45,
       "stageScaling": {
         "hpPerStage": 120,
-        "damagePerStage": 0.2,
+        "damagePerStage": 0.32,
         "speedPerStage": 0.04,
-        "postStage2HpOffsetBase": 0.65,
-        "postStage2HpOffsetPerStage": 0.08
+        "postStage2HpOffsetBase": 1.5,
+        "postStage2HpOffsetPerStage": 0.4
       },
       "wobble": {
         "boss": {
@@ -455,7 +456,20 @@
           "stat": "damage",
           "amount": 0.2,
           "cap": "damageMul"
-        },
+        }
+      ]
+    },
+    {
+      "id": "velocity-tuner",
+      "kind": "technology",
+      "icon": "VEL",
+      "name": "Technologie velocite",
+      "description": "Allonge la portee utile en accelerant les projectiles.",
+      "tags": [
+        "cannon",
+        "salvage"
+      ],
+      "effects": [
         {
           "type": "addPct",
           "stat": "bulletSpeed",
@@ -558,7 +572,7 @@
       "weaponId": "pulse",
       "icon": "PUL",
       "name": "Pulse overdrive",
-      "description": "Level-up du Pulse Rifle: cadence et degats stables.",
+      "description": "Level-up du Pulse Rifle: pousse la cadence du canon.",
       "tags": [
         "cannon"
       ],
@@ -567,7 +581,20 @@
           "type": "addPct",
           "stat": "fireRate",
           "amount": 0.2
-        },
+        }
+      ]
+    },
+    {
+      "id": "pulse-armament",
+      "kind": "weapon",
+      "weaponId": "pulse",
+      "icon": "PLD",
+      "name": "Pulse armement",
+      "description": "Level-up du Pulse Rifle: alourdit la charge des projectiles.",
+      "tags": [
+        "cannon"
+      ],
+      "effects": [
         {
           "type": "addPct",
           "stat": "damage",
@@ -581,7 +608,7 @@
       "weaponId": "scatter",
       "icon": "SCT",
       "name": "Scatter loader",
-      "description": "Level-up du Scatter: densifie la salve et compense les impacts.",
+      "description": "Level-up du Scatter: densifie la salve, malus de degats par projectile.",
       "tags": [
         "cannon",
         "crit"
@@ -598,11 +625,6 @@
           "type": "scaleCurrentPct",
           "stat": "damage",
           "factor": 0.6
-        },
-        {
-          "type": "addPct",
-          "stat": "damage",
-          "amount": 0.08
         }
       ],
       "softCap": {
@@ -616,7 +638,7 @@
       "weaponId": "lance",
       "icon": "RLG",
       "name": "Lance capacitor",
-      "description": "Level-up du Rail Lance: penetration et charge de tir.",
+      "description": "Level-up du Rail Lance: penetration accrue, malus de degats.",
       "tags": [
         "pierce",
         "cannon"
@@ -630,15 +652,47 @@
           "gainCurve": "stepped"
         },
         {
-          "type": "addPct",
+          "type": "scaleCurrentPct",
           "stat": "damage",
-          "amount": 0.18
+          "factor": 0.5
         }
       ],
       "softCap": {
         "stat": "pierce",
         "max": 5
       }
+    },
+    {
+      "id": "vital-frame",
+      "kind": "technology",
+      "icon": "HP",
+      "name": "Technologie chassis",
+      "description": "Renforce la coque pour absorber plus de degats.",
+      "tags": [
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "addMaxHp",
+          "amount": 14
+        }
+      ]
+    },
+    {
+      "id": "thermal-vampire",
+      "kind": "technology",
+      "icon": "VMP",
+      "name": "Technologie hemo",
+      "description": "Convertit une fraction des impacts en regen instantanee.",
+      "tags": [
+        "salvage"
+      ],
+      "effects": [
+        {
+          "type": "addLifesteal",
+          "amount": 1.4
+        }
+      ]
     },
     {
       "id": "drone-uplink",
@@ -1028,6 +1082,38 @@
       ]
     },
     {
+      "id": "card:velocity-tuner",
+      "kind": "card",
+      "name": "Carte vélocité",
+      "description": "Débloque Technologie vélocité et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        0,
+        80,
+        320,
+        420
+      ],
+      "requirement": "available",
+      "tag": "cannon",
+      "technologyId": "velocity-tuner",
+      "upgradeId": "velocity-tuner",
+      "baseLevel": 1,
+      "levels": [
+        {
+          "summary": "Débloque Technologie vélocité en Standard."
+        },
+        {
+          "summary": "Technologie vélocité peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie vélocité peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie vélocité peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
       "id": "card:ion-engine",
       "kind": "card",
       "name": "Carte moteurs",
@@ -1181,6 +1267,68 @@
         },
         {
           "summary": "Technologie critique peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:vital-frame",
+      "kind": "card",
+      "name": "Carte chassis",
+      "description": "Débloque Technologie chassis et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        85,
+        360,
+        460
+      ],
+      "requirement": "clear-stage-1",
+      "tag": "salvage",
+      "technologyId": "vital-frame",
+      "upgradeId": "vital-frame",
+      "levels": [
+        {
+          "summary": "Débloque Technologie chassis en Standard."
+        },
+        {
+          "summary": "Technologie chassis peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie chassis peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie chassis peut apparaître en Singularity."
+        }
+      ]
+    },
+    {
+      "id": "card:thermal-vampire",
+      "kind": "card",
+      "name": "Carte hémo",
+      "description": "Débloque Technologie hémo et ses tiers supérieurs.",
+      "maxLevel": 4,
+      "costs": [
+        40,
+        85,
+        360,
+        460
+      ],
+      "requirement": "boss-kill",
+      "tag": "salvage",
+      "technologyId": "thermal-vampire",
+      "upgradeId": "thermal-vampire",
+      "levels": [
+        {
+          "summary": "Débloque Technologie hémo en Standard."
+        },
+        {
+          "summary": "Technologie hémo peut apparaître en Rare."
+        },
+        {
+          "summary": "Technologie hémo peut apparaître en Prototype."
+        },
+        {
+          "summary": "Technologie hémo peut apparaître en Singularity."
         }
       ]
     },

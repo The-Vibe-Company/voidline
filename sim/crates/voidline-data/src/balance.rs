@@ -269,6 +269,7 @@ pub struct UpgradeEffects {
     pub pickup_radius: f64,
     pub bullet_radius: f64,
     pub projectile_damage_factor: f64,
+    pub pierce_damage_factor: f64,
     pub drone_extra_threshold: f64,
 }
 
