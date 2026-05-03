@@ -19,7 +19,12 @@ cd "$REPO_ROOT"
 
 CAMPAIGNS="${VOIDLINE_BALANCE_CHECK_CAMPAIGNS:-2}"
 RUNS="${VOIDLINE_BALANCE_CHECK_RUNS:-120}"
-BUDGET="${VOIDLINE_BALANCE_CHECK_BUDGET:-300}"
+BUDGET="${VOIDLINE_BALANCE_CHECK_BUDGET:-600}"
+# Trial budget per run must outlast the stage-1 boss spawn (600s in
+# data/balance.json::bosses.stageDurationSeconds). 720s leaves Champion
+# ~2 minutes of margin to actually fight the boss it just reached.
+TRIAL_SECONDS="${VOIDLINE_BALANCE_CHECK_TRIAL_SECONDS:-720}"
+MAX_PRESSURE="${VOIDLINE_BALANCE_CHECK_MAX_PRESSURE:-60}"
 OUTPUT="${VOIDLINE_BALANCE_CHECK_OUTPUT:-.context/balance-check.json}"
 
 mkdir -p "$(dirname "$OUTPUT")"
@@ -29,8 +34,8 @@ exec scripts/meta-progression-report.sh \
     --policy-set focused \
     --campaigns "$CAMPAIGNS" \
     --runs "$RUNS" \
-    --max-pressure 60 \
-    --trial-seconds 360 \
+    --max-pressure "$MAX_PRESSURE" \
+    --trial-seconds "$TRIAL_SECONDS" \
     --max-seconds "$BUDGET" \
     --check-target balance \
     --output "$OUTPUT"

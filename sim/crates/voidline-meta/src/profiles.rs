@@ -445,18 +445,22 @@ fn relic_score(
 
 fn base_upgrade_score(upgrade: &Upgrade) -> f64 {
     match upgrade.id.as_str() {
-        "twin-cannon" => 52.0,
         "rail-slug" => 56.0,
-        "plasma-core" => 54.0,
-        "pulse-overdrive" => 52.0,
         "scatter-loader" => 55.0,
-        "lance-capacitor" => 52.0,
+        "plasma-core" => 54.0,
+        "twin-cannon" => 52.0,
+        "pulse-armament" => 52.0,
+        "lance-capacitor" => 50.0,
         "drone-uplink" => 49.0,
-        "kinetic-shield" => 36.0,
-        "magnet-array" => 40.0,
+        "pulse-overdrive" => 48.0,
         "crit-array" => 44.0,
-        "heavy-caliber" => 40.0,
         "ion-engine" => 42.0,
+        "magnet-array" => 40.0,
+        "heavy-caliber" => 40.0,
+        "thermal-vampire" => 38.0,
+        "vital-frame" => 36.0,
+        "kinetic-shield" => 36.0,
+        "velocity-tuner" => 28.0,
         _ => 20.0,
     }
 }
