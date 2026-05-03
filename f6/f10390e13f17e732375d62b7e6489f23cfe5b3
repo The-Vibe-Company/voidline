@@ -1,0 +1,33 @@
+sim/crates/voidline-sim/src/state.rs
+  72fb04a5ec383285 5-15,64,104
+src/simulation/rust-engine.ts
+  72fb04a5ec383285 25,145-153,226,340-343,361-363,420-430
+sim/crates/voidline-meta/src/champion.rs
+  72fb04a5ec383285 633
+sim/crates/voidline-sim/src/engine.rs
+  72fb04a5ec383285 120,126-137,1322-1339
+sim/crates/voidline-sim/src/enemies.rs
+  72fb04a5ec383285 17,409-415,679-766
+sim/crates/voidline-sim/src/simulation.rs
+  72fb04a5ec383285 425
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f6f10390e13f17e732375d62b7e6489f23cfe5b3",
+  "prompts": {
+    "72fb04a5ec383285": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1335216d-08e4-45d6-9f43-09ed1497aeee",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1742,
+      "total_deletions": 3,
+      "accepted_lines": 171,
+      "overriden_lines": 0
+    }
+  }
+}
