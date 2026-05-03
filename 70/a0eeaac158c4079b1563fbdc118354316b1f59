@@ -1,0 +1,39 @@
+sim/crates/voidline-meta/src/lib.rs
+  e415c3a4ccd0ef9e 15
+sim/crates/voidline-cli/Cargo.toml
+  e415c3a4ccd0ef9e 15
+sim/crates/voidline-meta/src/env.rs
+  e415c3a4ccd0ef9e 237,248
+CLAUDE.md
+  e415c3a4ccd0ef9e 3,5,7-11,13,20-23,144,148,172,174,176,178,219
+sim/crates/voidline-meta/src/profiles.rs
+  e415c3a4ccd0ef9e 101,103-104,157,159,213,628-629
+sim/crates/voidline-cli/src/main.rs
+  e415c3a4ccd0ef9e 24,472-475,484-489
+sim/crates/voidline-meta/src/campaign.rs
+  e415c3a4ccd0ef9e 125
+package.json
+  e415c3a4ccd0ef9e 18
+scripts/balance-check.sh
+  e415c3a4ccd0ef9e 2-13,19-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "70a0eeaac158c4079b1563fbdc118354316b1f59",
+  "prompts": {
+    "e415c3a4ccd0ef9e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee2457e9-f516-4dec-80ef-6df0e8955d34",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 454,
+      "total_deletions": 2416,
+      "accepted_lines": 413,
+      "overriden_lines": 0
+    }
+  }
+}
