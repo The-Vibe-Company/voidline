@@ -1,7 +1,9 @@
 import {
+  attackTelegraphs,
   bullets,
   counters,
   enemies,
+  enemyBullets,
   experienceOrbs,
   floaters,
   keys,
@@ -13,10 +15,22 @@ import {
   world,
 } from "../state";
 import {
+  BOSS_PROJECTILE_DAMAGE_RATIO,
+  BOSS_PROJECTILE_LIFE,
+  BOSS_PROJECTILE_SPEED,
+  BOSS_VOLLEY_COUNT,
+  BOSS_VOLLEY_INTERVAL,
+  BOSS_VOLLEY_SPREAD,
+  BOSS_VOLLEY_TELEGRAPH,
   SPAWN_ARENA_MARGIN,
   SPAWN_MIN_DISTANCE_FROM_PLAYER,
   SPAWN_TELEGRAPH_BOSS_DURATION,
   SPAWN_TELEGRAPH_DURATION,
+  SPLITTER_CHILD_COUNT,
+  SPLITTER_CHILD_HP_RATIO,
+  STINGER_DASH_DURATION,
+  STINGER_DASH_SPEED_MULT,
+  STINGER_RECOVER_PAUSE,
   enemyDamageScale,
   enemyHpScale,
   enemySpeedScale,
@@ -27,7 +41,13 @@ import {
 } from "./balance";
 import { transitionToShop } from "./wave-flow";
 import { circleHit, screenToWorld } from "../utils";
-import type { EnemyEntity, EnemyKind, SpawnIndicator } from "../types";
+import type {
+  AttackTelegraphShape,
+  EnemyEntity,
+  EnemyKind,
+  EnemyType,
+  SpawnIndicator,
+} from "../types";
 
 const EDGE_PADDING = 18;
 
@@ -42,6 +62,8 @@ export function stepWave(dt: number): void {
   updateSpawns(cappedDt);
   updateSpawnIndicators(cappedDt);
   updateEnemies(cappedDt);
+  updateEnemyBullets(cappedDt);
+  updateAttackTelegraphs(cappedDt);
   updatePlayerFire(cappedDt);
   updateBullets(cappedDt);
   updateExperience(cappedDt);
@@ -129,16 +151,33 @@ function updateSpawns(dt: number): void {
   state.spawnsRemaining = Math.max(0, state.spawnsRemaining - 1);
 }
 
-function pickEnemyKind(waveNumber: number, progress: number): EnemyKind {
-  const bruteWeight = waveNumber >= 4 ? Math.min(0.4, (waveNumber - 3) * 0.06) : 0;
+export function pickEnemyKind(waveNumber: number, progress: number): EnemyKind {
+  const bruteWeight = waveNumber >= 4 ? Math.min(0.32, (waveNumber - 3) * 0.05) : 0;
   const hunterWeight =
-    waveNumber >= 2 ? Math.min(0.55, 0.15 + (waveNumber - 1) * 0.05 + progress * 0.1) : 0;
-  const scoutWeight = Math.max(0.05, 1 - bruteWeight - hunterWeight);
-  const total = bruteWeight + hunterWeight + scoutWeight;
+    waveNumber >= 2 ? Math.min(0.45, 0.15 + (waveNumber - 1) * 0.04 + progress * 0.08) : 0;
+  const sentinelWeight =
+    waveNumber >= 3 ? Math.min(0.18, (waveNumber - 2) * 0.04) : 0;
+  const stingerWeight =
+    waveNumber >= 4 ? Math.min(0.2, (waveNumber - 3) * 0.05) : 0;
+  const splitterWeight =
+    waveNumber >= 6 ? Math.min(0.12, (waveNumber - 5) * 0.03) : 0;
+  const nonScout =
+    bruteWeight + hunterWeight + sentinelWeight + stingerWeight + splitterWeight;
+  const scoutWeight = Math.max(0.05, 1 - nonScout);
+  const total =
+    scoutWeight +
+    hunterWeight +
+    bruteWeight +
+    sentinelWeight +
+    stingerWeight +
+    splitterWeight;
   let roll = Math.random() * total;
   if ((roll -= scoutWeight) < 0) return "scout";
   if ((roll -= hunterWeight) < 0) return "hunter";
-  return "brute";
+  if ((roll -= bruteWeight) < 0) return "brute";
+  if ((roll -= sentinelWeight) < 0) return "sentinel";
+  if ((roll -= stingerWeight) < 0) return "stinger";
+  return "splitter";
 }
 
 export function spawnEnemy(kind: EnemyKind): void {
@@ -173,6 +212,12 @@ export function spawnBoss(): void {
   });
 }
 
+function initialAttackTimer(type: EnemyType): number {
+  const cooldown = type.attackCooldown ?? 0;
+  if (cooldown <= 0) return 0;
+  return cooldown * (0.4 + Math.random() * 0.6);
+}
+
 function materializeEnemy(indicator: SpawnIndicator): void {
   const type = findEnemyType(indicator.kind);
   const w = state.wave;
@@ -197,6 +242,14 @@ function materializeEnemy(indicator: SpawnIndicator): void {
     hit: 0,
     isBoss: false,
     contactCooldown: 0,
+    behavior: type.behavior,
+    attackTimer: initialAttackTimer(type),
+    attackState: "idle",
+    attackProgress: 0,
+    attackTargetX: 0,
+    attackTargetY: 0,
+    attackVx: 0,
+    attackVy: 0,
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
@@ -226,6 +279,14 @@ function materializeBoss(indicator: SpawnIndicator): void {
     hit: 0,
     isBoss: true,
     contactCooldown: 0,
+    behavior: "ranged",
+    attackTimer: BOSS_VOLLEY_INTERVAL * 0.6,
+    attackState: "idle",
+    attackProgress: 0,
+    attackTargetX: 0,
+    attackTargetY: 0,
+    attackVx: 0,
+    attackVy: 0,
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
@@ -270,27 +331,319 @@ function updateEnemies(dt: number): void {
     enemy.age += dt;
     enemy.hit = Math.max(0, enemy.hit - dt);
     enemy.contactCooldown = Math.max(0, enemy.contactCooldown - dt);
-    const dx = player.x - enemy.x;
-    const dy = player.y - enemy.y;
-    const dist = Math.hypot(dx, dy);
-    if (dist > 0) {
-      enemy.x += (dx / dist) * enemy.speed * dt;
-      enemy.y += (dy / dist) * enemy.speed * dt;
+    if (enemy.isBoss) {
+      updateBossBehavior(enemy, dt);
+    } else if (enemy.behavior === "ranged") {
+      updateRangedEnemy(enemy, dt);
+    } else if (enemy.behavior === "dasher") {
+      updateDasherEnemy(enemy, dt);
+    } else {
+      updateSeekerEnemy(enemy, dt);
     }
-    if (
-      circleHit(enemy, player) &&
-      enemy.contactCooldown <= 0 &&
-      player.invuln <= 0
-    ) {
-      player.hp -= enemy.damage;
-      player.invuln = 0.55;
-      enemy.contactCooldown = 0.6;
-      spawnFloater(player.x, player.y - 18, `-${Math.round(enemy.damage)}`, "#ff5a69");
-      world.shake = Math.min(0.5, world.shake + 0.18);
-    }
+    tryContactDamage(enemy);
   }
   separateEnemies();
   state.enemiesAlive = enemies.length;
+}
+
+function tryContactDamage(enemy: EnemyEntity): void {
+  if (
+    circleHit(enemy, player) &&
+    enemy.contactCooldown <= 0 &&
+    player.invuln <= 0
+  ) {
+    player.hp -= enemy.damage;
+    player.invuln = 0.55;
+    enemy.contactCooldown = 0.6;
+    spawnFloater(player.x, player.y - 18, `-${Math.round(enemy.damage)}`, "#ff5a69");
+    world.shake = Math.min(0.5, world.shake + 0.18);
+  }
+}
+
+function moveTowardPlayer(enemy: EnemyEntity, dt: number, speedScale = 1): void {
+  const dx = player.x - enemy.x;
+  const dy = player.y - enemy.y;
+  const dist = Math.hypot(dx, dy);
+  if (dist > 0) {
+    enemy.x += (dx / dist) * enemy.speed * speedScale * dt;
+    enemy.y += (dy / dist) * enemy.speed * speedScale * dt;
+  }
+}
+
+function updateSeekerEnemy(enemy: EnemyEntity, dt: number): void {
+  moveTowardPlayer(enemy, dt);
+}
+
+function updateRangedEnemy(enemy: EnemyEntity, dt: number): void {
+  const type = findEnemyType(enemy.kind);
+  const range = type.attackRange ?? 260;
+  const cooldown = type.attackCooldown ?? 2.4;
+  const windup = type.attackWindup ?? 0.6;
+  const dx = player.x - enemy.x;
+  const dy = player.y - enemy.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+
+  if (enemy.attackState === "windup") {
+    enemy.attackProgress += dt;
+    moveTowardPlayer(enemy, dt, 0.15);
+    if (enemy.attackProgress >= windup) {
+      const aimDx = enemy.attackTargetX - enemy.x;
+      const aimDy = enemy.attackTargetY - enemy.y;
+      const aimLen = Math.hypot(aimDx, aimDy) || 1;
+      const speed = type.projectileSpeed ?? 220;
+      const damage =
+        (type.projectileDamage ?? Math.round(enemy.damage * 0.9)) *
+        enemyDamageScale(state.wave);
+      const color = type.projectileColor ?? enemy.color;
+      const life = type.projectileLife ?? 2.4;
+      spawnEnemyProjectile(
+        enemy.x,
+        enemy.y,
+        (aimDx / aimLen) * speed,
+        (aimDy / aimLen) * speed,
+        damage,
+        life,
+        color,
+      );
+      enemy.attackState = "idle";
+      enemy.attackProgress = 0;
+      enemy.attackTimer = cooldown;
+    }
+    return;
+  }
+
+  enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+  const targetGap = range * 0.85;
+  if (dist > targetGap) {
+    moveTowardPlayer(enemy, dt, 0.85);
+  } else if (dist < range * 0.6) {
+    enemy.x -= (dx / dist) * enemy.speed * 0.7 * dt;
+    enemy.y -= (dy / dist) * enemy.speed * 0.7 * dt;
+  } else {
+    const px = -dy / dist;
+    const py = dx / dist;
+    const drift = Math.sin(enemy.age * 1.6 + enemy.id) * 0.6;
+    enemy.x += px * enemy.speed * 0.45 * drift * dt;
+    enemy.y += py * enemy.speed * 0.45 * drift * dt;
+  }
+
+  if (enemy.attackTimer <= 0 && dist <= range) {
+    enemy.attackState = "windup";
+    enemy.attackProgress = 0;
+    enemy.attackTargetX = player.x;
+    enemy.attackTargetY = player.y;
+    spawnAttackTelegraph({
+      shape: "circle",
+      x: enemy.x,
+      y: enemy.y,
+      radius: enemy.radius * 1.6,
+      angle: 0,
+      length: 0,
+      life: windup,
+      color: type.projectileColor ?? enemy.color,
+    });
+  }
+}
+
+function updateDasherEnemy(enemy: EnemyEntity, dt: number): void {
+  const type = findEnemyType(enemy.kind);
+  const range = type.attackRange ?? 200;
+  const cooldown = type.attackCooldown ?? 1.8;
+  const windup = type.attackWindup ?? 0.45;
+
+  if (enemy.attackState === "windup") {
+    enemy.attackProgress += dt;
+    if (enemy.attackProgress >= windup) {
+      const dx = player.x - enemy.x;
+      const dy = player.y - enemy.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const dashSpeed = enemy.speed * STINGER_DASH_SPEED_MULT;
+      enemy.attackVx = (dx / len) * dashSpeed;
+      enemy.attackVy = (dy / len) * dashSpeed;
+      enemy.attackState = "recovering";
+      enemy.attackProgress = 0;
+    }
+    return;
+  }
+
+  if (enemy.attackState === "recovering") {
+    enemy.attackProgress += dt;
+    if (enemy.attackProgress < STINGER_DASH_DURATION) {
+      enemy.x += enemy.attackVx * dt;
+      enemy.y += enemy.attackVy * dt;
+    } else if (enemy.attackProgress >= STINGER_DASH_DURATION + STINGER_RECOVER_PAUSE) {
+      enemy.attackState = "idle";
+      enemy.attackProgress = 0;
+      enemy.attackTimer = cooldown;
+      enemy.attackVx = 0;
+      enemy.attackVy = 0;
+    }
+    return;
+  }
+
+  enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+  const dx = player.x - enemy.x;
+  const dy = player.y - enemy.y;
+  const dist = Math.hypot(dx, dy) || 0.0001;
+
+  if (enemy.attackTimer <= 0 && dist <= range) {
+    enemy.attackState = "windup";
+    enemy.attackProgress = 0;
+    const aimLen = dist;
+    const aimDx = dx / aimLen;
+    const aimDy = dy / aimLen;
+    enemy.attackTargetX = enemy.x + aimDx * range * 1.4;
+    enemy.attackTargetY = enemy.y + aimDy * range * 1.4;
+    spawnAttackTelegraph({
+      shape: "line",
+      x: enemy.x,
+      y: enemy.y,
+      radius: 6,
+      angle: Math.atan2(aimDy, aimDx),
+      length: range * 1.4,
+      life: windup,
+      color: enemy.color,
+    });
+    return;
+  }
+
+  moveTowardPlayer(enemy, dt, dist > range ? 1 : 0.45);
+}
+
+function updateBossBehavior(enemy: EnemyEntity, dt: number): void {
+  if (enemy.attackState === "windup") {
+    enemy.attackProgress += dt;
+    moveTowardPlayer(enemy, dt, 0.25);
+    if (enemy.attackProgress >= BOSS_VOLLEY_TELEGRAPH) {
+      const baseAngle = Math.atan2(
+        enemy.attackTargetY - enemy.y,
+        enemy.attackTargetX - enemy.x,
+      );
+      const damage =
+        enemy.damage * BOSS_PROJECTILE_DAMAGE_RATIO;
+      const denom = Math.max(1, BOSS_VOLLEY_COUNT - 1);
+      for (let i = 0; i < BOSS_VOLLEY_COUNT; i += 1) {
+        const t = i / denom - 0.5;
+        const angle = baseAngle + t * BOSS_VOLLEY_SPREAD;
+        spawnEnemyProjectile(
+          enemy.x,
+          enemy.y,
+          Math.cos(angle) * BOSS_PROJECTILE_SPEED,
+          Math.sin(angle) * BOSS_PROJECTILE_SPEED,
+          damage,
+          BOSS_PROJECTILE_LIFE,
+          "#ff5af0",
+        );
+      }
+      enemy.attackState = "idle";
+      enemy.attackProgress = 0;
+      enemy.attackTimer = BOSS_VOLLEY_INTERVAL;
+    }
+    return;
+  }
+
+  enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
+  moveTowardPlayer(enemy, dt, 0.85);
+  if (enemy.attackTimer <= 0) {
+    enemy.attackState = "windup";
+    enemy.attackProgress = 0;
+    enemy.attackTargetX = player.x;
+    enemy.attackTargetY = player.y;
+    spawnAttackTelegraph({
+      shape: "circle",
+      x: enemy.x,
+      y: enemy.y,
+      radius: enemy.radius * 1.4,
+      angle: 0,
+      length: 0,
+      life: BOSS_VOLLEY_TELEGRAPH,
+      color: "#ff5af0",
+    });
+  }
+}
+
+function spawnEnemyProjectile(
+  x: number,
+  y: number,
+  vx: number,
+  vy: number,
+  damage: number,
+  life: number,
+  color: string,
+): void {
+  enemyBullets.push({
+    id: counters.nextEnemyBulletId++,
+    x,
+    y,
+    vx,
+    vy,
+    radius: 6,
+    damage,
+    life,
+    color,
+  });
+}
+
+interface AttackTelegraphSpec {
+  shape: AttackTelegraphShape;
+  x: number;
+  y: number;
+  radius: number;
+  angle: number;
+  length: number;
+  life: number;
+  color: string;
+}
+
+function spawnAttackTelegraph(spec: AttackTelegraphSpec): void {
+  attackTelegraphs.push({
+    id: counters.nextAttackTelegraphId++,
+    shape: spec.shape,
+    x: spec.x,
+    y: spec.y,
+    radius: spec.radius,
+    angle: spec.angle,
+    length: spec.length,
+    life: spec.life,
+    maxLife: spec.life,
+    color: spec.color,
+  });
+}
+
+function updateEnemyBullets(dt: number): void {
+  for (let i = enemyBullets.length - 1; i >= 0; i -= 1) {
+    const bullet = enemyBullets[i]!;
+    bullet.x += bullet.vx * dt;
+    bullet.y += bullet.vy * dt;
+    bullet.life -= dt;
+    if (
+      bullet.life <= 0 ||
+      bullet.x < -20 ||
+      bullet.y < -20 ||
+      bullet.x > world.arenaWidth + 20 ||
+      bullet.y > world.arenaHeight + 20
+    ) {
+      enemyBullets.splice(i, 1);
+      continue;
+    }
+    if (player.invuln > 0) continue;
+    if (!circleHit(bullet, player)) continue;
+    player.hp -= bullet.damage;
+    player.invuln = 0.55;
+    spawnFloater(player.x, player.y - 18, `-${Math.round(bullet.damage)}`, bullet.color);
+    world.shake = Math.min(0.5, world.shake + 0.18);
+    enemyBullets.splice(i, 1);
+  }
+}
+
+function updateAttackTelegraphs(dt: number): void {
+  for (let i = attackTelegraphs.length - 1; i >= 0; i -= 1) {
+    const telegraph = attackTelegraphs[i]!;
+    telegraph.life -= dt;
+    if (telegraph.life <= 0) {
+      attackTelegraphs.splice(i, 1);
+    }
+  }
 }
 
 function separateEnemies(): void {
@@ -422,6 +775,50 @@ function killEnemy(index: number, enemy: EnemyEntity): void {
   state.score += Math.round(enemy.score * (state.wave * 0.12 + 1));
   spawnDeathBurst(enemy);
   dropExperience(enemy);
+  if (enemy.kind === "splitter" && !enemy.isBoss) {
+    spawnSplitterChildren(enemy);
+  }
+}
+
+function spawnSplitterChildren(parent: EnemyEntity): void {
+  const type = findEnemyType("scout");
+  const w = state.wave;
+  const hpMul = enemyHpScale(w) * SPLITTER_CHILD_HP_RATIO;
+  const speedMul = enemySpeedScale(w);
+  const damageMul = enemyDamageScale(w);
+  for (let i = 0; i < SPLITTER_CHILD_COUNT; i += 1) {
+    const angle = (i / SPLITTER_CHILD_COUNT) * Math.PI * 2 + Math.random() * 0.4;
+    const offset = parent.radius * 0.6;
+    const child: EnemyEntity = {
+      id: counters.nextEnemyId++,
+      kind: type.id,
+      score: Math.round(type.score * 0.5),
+      radius: type.radius,
+      hp: type.hp * hpMul,
+      maxHp: type.hp * hpMul,
+      speed: type.speed * speedMul * 1.1,
+      damage: type.damage * damageMul,
+      color: type.color,
+      accent: type.accent,
+      sides: type.sides,
+      x: parent.x + Math.cos(angle) * offset,
+      y: parent.y + Math.sin(angle) * offset,
+      age: 0,
+      hit: 0,
+      isBoss: false,
+      contactCooldown: 0.4,
+      behavior: type.behavior,
+      attackTimer: 0,
+      attackState: "idle",
+      attackProgress: 0,
+      attackTargetX: 0,
+      attackTargetY: 0,
+      attackVx: 0,
+      attackVy: 0,
+    };
+    enemies.push(child);
+  }
+  state.enemiesAlive = enemies.length;
 }
 
 function dropExperience(enemy: EnemyEntity): void {
@@ -550,6 +947,8 @@ export function clearRunEntities(): void {
   enemies.length = 0;
   spawnIndicators.length = 0;
   bullets.length = 0;
+  enemyBullets.length = 0;
+  attackTelegraphs.length = 0;
   experienceOrbs.length = 0;
   particles.length = 0;
   floaters.length = 0;
