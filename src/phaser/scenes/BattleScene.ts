@@ -7,6 +7,7 @@ import {
   particles,
   player,
   pointer,
+  spawnIndicators,
   state,
   world,
 } from "../../state";
@@ -24,6 +25,7 @@ export class BattleScene extends Phaser.Scene {
   };
   private readonly bulletPool = new ImageRenderPool(this, textureKeys.bullet, 30);
   private readonly xpPool = new ImageRenderPool(this, textureKeys.xp, 15);
+  private readonly spawnIndicatorPool = new ImageRenderPool(this, textureKeys.particle, 8);
   private readonly particlePool = new ImageRenderPool(this, textureKeys.particle, 10);
   private readonly floaterPool = new TextRenderPool(this);
   private playerShip!: Phaser.GameObjects.Image;
@@ -113,6 +115,7 @@ export class BattleScene extends Phaser.Scene {
   private syncEntities(): void {
     const frame = this.renderFrame;
     this.syncExperience(frame);
+    this.syncSpawnIndicators(frame);
     this.syncBullets(frame);
     this.syncEnemies(frame);
     this.syncPlayer();
@@ -177,6 +180,21 @@ export class BattleScene extends Phaser.Scene {
       sprite.setTint(colorToNumber(particle.color));
     }
     this.particlePool.sweep(frame);
+  }
+
+  private syncSpawnIndicators(frame: number): void {
+    for (const indicator of spawnIndicators) {
+      if (!this.inView(indicator.x, indicator.y, indicator.radius * 4)) continue;
+      const sprite = this.spawnIndicatorPool.sync(indicator.id, frame);
+      const progress = clamp(1 - indicator.life / indicator.maxLife, 0, 1);
+      const radius = indicator.radius * (3 - progress * 2);
+      const pulse = Math.sin(progress * Math.PI);
+      sprite.setPosition(indicator.x, indicator.y);
+      sprite.setScale(Math.max(0.45, (radius * 2) / 24));
+      sprite.setAlpha(clamp(0.3 + pulse * 0.34, 0.2, 0.64));
+      sprite.setTint(colorToNumber(indicator.color));
+    }
+    this.spawnIndicatorPool.sweep(frame);
   }
 
   private syncFloaters(frame: number): void {

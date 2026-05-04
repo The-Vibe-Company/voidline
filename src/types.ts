@@ -81,6 +81,18 @@ export interface EnemyEntity {
   contactCooldown: number;
 }
 
+export interface SpawnIndicator {
+  id: number;
+  x: number;
+  y: number;
+  kind: EnemyKind;
+  isBoss: boolean;
+  radius: number;
+  color: string;
+  life: number;
+  maxLife: number;
+}
+
 export interface Bullet {
   id: number;
   x: number;
