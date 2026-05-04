@@ -167,8 +167,8 @@ export interface EffectiveWeaponStats {
 export function effectiveWeaponStats(weapon: Weapon, player: Player): EffectiveWeaponStats {
   const base = weaponTierStats(findWeaponDef(weapon.defId), weapon.tier);
   return {
-    damage: Math.max(1, base.damage + player.damage),
-    fireRate: Math.max(0.05, base.fireRate + player.fireRate),
+    damage: Math.max(1, (base.damage + player.damage) * Math.max(0.1, player.damageMul)),
+    fireRate: Math.max(0.05, (base.fireRate + player.fireRate) * Math.max(0.1, player.fireRateMul)),
     projectileCount: Math.max(1, Math.floor(base.projectileCount + player.projectileCount)),
     pierce: Math.max(0, base.pierce + player.pierce),
     bulletSpeed: base.bulletSpeed * Math.max(0.1, player.bulletSpeed),

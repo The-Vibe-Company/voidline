@@ -90,7 +90,9 @@ export interface Player {
   maxHp: number;
   speed: number;
   damage: number;
+  damageMul: number;
   fireRate: number;
+  fireRateMul: number;
   bulletSpeed: number;
   bulletLife: number;
   range: number;
@@ -298,7 +300,9 @@ export interface MetaUpgrade {
 
 export type UpgradeStat =
   | "fireRate"
+  | "fireRateMul"
   | "damage"
+  | "damageMul"
   | "speed"
   | "maxHp"
   | "projectileCount"

@@ -195,7 +195,9 @@ type ShopStatKey = keyof typeof hud.shopStats;
 
 const STAT_TO_CHIP: Record<UpgradeStat, ShopStatKey> = {
   damage: "damage",
+  damageMul: "damage",
   fireRate: "fireRate",
+  fireRateMul: "fireRate",
   speed: "speed",
   maxHp: "hp",
   projectileCount: "projectileCount",

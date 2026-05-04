@@ -15,11 +15,32 @@ describe("upgrade catalog", () => {
     }
   });
 
-  it("applies damage upgrade additively", () => {
+  it("applies damage upgrade as a multiplier", () => {
     const player = createPlayerBaseState();
-    const before = player.damage;
+    const before = player.damageMul;
     applyUpgradeToPlayer(findUpgrade("damage-up"), player);
-    expect(player.damage).toBe(before + 8);
+    expect(player.damageMul).toBeCloseTo(before + 0.15, 5);
+  });
+
+  it("applies fire-rate upgrade as a multiplier", () => {
+    const player = createPlayerBaseState();
+    const before = player.fireRateMul;
+    applyUpgradeToPlayer(findUpgrade("fire-rate-up"), player);
+    expect(player.fireRateMul).toBeCloseTo(before + 0.15, 5);
+  });
+
+  it("damage upgrade applies the same DPS gain across weapons", () => {
+    const player1 = createPlayerBaseState();
+    const player2 = createPlayerBaseState();
+    applyUpgradeToPlayer(findUpgrade("damage-up"), player1);
+    applyUpgradeToPlayer(findUpgrade("damage-up"), player2);
+    const pulse1 = effectiveWeaponStats(makeStarterWeapon("pulse"), player1);
+    const pulse0 = effectiveWeaponStats(makeStarterWeapon("pulse"), createPlayerBaseState());
+    const minigun1 = effectiveWeaponStats(makeStarterWeapon("minigun"), player2);
+    const minigun0 = effectiveWeaponStats(makeStarterWeapon("minigun"), createPlayerBaseState());
+    const pulseGain = pulse1.damage / pulse0.damage;
+    const minigunGain = minigun1.damage / minigun0.damage;
+    expect(pulseGain).toBeCloseTo(minigunGain, 3);
   });
 
   it("max-hp upgrade heals up to the new cap", () => {
@@ -59,37 +80,17 @@ describe("upgrade catalog", () => {
     }
   });
 
-  it("projectile upgrade carries a damage malus per CLAUDE.md rule", () => {
-    const player = createPlayerBaseState();
-    const before = { damage: player.damage, projectileCount: player.projectileCount };
-    applyUpgradeToPlayer(findUpgrade("projectile-up"), player);
-    expect(player.projectileCount).toBe(before.projectileCount + 1);
-    expect(player.damage).toBe(before.damage - 3);
+  it("catalog drops the projectile/pierce flat-malus cards", () => {
+    const ids = upgradeCatalog.map((u) => u.id);
+    expect(ids).not.toContain("projectile-up");
+    expect(ids).not.toContain("pierce-up");
   });
 
-  it("pierce upgrade carries a damage malus per CLAUDE.md rule", () => {
-    const player = createPlayerBaseState();
-    const before = { damage: player.damage, pierce: player.pierce };
-    applyUpgradeToPlayer(findUpgrade("pierce-up"), player);
-    expect(player.pierce).toBe(before.pierce + 1);
-    expect(player.damage).toBe(before.damage - 2);
-  });
-
-  it("effective weapon damage stays >= 1 even after stacked malus", () => {
-    const player = createPlayerBaseState();
-    for (let i = 0; i < 20; i += 1) {
-      applyUpgradeToPlayer(findUpgrade("projectile-up"), player);
-      applyUpgradeToPlayer(findUpgrade("pierce-up"), player);
-    }
-    const eff = effectiveWeaponStats(makeStarterWeapon(), player);
-    expect(eff.damage).toBeGreaterThanOrEqual(1);
-  });
-
-  it("damage upgrade adds bonus that stacks on starter weapon base", () => {
+  it("damage upgrade scales the starter weapon damage by its multiplier", () => {
     const player = createPlayerBaseState();
     applyUpgradeToPlayer(findUpgrade("damage-up"), player);
     const eff = effectiveWeaponStats(makeStarterWeapon(), player);
-    expect(eff.damage).toBe(24 + 8);
+    expect(eff.damage).toBeCloseTo(24 * 1.15, 3);
   });
 
   it("every upgrade exposes an icon asset path", () => {
@@ -117,25 +118,11 @@ describe("previewUpgradeOnPlayer", () => {
     const preview = previewUpgradeOnPlayer(findUpgrade("damage-up"), player);
     expect(preview).toHaveLength(1);
     expect(preview[0]).toMatchObject({
-      stat: "damage",
-      before: player.damage,
-      after: player.damage + 8,
+      stat: "damageMul",
       isMalus: false,
     });
-  });
-
-  it("flags malus entries on multi-effect upgrades", () => {
-    const player = createPlayerBaseState();
-    const preview = previewUpgradeOnPlayer(findUpgrade("projectile-up"), player);
-    expect(preview).toHaveLength(2);
-    const projectile = preview.find((p) => p.stat === "projectileCount")!;
-    const damage = preview.find((p) => p.stat === "damage")!;
-    expect(projectile.before).toBe(player.projectileCount);
-    expect(projectile.after).toBe(player.projectileCount + 1);
-    expect(projectile.isMalus).toBe(false);
-    expect(damage.before).toBe(player.damage);
-    expect(damage.after).toBe(player.damage - 3);
-    expect(damage.isMalus).toBe(true);
+    expect(preview[0]!.before).toBeCloseTo(player.damageMul, 5);
+    expect(preview[0]!.after).toBeCloseTo(player.damageMul + 0.15, 5);
   });
 
   it("handles multiplicative effects", () => {
