@@ -1,0 +1,23 @@
+src/render/hud.ts
+  ef9990fa678e70a3 440
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "bbfa2effe9f4a07f1c809e824f18f8688f6871bb",
+  "prompts": {
+    "ef9990fa678e70a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b3d4f62-2ed7-46c1-8287-32dd3fd805cc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1,
+      "total_deletions": 1,
+      "accepted_lines": 1,
+      "overriden_lines": 0
+    }
+  }
+}
