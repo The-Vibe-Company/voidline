@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <filter id="g" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="0.6" />
+    </filter>
+  </defs>
+  <rect width="32" height="32" rx="6" fill="#05060b" />
+  <rect x="1.5" y="1.5" width="29" height="29" rx="5" fill="none" stroke="#39d9ff" stroke-opacity="0.18" stroke-width="1" />
+  <g filter="url(#g)" opacity="0.55">
+    <path d="M7 7 L16 24 L25 7" fill="none" stroke="#39d9ff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" />
+    <line x1="5" y1="17" x2="27" y2="17" stroke="#72ffb1" stroke-width="2" stroke-linecap="round" />
+  </g>
+  <path d="M7 7 L16 24 L25 7" fill="none" stroke="#39d9ff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" />
+  <line x1="5" y1="17" x2="27" y2="17" stroke="#72ffb1" stroke-width="1.4" stroke-linecap="round" />
+  <circle cx="16" cy="17" r="1.6" fill="#eef8ff" />
+</svg>
