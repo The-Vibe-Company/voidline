@@ -1,4 +1,15 @@
-import { enemyBullets, experienceOrbs, player, spawnIndicators, state, world } from "../state";
+import {
+  bullets,
+  enemies,
+  enemyBullets,
+  experienceOrbs,
+  floaters,
+  particles,
+  player,
+  spawnIndicators,
+  state,
+  world,
+} from "../state";
 import {
   isBossWave,
   waveDuration,
@@ -51,8 +62,13 @@ export function transitionToShop(): void {
   state.carriedXp = Math.floor(leftover * xpBalance.carryRatio + state.pendingCarry);
   state.pendingCarry = 0;
   experienceOrbs.length = 0;
+  enemies.length = 0;
   enemyBullets.length = 0;
   spawnIndicators.length = 0;
+  bullets.length = 0;
+  particles.length = 0;
+  floaters.length = 0;
+  state.enemiesAlive = 0;
   rerollShop(true);
   state.mode = "shop";
 }

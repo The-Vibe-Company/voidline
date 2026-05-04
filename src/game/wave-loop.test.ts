@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   counters,
   enemies,
+  experienceOrbs,
   player,
   resetPlayerToBase,
   spawnIndicators,
@@ -111,26 +112,47 @@ describe("wave loop spawn telegraphs", () => {
     }
   });
 
-  it("does not transition to shop while a spawn indicator is pending", () => {
+  it("transitions to shop immediately when wave timer expires, even with pending spawn indicators", () => {
     spawnEnemy("scout");
     state.waveTimer = 0;
 
     stepWave(0.01);
 
-    expect(state.mode).toBe("playing");
-    expect(spawnIndicators).toHaveLength(1);
+    expect(state.mode).toBe("shop");
+    expect(spawnIndicators).toHaveLength(0);
   });
 
-  it("keeps materialized telegraph enemies alive after the wave timer expires", () => {
+  it("carries 25% of uncollected XP value when wave timer expires", () => {
+    experienceOrbs.push({
+      id: 1,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius: 4,
+      value: 100,
+      age: 0,
+    });
+    state.pendingCarry = 0;
+    state.waveTimer = 0;
+
+    stepWave(0.01);
+
+    expect(state.mode).toBe("shop");
+    expect(experienceOrbs).toHaveLength(0);
+    expect(state.carriedXp).toBe(25);
+  });
+
+  it("clears materialized enemies when wave timer expires", () => {
     spawnEnemy("scout");
     spawnIndicators[0]!.life = 0.01;
     state.waveTimer = 0;
 
     stepWave(0.05);
 
-    expect(state.mode).toBe("playing");
+    expect(state.mode).toBe("shop");
     expect(spawnIndicators).toHaveLength(0);
-    expect(enemies).toHaveLength(1);
-    expect(state.enemiesAlive).toBe(1);
+    expect(enemies).toHaveLength(0);
+    expect(state.enemiesAlive).toBe(0);
   });
 });
