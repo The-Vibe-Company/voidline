@@ -1,0 +1,27 @@
+src/game/weapon-catalog.ts
+  ef9990fa678e70a3 186
+src/game/weapon-catalog.test.ts
+  ef9990fa678e70a3 125,128-129
+src/render/hud.ts
+  ef9990fa678e70a3 456-457
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "2367143fe5a1cb7ce55c05dc530234f9151cb296",
+  "prompts": {
+    "ef9990fa678e70a3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b3d4f62-2ed7-46c1-8287-32dd3fd805cc",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 6,
+      "total_deletions": 2,
+      "accepted_lines": 6,
+      "overriden_lines": 0
+    }
+  }
+}
