@@ -48,6 +48,7 @@ import type {
   EnemyEntity,
   EnemyKind,
   EnemyType,
+  ExperienceOrb,
   SpawnIndicator,
   Weapon,
 } from "../types";
@@ -781,6 +782,20 @@ function updateBullets(dt: number): void {
       bullet.hitIds.add(enemy.id);
       enemy.hp -= bullet.damage;
       enemy.hit = 0.12;
+      for (let p = 0; p < 3; p += 1) {
+        const a = Math.random() * Math.PI * 2;
+        particles.push({
+          id: counters.nextParticleId++,
+          x: enemy.x,
+          y: enemy.y,
+          vx: Math.cos(a) * 110,
+          vy: Math.sin(a) * 110,
+          size: 1.6,
+          color: enemy.accent,
+          life: 0.18,
+          maxLife: 0.18,
+        });
+      }
       spawnFloater(enemy.x, enemy.y - enemy.radius, `${Math.round(bullet.damage)}`, "#d9f6ff");
       if (enemy.hp <= 0) {
         killEnemy(j, enemy);
@@ -915,7 +930,7 @@ function updateExperience(dt: number): void {
   }
 }
 
-function collectOrb(orb: { value: number }): void {
+function collectOrb(orb: ExperienceOrb): void {
   let gain = orb.value;
   if (state.pendingCarry > 0) {
     const drained = Math.min(state.pendingCarry, orb.value);
@@ -923,6 +938,20 @@ function collectOrb(orb: { value: number }): void {
     gain += drained;
   }
   state.runCurrency += gain;
+  spawnFloater(orb.x, orb.y - 6, `+${gain}`, "#72ffb1");
+  for (let p = 0; p < 2; p += 1) {
+    particles.push({
+      id: counters.nextParticleId++,
+      x: orb.x,
+      y: orb.y,
+      vx: (Math.random() - 0.5) * 90,
+      vy: -50 - Math.random() * 40,
+      size: 2,
+      color: "#72ffb1",
+      life: 0.32,
+      maxLife: 0.32,
+    });
+  }
 }
 
 function updateParticles(dt: number): void {
