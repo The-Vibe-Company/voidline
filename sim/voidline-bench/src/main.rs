@@ -3,7 +3,7 @@ mod report;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
-use report::{aggregate, DeathReport, Pick, RunReport};
+use report::{aggregate, render_difficulty_summary, DeathReport, Pick, RunReport, WaveTracker};
 use serde::Serialize;
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
@@ -42,6 +42,9 @@ enum Commands {
         threads: Option<usize>,
         #[arg(long)]
         meta_levels: Option<String>,
+        /// Print a human-readable difficulty summary to stderr after the JSON output.
+        #[arg(long, default_value_t = false)]
+        difficulty_report: bool,
     },
     Campaign {
         #[arg(long, default_value = "0..10")]
@@ -67,11 +70,16 @@ fn main() -> Result<()> {
             seeds,
             threads,
             meta_levels,
+            difficulty_report,
         } => {
             let threads = threads.unwrap_or_else(num_cpus::get).max(1);
             let meta = parse_meta(meta_levels)?;
             let reports = run_many(parse_seed_range(&seeds)?, threads, meta)?;
-            print_json(&aggregate(&reports))?;
+            let bench = aggregate(&reports);
+            print_json(&bench)?;
+            if difficulty_report {
+                eprintln!("\n{}", render_difficulty_summary(&bench.difficulty));
+            }
         }
         Commands::Campaign {
             seeds,
@@ -92,16 +100,25 @@ fn main() -> Result<()> {
 
 fn run_one(seed: u64, meta_levels: MetaLevels, mut replay: Option<File>) -> Result<RunReport> {
     let started = Instant::now();
-    let champion = Champion;
+    let mut champion = Champion::default();
     let mut host = Host::spawn(seed)?;
     let mut snapshot = host.init(seed, &meta_levels)?;
     let mut picks = Vec::new();
     let mut ticks = 0_u32;
     let mut boss10_killed = false;
+    let mut tracker: Option<WaveTracker> = None;
+    let mut wave_summaries = Vec::new();
 
     while ticks < 60 * 900 {
         match snapshot.mode.as_str() {
             "playing" => {
+                // Initialize / restart tracker on first playing tick of a wave.
+                if tracker.as_ref().map(|t| t.wave != snapshot.wave).unwrap_or(true) {
+                    if let Some(prev) = tracker.take() {
+                        wave_summaries.push(prev.finalize());
+                    }
+                    tracker = Some(WaveTracker::new(&snapshot));
+                }
                 let decision = champion.decide(&snapshot);
                 if let Some(file) = replay.as_mut() {
                     if ticks % 6 == 0 {
@@ -123,17 +140,37 @@ fn run_one(seed: u64, meta_levels: MetaLevels, mut replay: Option<File>) -> Resu
                 }
                 snapshot = host.tick(1.0 / 60.0, decision.pointer_x, decision.pointer_y)?;
                 ticks += 1;
+                if snapshot.mode == "playing" {
+                    if let Some(t) = tracker.as_mut() {
+                        if t.wave == snapshot.wave {
+                            t.observe(&snapshot);
+                        }
+                    }
+                }
             }
             "shop" => {
+                if let Some(mut prev) = tracker.take() {
+                    prev.note_wave_end_via_shop(&snapshot);
+                    wave_summaries.push(prev.finalize());
+                }
                 if snapshot.wave >= 10 {
                     boss10_killed = true;
                     break;
                 }
                 handle_shop(&mut host, &mut snapshot, &mut picks)?;
             }
-            "gameover" => break,
+            "gameover" => {
+                if let Some(prev) = tracker.take() {
+                    wave_summaries.push(prev.finalize());
+                }
+                break;
+            }
             other => return Err(anyhow::anyhow!("unexpected mode from host: {other}")),
         }
+    }
+
+    if let Some(prev) = tracker.take() {
+        wave_summaries.push(prev.finalize());
     }
 
     let summary = host.gameover_summary()?;
@@ -167,6 +204,7 @@ fn run_one(seed: u64, meta_levels: MetaLevels, mut replay: Option<File>) -> Resu
         picks,
         deaths,
         crystals_gained: summary.crystals_gained,
+        waves: wave_summaries,
     })
 }
 
