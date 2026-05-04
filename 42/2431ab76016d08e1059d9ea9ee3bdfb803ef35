@@ -1,0 +1,25 @@
+src/systems/identity.ts
+  64185d3d68206b91 1-52
+src/systems/api.ts
+  64185d3d68206b91 1-79
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "422431ab76016d08e1059d9ea9ee3bdfb803ef35",
+  "prompts": {
+    "64185d3d68206b91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07fea4a7-4877-487f-b138-a736675a0cda",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 235,
+      "overriden_lines": 0
+    }
+  }
+}
