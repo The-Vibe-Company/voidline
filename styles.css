@@ -3491,24 +3491,6 @@ h2 {
   image-rendering: pixelated;
 }
 
-.weapon-slot--filled[data-fallback]::before {
-  content: attr(data-fallback);
-  position: absolute;
-  top: 8px;
-  font-family: "Oxanium", sans-serif;
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--mint, #72ffb1);
-  pointer-events: none;
-}
-
-.weapon-slot-name {
-  font-family: "Oxanium", sans-serif;
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
 .weapon-tier-badge {
   position: absolute;
   top: 2px;

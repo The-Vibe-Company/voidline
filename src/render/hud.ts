@@ -99,9 +99,9 @@ export function showWeaponPicker(onPick: (defId: WeaponArchetypeId) => void): vo
     card.type = "button";
     card.dataset.weaponId = def.id;
     card.innerHTML = `
-      <span class="upgrade-stamp weapon-stamp" aria-hidden="true" data-fallback="${def.id.charAt(0).toUpperCase()}">
+      <span class="upgrade-stamp weapon-stamp" aria-hidden="true">
         <span class="weapon-tier-badge weapon-tier-badge--1">T1</span>
-        <img class="upgrade-stamp-img weapon-stamp-img" src="${def.icon}" alt="" onerror="this.style.display='none'" />
+        <img class="upgrade-stamp-img weapon-stamp-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none';this.parentElement.dataset.fallback='${def.id.charAt(0).toUpperCase()}'" />
       </span>
       <span class="upgrade-copy">
         <h3>${def.name}</h3>
