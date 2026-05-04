@@ -23,7 +23,7 @@ const account = await import("../../src/systems/account.ts");
 const metaCatalog = await import("../../src/game/meta-upgrade-catalog.ts");
 const weaponCatalog = await import("../../src/game/weapon-catalog.ts");
 
-const { state, world, pointer, player, enemies, experienceOrbs, bullets, particles, floaters, counters } = stateModule;
+const { state, world, pointer, player, enemies, experienceOrbs, enemyBullets, attackTelegraphs, spawnIndicators, bullets, particles, floaters, counters } = stateModule;
 let rewardAwarded = false;
 
 world.width = world.arenaWidth = 1600;
@@ -155,12 +155,52 @@ function snapshot() {
       speed: enemy.speed,
       damage: enemy.damage,
       isBoss: enemy.isBoss,
+      attackState: enemy.attackState,
+      attackProgress: enemy.attackProgress,
+      attackTargetX: enemy.attackTargetX,
+      attackTargetY: enemy.attackTargetY,
+      bossShotTimer: enemy.bossShotTimer ?? null,
+      bossSpawnTimer: enemy.bossSpawnTimer ?? null,
     })),
     orbs: experienceOrbs.map((orb) => ({
       id: orb.id,
       x: orb.x,
       y: orb.y,
       value: orb.value,
+    })),
+    enemyBullets: enemyBullets.map((bullet) => ({
+      id: bullet.id,
+      x: bullet.x,
+      y: bullet.y,
+      vx: bullet.vx,
+      vy: bullet.vy,
+      radius: bullet.radius,
+      damage: bullet.damage,
+      life: bullet.life,
+    })),
+    weapons: (player.weapons ?? []).map((weapon) => ({
+      defId: weapon.defId,
+      tier: weapon.tier,
+    })),
+    attackTelegraphs: attackTelegraphs.map((tel) => ({
+      id: tel.id,
+      shape: tel.shape,
+      x: tel.x,
+      y: tel.y,
+      radius: tel.radius,
+      angle: tel.angle,
+      length: tel.length,
+      life: tel.life,
+      maxLife: tel.maxLife,
+    })),
+    spawnIndicators: spawnIndicators.map((ind) => ({
+      id: ind.id,
+      x: ind.x,
+      y: ind.y,
+      kind: ind.kind,
+      isBoss: ind.isBoss,
+      radius: ind.radius,
+      life: ind.life,
     })),
   };
 }
