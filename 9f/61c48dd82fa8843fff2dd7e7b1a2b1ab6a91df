@@ -1,0 +1,35 @@
+src/render/hud.ts
+  3328f3885afcba8d 164,258-262
+styles.css
+  3328f3885afcba8d 1199-1207,2514-2516,2520-2527,2533,2535,2539-2546
+src/game/upgrade-catalog.test.ts
+  3328f3885afcba8d 55-88
+src/types.ts
+  3328f3885afcba8d 182
+src/game/upgrade-catalog.ts
+  3328f3885afcba8d 3-4,8-10,16-18,24-26,32-34,40-42,44-47,51-53,55-58,62-64,70-72,78-80,86-88,98
+src/game/meta-upgrade-catalog.ts
+  3328f3885afcba8d 3-4,8-10,16-18,24-26,32-34,40-42
+src/game/meta-upgrade-catalog.test.ts
+  3328f3885afcba8d 1-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "9f61c48dd82fa8843fff2dd7e7b1a2b1ab6a91df",
+  "prompts": {
+    "3328f3885afcba8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "06e2cf97-ea68-4799-9746-d2478a47c4a0",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 173,
+      "total_deletions": 63,
+      "accepted_lines": 146,
+      "overriden_lines": 0
+    }
+  }
+}
