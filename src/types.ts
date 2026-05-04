@@ -179,6 +179,7 @@ export type MetaUpgradeId =
 export interface MetaUpgrade {
   id: MetaUpgradeId;
   name: string;
+  icon: string;
   description: string;
   maxLevel: number;
   costAt: (level: number) => number;

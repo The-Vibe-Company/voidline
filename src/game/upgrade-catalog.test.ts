@@ -52,4 +52,38 @@ describe("upgrade catalog", () => {
       }
     }
   });
+
+  it("projectile upgrade carries a damage malus per CLAUDE.md rule", () => {
+    const player = createPlayerBaseState();
+    const before = { damage: player.damage, projectileCount: player.projectileCount };
+    applyUpgradeToPlayer(findUpgrade("projectile-up"), player);
+    expect(player.projectileCount).toBe(before.projectileCount + 1);
+    expect(player.damage).toBe(before.damage - 3);
+  });
+
+  it("pierce upgrade carries a damage malus per CLAUDE.md rule", () => {
+    const player = createPlayerBaseState();
+    const before = { damage: player.damage, pierce: player.pierce };
+    applyUpgradeToPlayer(findUpgrade("pierce-up"), player);
+    expect(player.pierce).toBe(before.pierce + 1);
+    expect(player.damage).toBe(before.damage - 2);
+  });
+
+  it("damage cannot drop below 1 even after stacked malus", () => {
+    const player = createPlayerBaseState();
+    player.damage = 2;
+    applyUpgradeToPlayer(findUpgrade("projectile-up"), player);
+    expect(player.damage).toBeGreaterThanOrEqual(1);
+  });
+
+  it("every upgrade exposes an icon asset path", () => {
+    for (const upgrade of upgradeCatalog) {
+      expect(upgrade.icon).toMatch(/^\/icons\/upgrades\/.+\.png$/);
+    }
+  });
+
+  it("upgrade ids are unique", () => {
+    const ids = upgradeCatalog.map((u) => u.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
 });

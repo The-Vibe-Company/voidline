@@ -1,38 +1,45 @@
 import type { AccountProgress, MetaUpgrade, MetaUpgradeId, Player } from "../types";
 
+const META_ICON_BASE = "/icons/upgrades";
+
 export const metaUpgradeCatalog: readonly MetaUpgrade[] = [
   {
     id: "meta:max-hp",
-    name: "Coque renforcée",
-    description: "+10 PV max par niveau.",
+    name: "Coque",
+    icon: `${META_ICON_BASE}/meta-max-hp.png`,
+    description: "+10 PV / niv.",
     maxLevel: 5,
     costAt: (level) => 30 + level * 25,
   },
   {
     id: "meta:damage",
-    name: "Calibre permanent",
-    description: "+3 dégâts par niveau.",
+    name: "Munitions",
+    icon: `${META_ICON_BASE}/meta-damage.png`,
+    description: "+3 dégâts / niv.",
     maxLevel: 5,
     costAt: (level) => 30 + level * 30,
   },
   {
     id: "meta:fire-rate",
-    name: "Cadence permanente",
-    description: "+0.2 tir/s par niveau.",
+    name: "Cadence",
+    icon: `${META_ICON_BASE}/meta-fire-rate.png`,
+    description: "+0.2 tir/s / niv.",
     maxLevel: 5,
     costAt: (level) => 30 + level * 35,
   },
   {
     id: "meta:speed",
-    name: "Moteur amélioré",
-    description: "+10 vitesse par niveau.",
+    name: "Moteur",
+    icon: `${META_ICON_BASE}/meta-speed.png`,
+    description: "+10 vitesse / niv.",
     maxLevel: 5,
     costAt: (level) => 25 + level * 25,
   },
   {
     id: "meta:crystal-yield",
-    name: "Contrat de récolte",
-    description: "+5% cristaux gagnés par niveau.",
+    name: "Récolte",
+    icon: `${META_ICON_BASE}/meta-crystal-yield.png`,
+    description: "+5% cristaux / niv.",
     maxLevel: 5,
     costAt: (level) => 40 + level * 40,
   },

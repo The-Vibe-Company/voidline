@@ -1196,6 +1196,15 @@ h2 {
     0 0 4px color-mix(in srgb, var(--tier-color) 80%, transparent);
 }
 
+.upgrade-stamp-img {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 6px var(--tier-glow));
+  pointer-events: none;
+  user-select: none;
+}
+
 .upgrade-copy {
   display: block;
   min-width: 0;
@@ -2502,10 +2511,18 @@ h2 {
 
 .meta-card-head {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 8px;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 12px;
   font-family: "Oxanium", sans-serif;
+}
+
+.meta-card-head .meta-card-title {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
 }
 
 .meta-card-head strong {
@@ -2513,10 +2530,20 @@ h2 {
   letter-spacing: 0.02em;
 }
 
-.meta-card-head span {
+.meta-card-head .meta-card-level {
   font-family: "Share Tech Mono", ui-monospace, monospace;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--muted);
+}
+
+.meta-stamp-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 5px rgba(57, 217, 255, 0.45));
+  flex-shrink: 0;
+  pointer-events: none;
+  user-select: none;
 }
 
 .meta-card p {
