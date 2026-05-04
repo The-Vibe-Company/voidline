@@ -1,0 +1,84 @@
+sim/voidline-bot/src/champion.rs
+  0c9fd05ca33a4437 1-112
+sim/voidline-bench/tests/determinism.rs
+  0c9fd05ca33a4437 1-34
+.gitignore
+  0c9fd05ca33a4437 9-10
+sim/voidline-bench/src/main.rs
+  0c9fd05ca33a4437 1-8,10-11,14-31,33-69,71,73-169,206-352
+  cac8be8600426f71 9,12-13,32,70,72,170-205
+sim/voidline-bot/Cargo.toml
+  0c9fd05ca33a4437 1-11
+sim/voidline-bot/src/snapshot.rs
+  0c9fd05ca33a4437 1-90
+sim/headless-host/package.json
+  0c9fd05ca33a4437 1-11
+sim/headless-host/framing.mjs
+  0c9fd05ca33a4437 1-44
+sim/voidline-bot/tests/fixtures/snapshot-v1.json
+  0c9fd05ca33a4437 1-39
+sim/headless-host/tsconfig.json
+  0c9fd05ca33a4437 1-3
+sim/voidline-bench/src/report.rs
+  0c9fd05ca33a4437 1-132
+sim/voidline-bench/Cargo.toml
+  0c9fd05ca33a4437 1-16
+sim/voidline-bot/src/rollout.rs
+  0c9fd05ca33a4437 1-54
+sim/voidline-bot/src/lib.rs
+  0c9fd05ca33a4437 1-11
+sim/voidline-bot/src/meta_strategy.rs
+  0c9fd05ca33a4437 1-60
+sim/headless-host/host.mjs
+  0c9fd05ca33a4437 1-208
+sim/voidline-bench/src/host.rs
+  cac8be8600426f71 20,116-138
+  0c9fd05ca33a4437 1-19,21-115,139-176
+sim/voidline-bot/src/threat.rs
+  0c9fd05ca33a4437 1-99
+sim/Cargo.toml
+  0c9fd05ca33a4437 1-14
+CLAUDE.md
+  0c9fd05ca33a4437 18-20
+sim/headless-host/rng-seed.mjs
+  0c9fd05ca33a4437 1-12
+sim/voidline-bot/src/shop_strategy.rs
+  0c9fd05ca33a4437 1-56
+sim/voidline-bot/tests/schema.rs
+  0c9fd05ca33a4437 1-11
+package.json
+  0c9fd05ca33a4437 11,13-16
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "0a4d880d16217cc5557573102acfb9dd92c3673f",
+  "prompts": {
+    "0c9fd05ca33a4437": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019df2dd-e895-7e22-9653-4922840973bb",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1510,
+      "total_deletions": 13,
+      "accepted_lines": 1489,
+      "overriden_lines": 0
+    },
+    "cac8be8600426f71": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019df2f0-0cac-7bc3-8e3a-b98d3004707b",
+        "model": "gpt-5.5"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 66,
+      "total_deletions": 11,
+      "accepted_lines": 66,
+      "overriden_lines": 0
+    }
+  }
+}
