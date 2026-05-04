@@ -146,6 +146,57 @@ describe("wave loop spawn telegraphs", () => {
     expect(state.carriedXp).toBe(25);
   });
 
+  it("waits for boss death before transitioning to shop on a boss wave", () => {
+    state.wave = 5;
+    state.spawnsRemaining = 0;
+    enemies.push({
+      id: counters.nextEnemyId++,
+      kind: "brute",
+      score: 0,
+      radius: 20,
+      hp: 1_000_000,
+      maxHp: 1_000_000,
+      speed: 0,
+      damage: 0,
+      color: "#fff",
+      accent: "#fff",
+      sides: 6,
+      x: player.x + 200,
+      y: player.y + 200,
+      age: 0,
+      hit: 0,
+      isBoss: true,
+      contactCooldown: 0,
+    });
+    state.enemiesAlive += 1;
+    state.waveTimer = 0;
+
+    stepWave(0.01);
+
+    expect(state.mode).toBe("playing");
+  });
+
+  it("transitions to shop on a boss wave once the boss is dead", () => {
+    state.wave = 5;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 0;
+
+    stepWave(0.01);
+
+    expect(state.mode).toBe("shop");
+  });
+
+  it("waits for an active boss telegraph to resolve before ending a boss wave", () => {
+    state.wave = 5;
+    state.spawnsRemaining = 0;
+    spawnBoss();
+    state.waveTimer = 0;
+
+    stepWave(0.01);
+
+    expect(state.mode).toBe("playing");
+  });
+
   it("clears materialized enemies when wave timer expires", () => {
     spawnEnemy("scout");
     spawnIndicators[0]!.life = 0.01;

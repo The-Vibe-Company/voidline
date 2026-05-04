@@ -65,7 +65,14 @@ export function stepWave(dt: number): void {
   }
 
   if (state.waveTimer <= 0) {
-    transitionToShop();
+    if (isBossWave(state.wave)) {
+      const bossPending =
+        enemies.some((e) => e.isBoss) ||
+        spawnIndicators.some((s) => s.isBoss);
+      if (!bossPending) transitionToShop();
+    } else {
+      transitionToShop();
+    }
   }
 }
 
@@ -116,7 +123,9 @@ function updatePlayer(dt: number): void {
 function updateSpawns(dt: number): void {
   if (state.spawnsRemaining <= 0) return;
   if (state.waveTimer <= 0) {
-    state.spawnsRemaining = 0;
+    if (!isBossWave(state.wave)) {
+      state.spawnsRemaining = 0;
+    }
     return;
   }
   state.spawnTimer -= dt;
