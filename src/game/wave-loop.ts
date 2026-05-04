@@ -15,13 +15,6 @@ import {
   world,
 } from "../state";
 import {
-  BOSS_PROJECTILE_DAMAGE_RATIO,
-  BOSS_PROJECTILE_LIFE,
-  BOSS_PROJECTILE_SPEED,
-  BOSS_VOLLEY_COUNT,
-  BOSS_VOLLEY_INTERVAL,
-  BOSS_VOLLEY_SPREAD,
-  BOSS_VOLLEY_TELEGRAPH,
   SPAWN_ARENA_MARGIN,
   SPAWN_MIN_DISTANCE_FROM_PLAYER,
   SPAWN_TELEGRAPH_BOSS_DURATION,
@@ -31,6 +24,11 @@ import {
   STINGER_DASH_DURATION,
   STINGER_DASH_SPEED_MULT,
   STINGER_RECOVER_PAUSE,
+  bossAttacks,
+  bossShotInterval,
+  bossShotProjectiles,
+  bossSpawnCount,
+  bossSpawnInterval,
   enemyDamageScale,
   enemyHpScale,
   enemySpeedScale,
@@ -41,12 +39,17 @@ import {
 } from "./balance";
 import { transitionToShop } from "./wave-flow";
 import { circleHit, screenToWorld } from "../utils";
+import {
+  type EffectiveWeaponStats,
+  effectiveWeaponStats,
+} from "./weapon-catalog";
 import type {
   AttackTelegraphShape,
   EnemyEntity,
   EnemyKind,
   EnemyType,
   SpawnIndicator,
+  Weapon,
 } from "../types";
 
 const EDGE_PADDING = 18;
@@ -62,10 +65,10 @@ export function stepWave(dt: number): void {
   updateSpawns(cappedDt);
   updateSpawnIndicators(cappedDt);
   updateEnemies(cappedDt);
-  updateEnemyBullets(cappedDt);
-  updateAttackTelegraphs(cappedDt);
   updatePlayerFire(cappedDt);
   updateBullets(cappedDt);
+  updateEnemyBullets(cappedDt);
+  updateAttackTelegraphs(cappedDt);
   updateExperience(cappedDt);
   updateParticles(cappedDt);
   updateFloaters(cappedDt);
@@ -75,12 +78,7 @@ export function stepWave(dt: number): void {
     return;
   }
 
-  if (
-    state.waveTimer <= 0 &&
-    state.spawnsRemaining <= 0 &&
-    enemies.length === 0 &&
-    spawnIndicators.length === 0
-  ) {
+  if (state.waveTimer <= 0) {
     transitionToShop();
   }
 }
@@ -279,14 +277,17 @@ function materializeBoss(indicator: SpawnIndicator): void {
     hit: 0,
     isBoss: true,
     contactCooldown: 0,
-    behavior: "ranged",
-    attackTimer: BOSS_VOLLEY_INTERVAL * 0.6,
+    behavior: "seeker",
+    attackTimer: 0,
     attackState: "idle",
     attackProgress: 0,
     attackTargetX: 0,
     attackTargetY: 0,
     attackVx: 0,
     attackVy: 0,
+    bossElapsed: 0,
+    bossShotTimer: bossAttacks.shotWarmup,
+    bossSpawnTimer: bossAttacks.spawnWarmup,
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
@@ -332,13 +333,14 @@ function updateEnemies(dt: number): void {
     enemy.hit = Math.max(0, enemy.hit - dt);
     enemy.contactCooldown = Math.max(0, enemy.contactCooldown - dt);
     if (enemy.isBoss) {
-      updateBossBehavior(enemy, dt);
+      moveTowardPlayer(enemy, dt);
+      updateBossAI(enemy, dt);
     } else if (enemy.behavior === "ranged") {
       updateRangedEnemy(enemy, dt);
     } else if (enemy.behavior === "dasher") {
       updateDasherEnemy(enemy, dt);
     } else {
-      updateSeekerEnemy(enemy, dt);
+      moveTowardPlayer(enemy, dt);
     }
     tryContactDamage(enemy);
   }
@@ -368,10 +370,6 @@ function moveTowardPlayer(enemy: EnemyEntity, dt: number, speedScale = 1): void 
     enemy.x += (dx / dist) * enemy.speed * speedScale * dt;
     enemy.y += (dy / dist) * enemy.speed * speedScale * dt;
   }
-}
-
-function updateSeekerEnemy(enemy: EnemyEntity, dt: number): void {
-  moveTowardPlayer(enemy, dt);
 }
 
 function updateRangedEnemy(enemy: EnemyEntity, dt: number): void {
@@ -489,9 +487,8 @@ function updateDasherEnemy(enemy: EnemyEntity, dt: number): void {
   if (enemy.attackTimer <= 0 && dist <= range) {
     enemy.attackState = "windup";
     enemy.attackProgress = 0;
-    const aimLen = dist;
-    const aimDx = dx / aimLen;
-    const aimDy = dy / aimLen;
+    const aimDx = dx / dist;
+    const aimDy = dy / dist;
     enemy.attackTargetX = enemy.x + aimDx * range * 1.4;
     enemy.attackTargetY = enemy.y + aimDy * range * 1.4;
     spawnAttackTelegraph({
@@ -510,56 +507,71 @@ function updateDasherEnemy(enemy: EnemyEntity, dt: number): void {
   moveTowardPlayer(enemy, dt, dist > range ? 1 : 0.45);
 }
 
-function updateBossBehavior(enemy: EnemyEntity, dt: number): void {
-  if (enemy.attackState === "windup") {
-    enemy.attackProgress += dt;
-    moveTowardPlayer(enemy, dt, 0.25);
-    if (enemy.attackProgress >= BOSS_VOLLEY_TELEGRAPH) {
-      const baseAngle = Math.atan2(
-        enemy.attackTargetY - enemy.y,
-        enemy.attackTargetX - enemy.x,
-      );
-      const damage =
-        enemy.damage * BOSS_PROJECTILE_DAMAGE_RATIO;
-      const denom = Math.max(1, BOSS_VOLLEY_COUNT - 1);
-      for (let i = 0; i < BOSS_VOLLEY_COUNT; i += 1) {
-        const t = i / denom - 0.5;
-        const angle = baseAngle + t * BOSS_VOLLEY_SPREAD;
-        spawnEnemyProjectile(
-          enemy.x,
-          enemy.y,
-          Math.cos(angle) * BOSS_PROJECTILE_SPEED,
-          Math.sin(angle) * BOSS_PROJECTILE_SPEED,
-          damage,
-          BOSS_PROJECTILE_LIFE,
-          "#ff5af0",
-        );
-      }
-      enemy.attackState = "idle";
-      enemy.attackProgress = 0;
-      enemy.attackTimer = BOSS_VOLLEY_INTERVAL;
-    }
-    return;
+function updateBossAI(boss: EnemyEntity, dt: number): void {
+  const elapsed = (boss.bossElapsed ?? 0) + dt;
+  boss.bossElapsed = elapsed;
+  boss.bossShotTimer = (boss.bossShotTimer ?? bossAttacks.shotWarmup) - dt;
+  if (boss.bossShotTimer <= 0) {
+    fireBossSalvo(boss);
+    boss.bossShotTimer = bossShotInterval(elapsed);
   }
+  boss.bossSpawnTimer = (boss.bossSpawnTimer ?? bossAttacks.spawnWarmup) - dt;
+  if (boss.bossSpawnTimer <= 0) {
+    spawnBossMinions(boss);
+    boss.bossSpawnTimer = bossSpawnInterval(elapsed);
+  }
+}
 
-  enemy.attackTimer = Math.max(0, enemy.attackTimer - dt);
-  moveTowardPlayer(enemy, dt, 0.85);
-  if (enemy.attackTimer <= 0) {
-    enemy.attackState = "windup";
-    enemy.attackProgress = 0;
-    enemy.attackTargetX = player.x;
-    enemy.attackTargetY = player.y;
-    spawnAttackTelegraph({
-      shape: "circle",
-      x: enemy.x,
-      y: enemy.y,
-      radius: enemy.radius * 1.4,
-      angle: 0,
-      length: 0,
-      life: BOSS_VOLLEY_TELEGRAPH,
+function fireBossSalvo(boss: EnemyEntity): void {
+  const elapsed = boss.bossElapsed ?? 0;
+  const count = bossShotProjectiles(elapsed);
+  const baseAngle = Math.atan2(player.y - boss.y, player.x - boss.x);
+  const totalSpread = (count - 1) * bossAttacks.shotSpread;
+  for (let i = 0; i < count; i += 1) {
+    const t = count === 1 ? 0 : i / (count - 1) - 0.5;
+    const angle = baseAngle + t * totalSpread;
+    enemyBullets.push({
+      id: counters.nextEnemyBulletId++,
+      x: boss.x + Math.cos(angle) * (boss.radius + 4),
+      y: boss.y + Math.sin(angle) * (boss.radius + 4),
+      vx: Math.cos(angle) * bossAttacks.shotSpeed,
+      vy: Math.sin(angle) * bossAttacks.shotSpeed,
+      radius: bossAttacks.shotRadius,
+      damage: bossAttacks.shotDamage,
+      life: bossAttacks.shotLife,
       color: "#ff5af0",
     });
   }
+}
+
+function spawnBossMinions(boss: EnemyEntity): void {
+  const elapsed = boss.bossElapsed ?? 0;
+  const count = bossSpawnCount(elapsed);
+  const kinds = bossAttacks.spawnKinds;
+  for (let i = 0; i < count; i += 1) {
+    const kind = kinds[Math.floor(Math.random() * kinds.length)] ?? "scout";
+    const angle = Math.random() * Math.PI * 2;
+    const radius = bossAttacks.spawnRadius;
+    const x = clampInArena(boss.x + Math.cos(angle) * radius, true);
+    const y = clampInArena(boss.y + Math.sin(angle) * radius, false);
+    const type = findEnemyType(kind);
+    spawnIndicators.push({
+      id: counters.nextSpawnIndicatorId++,
+      kind,
+      isBoss: false,
+      radius: type.radius,
+      color: type.color,
+      x,
+      y,
+      life: SPAWN_TELEGRAPH_DURATION,
+      maxLife: SPAWN_TELEGRAPH_DURATION,
+    });
+  }
+}
+
+function clampInArena(v: number, isX: boolean): number {
+  const max = isX ? world.arenaWidth : world.arenaHeight;
+  return Math.max(SPAWN_ARENA_MARGIN, Math.min(max - SPAWN_ARENA_MARGIN, v));
 }
 
 function spawnEnemyProjectile(
@@ -612,27 +624,27 @@ function spawnAttackTelegraph(spec: AttackTelegraphSpec): void {
 
 function updateEnemyBullets(dt: number): void {
   for (let i = enemyBullets.length - 1; i >= 0; i -= 1) {
-    const bullet = enemyBullets[i]!;
-    bullet.x += bullet.vx * dt;
-    bullet.y += bullet.vy * dt;
-    bullet.life -= dt;
+    const b = enemyBullets[i]!;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
     if (
-      bullet.life <= 0 ||
-      bullet.x < -20 ||
-      bullet.y < -20 ||
-      bullet.x > world.arenaWidth + 20 ||
-      bullet.y > world.arenaHeight + 20
+      b.life <= 0 ||
+      b.x < -EDGE_PADDING ||
+      b.x > world.arenaWidth + EDGE_PADDING ||
+      b.y < -EDGE_PADDING ||
+      b.y > world.arenaHeight + EDGE_PADDING
     ) {
       enemyBullets.splice(i, 1);
       continue;
     }
-    if (player.invuln > 0) continue;
-    if (!circleHit(bullet, player)) continue;
-    player.hp -= bullet.damage;
-    player.invuln = 0.55;
-    spawnFloater(player.x, player.y - 18, `-${Math.round(bullet.damage)}`, bullet.color);
-    world.shake = Math.min(0.5, world.shake + 0.18);
-    enemyBullets.splice(i, 1);
+    if (player.invuln <= 0 && circleHit(b, player)) {
+      player.hp -= b.damage;
+      player.invuln = 0.55;
+      spawnFloater(player.x, player.y - 18, `-${Math.round(b.damage)}`, b.color);
+      world.shake = Math.min(0.5, world.shake + 0.18);
+      enemyBullets.splice(i, 1);
+    }
   }
 }
 
@@ -670,61 +682,67 @@ function separateEnemies(): void {
 }
 
 function updatePlayerFire(dt: number): void {
-  player.fireTimer -= dt;
-  if (player.fireTimer > 0) return;
-  if (enemies.length === 0) {
-    player.fireTimer = 0.05;
-    return;
-  }
-  const rangeSq = player.range * player.range;
-  let nearest: EnemyEntity | null = null;
-  let nearestDist = Number.POSITIVE_INFINITY;
-  for (const enemy of enemies) {
-    if (
-      enemy.x < 0 ||
-      enemy.y < 0 ||
-      enemy.x > world.arenaWidth ||
-      enemy.y > world.arenaHeight
-    ) {
+  for (const weapon of player.weapons) {
+    const eff = effectiveWeaponStats(weapon, player);
+    weapon.fireTimer -= dt;
+    if (weapon.fireTimer > 0) continue;
+    if (enemies.length === 0) {
+      weapon.fireTimer = 0.05;
       continue;
     }
-    const dx = enemy.x - player.x;
-    const dy = enemy.y - player.y;
-    const dSq = dx * dx + dy * dy;
-    if (dSq > rangeSq) continue;
-    if (dSq < nearestDist) {
-      nearestDist = dSq;
-      nearest = enemy;
+    const rangeSq = eff.range * eff.range;
+    let nearest: EnemyEntity | null = null;
+    let nearestDist = Number.POSITIVE_INFINITY;
+    for (const enemy of enemies) {
+      if (
+        enemy.x < 0 ||
+        enemy.y < 0 ||
+        enemy.x > world.arenaWidth ||
+        enemy.y > world.arenaHeight
+      ) {
+        continue;
+      }
+      const dx = enemy.x - player.x;
+      const dy = enemy.y - player.y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq > rangeSq) continue;
+      if (dSq < nearestDist) {
+        nearestDist = dSq;
+        nearest = enemy;
+      }
     }
+    if (!nearest) {
+      weapon.fireTimer = 0.05;
+      continue;
+    }
+    weapon.aimAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+    player.aimAngle = weapon.aimAngle;
+    fireSalvo(weapon, eff);
+    weapon.fireTimer = 1 / Math.max(0.5, eff.fireRate);
   }
-  if (!nearest) {
-    player.fireTimer = 0.05;
-    return;
-  }
-  player.aimAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-  fireSalvo();
-  player.fireTimer = 1 / Math.max(0.5, player.fireRate);
 }
 
-function fireSalvo(): void {
-  const baseAngle = player.aimAngle;
-  const count = Math.max(1, Math.floor(player.projectileCount));
-  const spread = count > 1 ? Math.min(0.7, 0.07 * (count - 1)) : 0;
+function fireSalvo(weapon: Weapon, eff: EffectiveWeaponStats): void {
+  const baseAngle = weapon.aimAngle;
+  const count = Math.max(1, Math.floor(eff.projectileCount));
+  const archetypeSpread = eff.spread;
+  const stackSpread = count > 1 ? Math.min(0.7, 0.07 * (count - 1)) : 0;
+  const totalSpread = Math.max(archetypeSpread, stackSpread);
   for (let i = 0; i < count; i += 1) {
     const t = count === 1 ? 0 : i / (count - 1) - 0.5;
-    const angle = baseAngle + t * spread;
-    const isCrit = Math.random() < player.critChance;
-    const damage = (isCrit ? player.damage * 2 : player.damage);
+    const angle = baseAngle + t * totalSpread;
+    const isCrit = Math.random() < eff.critChance;
+    const damage = isCrit ? eff.damage * 2 : eff.damage;
     bullets.push({
       id: counters.nextBulletId++,
       x: player.x + Math.cos(angle) * (player.radius + 6),
       y: player.y + Math.sin(angle) * (player.radius + 6),
-      vx: Math.cos(angle) * player.bulletSpeed,
-      vy: Math.sin(angle) * player.bulletSpeed,
-      radius: 3 * player.bulletRadius,
+      vx: Math.cos(angle) * eff.bulletSpeed,
+      vy: Math.sin(angle) * eff.bulletSpeed,
+      radius: 3 * eff.bulletRadius,
       damage,
-      pierce: player.pierce,
-      life: player.bulletLife,
+      pierce: eff.pierce,
+      life: eff.bulletLife,
       hitIds: new Set<number>(),
     });
   }
@@ -953,4 +971,7 @@ export function clearRunEntities(): void {
   particles.length = 0;
   floaters.length = 0;
   state.enemiesAlive = 0;
+  for (const weapon of player.weapons) {
+    weapon.fireTimer = 0;
+  }
 }

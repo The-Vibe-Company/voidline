@@ -12,6 +12,7 @@ import type {
   SpawnIndicator,
   World,
 } from "./types";
+import { makeStarterWeapon } from "./game/weapon-catalog";
 
 export const canvas = (typeof document !== "undefined"
   ? document.querySelector<HTMLCanvasElement>("#gameCanvas")
@@ -86,18 +87,18 @@ export function createPlayerBaseState(): Player {
     hp: 100,
     maxHp: 100,
     speed: 145,
-    damage: 24,
-    fireRate: 1.6,
-    bulletSpeed: 380,
-    bulletLife: 0.65,
-    range: 240,
-    projectileCount: 1,
+    damage: 0,
+    fireRate: 0,
+    bulletSpeed: 1,
+    bulletLife: 1,
+    range: 0,
+    projectileCount: 0,
     pierce: 0,
     bulletRadius: 1,
     critChance: 0,
     invuln: 0,
-    fireTimer: 0,
     aimAngle: -Math.PI / 2,
+    weapons: [makeStarterWeapon()],
   };
 }
 

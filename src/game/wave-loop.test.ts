@@ -5,22 +5,23 @@ import {
   counters,
   enemies,
   enemyBullets,
+  experienceOrbs,
   player,
   resetPlayerToBase,
   spawnIndicators,
   state,
   world,
 } from "../state";
+import { acquireWeapon } from "./weapon-catalog";
+import type { EnemyEntity } from "../types";
 import {
-  BOSS_VOLLEY_COUNT,
-  BOSS_VOLLEY_INTERVAL,
-  BOSS_VOLLEY_TELEGRAPH,
   SPAWN_TELEGRAPH_BOSS_DURATION,
   SPAWN_ARENA_MARGIN,
   SPAWN_MIN_DISTANCE_FROM_PLAYER,
   SPAWN_TELEGRAPH_DURATION,
   SPLITTER_CHILD_COUNT,
   STINGER_DASH_SPEED_MULT,
+  bossAttacks,
   boss as bossBalance,
   enemyHpScale,
   findEnemyType,
@@ -128,27 +129,116 @@ describe("wave loop spawn telegraphs", () => {
     }
   });
 
-  it("does not transition to shop while a spawn indicator is pending", () => {
+  it("transitions to shop immediately when wave timer expires, even with pending spawn indicators", () => {
     spawnEnemy("scout");
     state.waveTimer = 0;
 
     stepWave(0.01);
 
-    expect(state.mode).toBe("playing");
-    expect(spawnIndicators).toHaveLength(1);
+    expect(state.mode).toBe("shop");
+    expect(spawnIndicators).toHaveLength(0);
   });
 
-  it("keeps materialized telegraph enemies alive after the wave timer expires", () => {
+  it("carries 25% of uncollected XP value when wave timer expires", () => {
+    experienceOrbs.push({
+      id: 1,
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius: 4,
+      value: 100,
+      age: 0,
+    });
+    state.pendingCarry = 0;
+    state.waveTimer = 0;
+
+    stepWave(0.01);
+
+    expect(state.mode).toBe("shop");
+    expect(experienceOrbs).toHaveLength(0);
+    expect(state.carriedXp).toBe(25);
+  });
+
+  it("clears materialized enemies when wave timer expires", () => {
     spawnEnemy("scout");
     spawnIndicators[0]!.life = 0.01;
     state.waveTimer = 0;
 
     stepWave(0.05);
 
-    expect(state.mode).toBe("playing");
+    expect(state.mode).toBe("shop");
     expect(spawnIndicators).toHaveLength(0);
-    expect(enemies).toHaveLength(1);
-    expect(state.enemiesAlive).toBe(1);
+    expect(enemies).toHaveLength(0);
+    expect(state.enemiesAlive).toBe(0);
+  });
+});
+
+describe("multi-weapon firing", () => {
+  function injectDummyEnemy(): EnemyEntity {
+    const e: EnemyEntity = {
+      id: counters.nextEnemyId++,
+      kind: "scout",
+      score: 30,
+      radius: 9,
+      hp: 1_000_000,
+      maxHp: 1_000_000,
+      speed: 0,
+      damage: 0,
+      color: "#fff",
+      accent: "#fff",
+      sides: 3,
+      x: player.x + 60,
+      y: player.y,
+      age: 0,
+      hit: 0,
+      isBoss: false,
+      contactCooldown: 0,
+      behavior: "seeker",
+      attackTimer: 0,
+      attackState: "idle",
+      attackProgress: 0,
+      attackTargetX: 0,
+      attackTargetY: 0,
+      attackVx: 0,
+      attackVy: 0,
+    };
+    enemies.push(e);
+    state.enemiesAlive += 1;
+    return e;
+  }
+
+  it("two weapons fire independently on their own timers", () => {
+    bullets.length = 0;
+    counters.nextBulletId = 1;
+    acquireWeapon(player, "minigun", 1); // fireRate ~7.5
+    expect(player.weapons.length).toBe(2);
+    injectDummyEnemy();
+
+    const initialId = counters.nextBulletId;
+    const elapsed = 2.0;
+    const dt = 1 / 60;
+    for (let t = 0; t < elapsed; t += dt) {
+      stepWave(dt);
+    }
+    const totalFired = counters.nextBulletId - initialId;
+    // Pulse T1 fireRate 1.6 → ~3 shots in 2s; minigun T1 fireRate 7.5 → ~15 shots.
+    expect(totalFired).toBeGreaterThanOrEqual(14);
+  });
+
+  it("solo pulse weapon fires far fewer bullets in 2s than pulse + minigun combo", () => {
+    bullets.length = 0;
+    counters.nextBulletId = 1;
+    injectDummyEnemy();
+    const startId = counters.nextBulletId;
+    const elapsed = 2.0;
+    const dt = 1 / 60;
+    for (let t = 0; t < elapsed; t += dt) {
+      stepWave(dt);
+    }
+    const soloFired = counters.nextBulletId - startId;
+    // Pulse alone at 1.6 shots/s: ~3 shots, very different from ~18 with minigun.
+    expect(soloFired).toBeLessThanOrEqual(8);
   });
 });
 
@@ -325,25 +415,21 @@ describe("enemy bullets and damage", () => {
   });
 });
 
-describe("boss volley", () => {
-  it("fires BOSS_VOLLEY_COUNT projectiles after the telegraph", () => {
+describe("boss aggression salvos", () => {
+  it("fires its first salvo after the warmup", () => {
     spawnBoss();
     updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
     const boss = enemies[0]!;
     expect(boss.isBoss).toBe(true);
-    boss.x = player.x + 250;
-    boss.y = player.y;
-    boss.attackTimer = 0;
+    boss.x = world.arenaWidth - 100;
+    boss.y = world.arenaHeight - 100;
+    player.x = 100;
+    player.y = 100;
 
-    stepWave(0.02);
-    expect(boss.attackState).toBe("windup");
-
-    const dt = 0.02;
-    const steps = Math.ceil((BOSS_VOLLEY_TELEGRAPH + 0.05) / dt);
+    const dt = 0.05;
+    const steps = Math.ceil((bossAttacks.shotWarmup + 0.1) / dt);
     for (let i = 0; i < steps; i += 1) stepWave(dt);
 
-    expect(enemyBullets.length).toBe(BOSS_VOLLEY_COUNT);
-    expect(boss.attackState).toBe("idle");
-    expect(boss.attackTimer).toBeGreaterThan(BOSS_VOLLEY_INTERVAL - 0.5);
+    expect(enemyBullets.length).toBeGreaterThanOrEqual(1);
   });
 });

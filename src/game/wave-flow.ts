@@ -1,8 +1,13 @@
 import {
   attackTelegraphs,
+  bullets,
+  enemies,
   enemyBullets,
   experienceOrbs,
+  floaters,
+  particles,
   player,
+  spawnIndicators,
   state,
   world,
 } from "../state";
@@ -17,8 +22,10 @@ import { applyMetaUpgradesToPlayer } from "./meta-upgrade-catalog";
 import { accountProgress } from "../systems/account";
 import { resetPlayerToBase } from "../state";
 import { rerollShop } from "./shop";
+import { makeStarterWeapon } from "./weapon-catalog";
+import type { WeaponArchetypeId } from "../types";
 
-export function startRun(): void {
+export function startRun(starterWeaponId: WeaponArchetypeId = "pulse"): void {
   state.mode = "playing";
   state.wave = 1;
   state.score = 0;
@@ -28,6 +35,7 @@ export function startRun(): void {
   state.runElapsedSeconds = 0;
   state.highestWaveReached = 1;
   resetPlayerToBase();
+  player.weapons = [makeStarterWeapon(starterWeaponId)];
   applyMetaUpgradesToPlayer(accountProgress, player);
   clearRunEntities();
   player.x = world.arenaWidth / 2;
@@ -58,8 +66,14 @@ export function transitionToShop(): void {
   state.carriedXp = Math.floor(leftover * xpBalance.carryRatio + state.pendingCarry);
   state.pendingCarry = 0;
   experienceOrbs.length = 0;
+  enemies.length = 0;
   enemyBullets.length = 0;
   attackTelegraphs.length = 0;
+  spawnIndicators.length = 0;
+  bullets.length = 0;
+  particles.length = 0;
+  floaters.length = 0;
+  state.enemiesAlive = 0;
   rerollShop(true);
   state.mode = "shop";
 }

@@ -209,6 +209,7 @@ export class BattleScene extends Phaser.Scene {
       sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));
       sprite.setScale(Math.max(0.45, bullet.radius / 5));
       sprite.setAlpha(0.95);
+      sprite.setTint(0xffffff);
     }
     this.bulletPool.sweep(frame);
   }
