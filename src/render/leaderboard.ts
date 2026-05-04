@@ -109,12 +109,14 @@ export function submitEntry(entry: LeaderboardEntry): LeaderboardSubmitResult {
   data.allTime.sort(compareEntries);
   data.allTime = data.allTime.slice(0, MAX_ENTRIES);
   save(data);
-  const dailyRank = data.daily[dailyKey]!.findIndex(
-    (e) => e.score === entry.score && e.elapsedSeconds === entry.elapsedSeconds && e.starterWeaponId === entry.starterWeaponId,
-  );
-  const allRank = data.allTime.findIndex(
-    (e) => e.score === entry.score && e.elapsedSeconds === entry.elapsedSeconds && e.starterWeaponId === entry.starterWeaponId,
-  );
+  const matches = (e: LeaderboardEntry): boolean =>
+    e.score === entry.score &&
+    e.elapsedSeconds === entry.elapsedSeconds &&
+    e.starterWeaponId === entry.starterWeaponId &&
+    e.bossDefeated === entry.bossDefeated &&
+    e.date === entry.date;
+  const dailyRank = data.daily[dailyKey]!.findIndex(matches);
+  const allRank = data.allTime.findIndex(matches);
   return {
     dailyRank: dailyRank >= 0 ? dailyRank + 1 : null,
     allTimeRank: allRank >= 0 ? allRank + 1 : null,

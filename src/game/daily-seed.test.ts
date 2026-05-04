@@ -2,9 +2,15 @@ import { describe, expect, it } from "vitest";
 import { createRng, getDailySeedString, hashSeedString } from "./daily-seed";
 
 describe("daily seed", () => {
-  it("getDailySeedString format YYYY-MM-DD", () => {
-    const date = new Date(2026, 4, 4);
+  it("getDailySeedString format YYYY-MM-DD using UTC", () => {
+    const date = new Date(Date.UTC(2026, 4, 4, 12));
     expect(getDailySeedString(date)).toBe("2026-05-04");
+  });
+
+  it("returns the same seed for the same UTC instant regardless of timezone", () => {
+    const a = new Date("2026-05-04T23:50:00Z");
+    const b = new Date("2026-05-04T00:10:00Z");
+    expect(getDailySeedString(a)).toBe(getDailySeedString(b));
   });
 
   it("hashSeedString is deterministic", () => {

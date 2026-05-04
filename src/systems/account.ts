@@ -3,6 +3,7 @@ import type {
   AccountReward,
   AccountRunSummary,
 } from "../types";
+import { MINI_WAVE_COUNT } from "../game/balance";
 
 const STORAGE_KEY = "voidline:metaProgress:v3";
 const LEGACY_STORAGE_KEY = "voidline:metaProgress:v2";
@@ -44,7 +45,10 @@ function sanitize(raw: unknown): AccountProgress {
   if (!raw || typeof raw !== "object") return clean;
   const source = raw as Partial<AccountProgress>;
   clean.records = {
-    bestMiniWave: saneInt(source.records?.bestMiniWave, 0, 0),
+    bestMiniWave: Math.min(
+      MINI_WAVE_COUNT,
+      saneInt(source.records?.bestMiniWave, 0, 0),
+    ),
     bestScore: saneInt(source.records?.bestScore, 0),
     bestTimeSeconds: saneInt(source.records?.bestTimeSeconds, 0),
     bossKills: saneInt(source.records?.bossKills, 0),
@@ -66,7 +70,7 @@ function migrateLegacy(storage: AccountStorage): AccountProgress | null {
     const clean = createDefaultAccountProgress();
     const records = (parsed.records ?? {}) as Record<string, unknown>;
     clean.records = {
-      bestMiniWave: saneInt(records.bestWave, 0, 0),
+      bestMiniWave: Math.min(MINI_WAVE_COUNT, saneInt(records.bestWave, 0, 0)),
       bestScore: saneInt(records.bestScore, 0),
       bestTimeSeconds: saneInt(records.bestTimeSeconds, 0),
       bossKills: 0,

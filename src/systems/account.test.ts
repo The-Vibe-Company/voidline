@@ -27,7 +27,7 @@ describe("account v3", () => {
     expect(accountProgress.records.bestScore).toBe(0);
   });
 
-  it("migrates legacy v2 storage records", () => {
+  it("migrates legacy v2 storage records (clamping wave to MINI_WAVE_COUNT)", () => {
     const storage = new MemoryStorage();
     storage.setItem(
       "voidline:metaProgress:v2",
@@ -35,12 +35,13 @@ describe("account v3", () => {
         crystals: 250,
         spentCrystals: 0,
         upgradeLevels: { "meta:max-hp": 2 },
-        records: { bestWave: 7, bestScore: 12000, bestTimeSeconds: 320 },
+        records: { bestWave: 17, bestScore: 12000, bestTimeSeconds: 320 },
       }),
     );
     resetAccountProgress(storage);
     initializeAccountProgress(storage);
-    expect(accountProgress.records.bestMiniWave).toBe(7);
+    // Old wave 17 cannot exist in the 6-wave format → clamped down.
+    expect(accountProgress.records.bestMiniWave).toBeLessThanOrEqual(6);
     expect(accountProgress.records.bestScore).toBe(12000);
     expect(storage.getItem("voidline:metaProgress:v2")).toBeNull();
     expect(storage.getItem("voidline:metaProgress:v3")).not.toBeNull();

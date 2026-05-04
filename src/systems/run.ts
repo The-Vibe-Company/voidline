@@ -35,8 +35,10 @@ export function update(realDt: number): void {
 function onGameOver(): void {
   if (runRewardClaimed) return;
   runRewardClaimed = true;
+  // miniWaveIndex is zero-based (0..5); the public count is 1..6.
+  const reachedWave = state.miniWaveIndex + 1;
   recordRun({
-    miniWaveReached: state.miniWaveIndex + (state.bossDefeated ? 1 : 0),
+    miniWaveReached: reachedWave,
     bossDefeated: state.bossDefeated,
     elapsedSeconds: state.runElapsedSeconds,
     score: state.score,
@@ -44,7 +46,7 @@ function onGameOver(): void {
   });
   submitEntry({
     score: state.score,
-    miniWave: state.miniWaveIndex + (state.bossDefeated ? 1 : 0),
+    miniWave: reachedWave,
     bossDefeated: state.bossDefeated,
     starterWeaponId: state.starterWeaponId,
     elapsedSeconds: Math.floor(state.runElapsedSeconds),

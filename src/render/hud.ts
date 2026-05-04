@@ -75,7 +75,7 @@ export function showHangar(): void {
   hud.hangarOverlay.classList.add("active");
   renderHangar();
   requestAnimationFrame(() =>
-    document.querySelector<HTMLButtonElement>("[data-starter-button]")?.focus(),
+    document.querySelector<HTMLButtonElement>("#startButton")?.focus(),
   );
 }
 

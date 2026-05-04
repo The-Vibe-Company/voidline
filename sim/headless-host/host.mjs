@@ -231,7 +231,9 @@ async function handle(message) {
       const idx = Number(payload.idx);
       const offers = waveFlow.getPendingOffers();
       if (!offers) return { schema_version: 1, ok: false };
-      if (idx < 0 || idx >= offers.length) return { schema_version: 1, ok: false };
+      if (!Number.isInteger(idx) || idx < 0 || idx >= offers.length) {
+        return { schema_version: 1, ok: false };
+      }
       waveFlow.applyCardAndAdvance(idx);
       return { schema_version: 1, ok: true };
     }

@@ -25,9 +25,11 @@ export function bindInput(): void {
     const movement = movementCodes.includes(event.code);
     const action = event.code === "Enter" || event.code === "Space";
     const pause = event.code === "Escape" || event.code === "KeyP";
-    const card1 = event.code === "Digit1" || event.code === "Numpad1";
-    const card2 = event.code === "Digit2" || event.code === "Numpad2";
-    const card3 = event.code === "Digit3" || event.code === "Numpad3";
+    const noModifier = !event.ctrlKey && !event.metaKey && !event.altKey;
+    const inCardPick = state.mode === "card-pick";
+    const card1 = inCardPick && noModifier && (event.code === "Digit1" || event.code === "Numpad1");
+    const card2 = inCardPick && noModifier && (event.code === "Digit2" || event.code === "Numpad2");
+    const card3 = inCardPick && noModifier && (event.code === "Digit3" || event.code === "Numpad3");
 
     if (movement || action || pause || card1 || card2 || card3) event.preventDefault();
 
