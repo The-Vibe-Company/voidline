@@ -33,7 +33,11 @@ import {
 } from "./balance";
 import { transitionToShop } from "./wave-flow";
 import { circleHit, screenToWorld } from "../utils";
-import type { EnemyEntity, EnemyKind, SpawnIndicator } from "../types";
+import {
+  type EffectiveWeaponStats,
+  effectiveWeaponStats,
+} from "./weapon-catalog";
+import type { EnemyEntity, EnemyKind, SpawnIndicator, Weapon } from "../types";
 
 const EDGE_PADDING = 18;
 
@@ -415,61 +419,67 @@ function separateEnemies(): void {
 }
 
 function updatePlayerFire(dt: number): void {
-  player.fireTimer -= dt;
-  if (player.fireTimer > 0) return;
-  if (enemies.length === 0) {
-    player.fireTimer = 0.05;
-    return;
-  }
-  const rangeSq = player.range * player.range;
-  let nearest: EnemyEntity | null = null;
-  let nearestDist = Number.POSITIVE_INFINITY;
-  for (const enemy of enemies) {
-    if (
-      enemy.x < 0 ||
-      enemy.y < 0 ||
-      enemy.x > world.arenaWidth ||
-      enemy.y > world.arenaHeight
-    ) {
+  for (const weapon of player.weapons) {
+    const eff = effectiveWeaponStats(weapon, player);
+    weapon.fireTimer -= dt;
+    if (weapon.fireTimer > 0) continue;
+    if (enemies.length === 0) {
+      weapon.fireTimer = 0.05;
       continue;
     }
-    const dx = enemy.x - player.x;
-    const dy = enemy.y - player.y;
-    const dSq = dx * dx + dy * dy;
-    if (dSq > rangeSq) continue;
-    if (dSq < nearestDist) {
-      nearestDist = dSq;
-      nearest = enemy;
+    const rangeSq = eff.range * eff.range;
+    let nearest: EnemyEntity | null = null;
+    let nearestDist = Number.POSITIVE_INFINITY;
+    for (const enemy of enemies) {
+      if (
+        enemy.x < 0 ||
+        enemy.y < 0 ||
+        enemy.x > world.arenaWidth ||
+        enemy.y > world.arenaHeight
+      ) {
+        continue;
+      }
+      const dx = enemy.x - player.x;
+      const dy = enemy.y - player.y;
+      const dSq = dx * dx + dy * dy;
+      if (dSq > rangeSq) continue;
+      if (dSq < nearestDist) {
+        nearestDist = dSq;
+        nearest = enemy;
+      }
     }
+    if (!nearest) {
+      weapon.fireTimer = 0.05;
+      continue;
+    }
+    weapon.aimAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+    player.aimAngle = weapon.aimAngle;
+    fireSalvo(weapon, eff);
+    weapon.fireTimer = 1 / Math.max(0.5, eff.fireRate);
   }
-  if (!nearest) {
-    player.fireTimer = 0.05;
-    return;
-  }
-  player.aimAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-  fireSalvo();
-  player.fireTimer = 1 / Math.max(0.5, player.fireRate);
 }
 
-function fireSalvo(): void {
-  const baseAngle = player.aimAngle;
-  const count = Math.max(1, Math.floor(player.projectileCount));
-  const spread = count > 1 ? Math.min(0.7, 0.07 * (count - 1)) : 0;
+function fireSalvo(weapon: Weapon, eff: EffectiveWeaponStats): void {
+  const baseAngle = weapon.aimAngle;
+  const count = Math.max(1, Math.floor(eff.projectileCount));
+  const archetypeSpread = eff.spread;
+  const stackSpread = count > 1 ? Math.min(0.7, 0.07 * (count - 1)) : 0;
+  const totalSpread = Math.max(archetypeSpread, stackSpread);
   for (let i = 0; i < count; i += 1) {
     const t = count === 1 ? 0 : i / (count - 1) - 0.5;
-    const angle = baseAngle + t * spread;
-    const isCrit = Math.random() < player.critChance;
-    const damage = (isCrit ? player.damage * 2 : player.damage);
+    const angle = baseAngle + t * totalSpread;
+    const isCrit = Math.random() < eff.critChance;
+    const damage = isCrit ? eff.damage * 2 : eff.damage;
     bullets.push({
       id: counters.nextBulletId++,
       x: player.x + Math.cos(angle) * (player.radius + 6),
       y: player.y + Math.sin(angle) * (player.radius + 6),
-      vx: Math.cos(angle) * player.bulletSpeed,
-      vy: Math.sin(angle) * player.bulletSpeed,
-      radius: 3 * player.bulletRadius,
+      vx: Math.cos(angle) * eff.bulletSpeed,
+      vy: Math.sin(angle) * eff.bulletSpeed,
+      radius: 3 * eff.bulletRadius,
       damage,
-      pierce: player.pierce,
-      life: player.bulletLife,
+      pierce: eff.pierce,
+      life: eff.bulletLife,
       hitIds: new Set<number>(),
     });
   }
@@ -653,4 +663,7 @@ export function clearRunEntities(): void {
   particles.length = 0;
   floaters.length = 0;
   state.enemiesAlive = 0;
+  for (const weapon of player.weapons) {
+    weapon.fireTimer = 0;
+  }
 }

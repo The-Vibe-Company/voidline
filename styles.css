@@ -3442,6 +3442,167 @@ h2 {
   outline-offset: 3px;
 }
 
+/* Weapon loadout strip */
+.weapon-loadout {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  width: 100%;
+  margin-top: 6px;
+}
+
+.shop-loadout {
+  margin-top: 12px;
+  margin-bottom: 4px;
+  max-width: 540px;
+}
+
+.weapon-slot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  min-height: 56px;
+  border: 1px solid color-mix(in srgb, var(--mint, #72ffb1) 30%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mint, #72ffb1) 6%, transparent);
+  font-size: 10px;
+  text-align: center;
+  color: #d8f6ff;
+}
+
+.weapon-slot--empty {
+  border-style: dashed;
+  border-color: color-mix(in srgb, #d9f6ff 16%, transparent);
+  background: transparent;
+  color: color-mix(in srgb, #d9f6ff 35%, transparent);
+}
+
+.weapon-slot-index {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+}
+
+.weapon-slot-img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.weapon-tier-badge {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  background: color-mix(in srgb, #1a3548 70%, transparent);
+  color: #d9f6ff;
+  border: 1px solid color-mix(in srgb, #d9f6ff 30%, transparent);
+}
+
+.weapon-tier-badge--1 { color: #d9f6ff; border-color: color-mix(in srgb, #d9f6ff 40%, transparent); }
+.weapon-tier-badge--2 { color: #72ffb1; border-color: color-mix(in srgb, #72ffb1 60%, transparent); }
+.weapon-tier-badge--3 { color: #ffbf47; border-color: color-mix(in srgb, #ffbf47 60%, transparent); }
+.weapon-tier-badge--4 { color: #ff7afa; border-color: color-mix(in srgb, #ff7afa 60%, transparent); }
+
+.weapon-card {
+  border-color: color-mix(in srgb, var(--mint, #72ffb1) 50%, transparent);
+}
+
+.weapon-card-tier {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 0.85em;
+  margin-left: 6px;
+  color: var(--mint, #72ffb1);
+}
+
+.weapon-card-cta {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  color: var(--mint, #72ffb1);
+  text-transform: uppercase;
+  margin-top: 4px;
+}
+
+.weapon-stamp {
+  position: relative;
+}
+
+.weapon-stamp[data-fallback]::after {
+  content: attr(data-fallback);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: "Oxanium", sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--mint, #72ffb1);
+}
+
+/* Weapon picker */
+.weapon-picker-modal {
+  max-width: 920px;
+}
+
+.weapon-picker-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.weapon-picker-card {
+  cursor: pointer;
+}
+
+.weapon-card-stats {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, #d9f6ff 70%, transparent);
+  margin-top: 4px;
+}
+
+.shop-loadout-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
+  border-top: 1px solid color-mix(in srgb, var(--mint, #72ffb1) 18%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--mint, #72ffb1) 18%, transparent);
+}
+
+.shop-loadout-label {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, #d9f6ff 70%, transparent);
+}
+
+.shop-loadout-bar .weapon-loadout {
+  margin-top: 0;
+  flex: 1;
+  max-width: none;
+}
+
+.shop-card-weapon {
+  border-color: color-mix(in srgb, var(--mint, #72ffb1) 50%, transparent) !important;
+}
+
+.shop-card-weapon .weapon-tier-badge {
+  position: static;
+  display: inline-block;
+}
+
 /* ============================================================
    Wave shop (refonte) — .shop-modal autonome, ne dérive plus de .upgrade-modal
    ============================================================ */

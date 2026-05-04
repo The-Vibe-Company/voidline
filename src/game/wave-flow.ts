@@ -21,8 +21,10 @@ import { applyMetaUpgradesToPlayer } from "./meta-upgrade-catalog";
 import { accountProgress } from "../systems/account";
 import { resetPlayerToBase } from "../state";
 import { rerollShop } from "./shop";
+import { makeStarterWeapon } from "./weapon-catalog";
+import type { WeaponArchetypeId } from "../types";
 
-export function startRun(): void {
+export function startRun(starterWeaponId: WeaponArchetypeId = "pulse"): void {
   state.mode = "playing";
   state.wave = 1;
   state.score = 0;
@@ -32,6 +34,7 @@ export function startRun(): void {
   state.runElapsedSeconds = 0;
   state.highestWaveReached = 1;
   resetPlayerToBase();
+  player.weapons = [makeStarterWeapon(starterWeaponId)];
   applyMetaUpgradesToPlayer(accountProgress, player);
   clearRunEntities();
   player.x = world.arenaWidth / 2;

@@ -20,13 +20,14 @@ Stack jeu : TypeScript 5.6 strict + Vite + Phaser 4 (WebGL) + Vitest. Le gamepla
 Exception explicitement réautorisée par l'utilisateur : `/sim/` contient un champion Rust et un pipeline bench headless. Ce bench ne duplique pas le moteur : il pilote le moteur TS via `sim/headless-host` et un protocole stdio framé.
 
 Fichiers clés :
-- `src/types.ts` — types globaux (`GameState`, `Player`, `EnemyEntity`, etc.).
+- `src/types.ts` — types globaux (`GameState`, `Player`, `EnemyEntity`, `Weapon`, `WeaponDef`, etc.).
 - `src/state.ts` — état global runtime (`state`, `player`, `enemies`, `bullets`, …).
-- `src/game/balance.ts` — constantes gameplay (durées de wave, scaling ennemis, XP, shop).
-- `src/game/wave-loop.ts` — moteur TS du gameplay : `stepWave(dt)` (mouvement, spawn, IA, tir, collisions, XP).
+- `src/game/balance.ts` — constantes gameplay (durées de wave, scaling ennemis, XP, shop, `weaponUnlockWaves`).
+- `src/game/wave-loop.ts` — moteur TS du gameplay : `stepWave(dt)` (mouvement, spawn, IA, tir multi-armes, collisions, XP).
 - `src/game/wave-flow.ts` — transitions `startRun` / `startWave` / `transitionToShop` / `advanceFromShop`.
-- `src/game/shop.ts` — offres, achats, re-roll.
-- `src/game/upgrade-catalog.ts` — catalogue d'objets shop.
+- `src/game/shop.ts` — offres (upgrades + armes), achats, re-roll.
+- `src/game/upgrade-catalog.ts` — catalogue de **bonus** stat shop (additive ou multiplicatif sur le joueur).
+- `src/game/weapon-catalog.ts` — 6 archétypes d'armes × 4 tiers, `effectiveWeaponStats`, helpers de loadout (max 6).
 - `src/game/meta-upgrade-catalog.ts` — méta-upgrades du hangar.
 - `src/systems/run.ts` — `update(dt)` orchestre la boucle, gère mort → reward.
 - `src/systems/account.ts` — méta-progression cristaux + persistence localStorage (`voidline:metaProgress:v2`).
@@ -42,6 +43,7 @@ Fichiers clés :
 - **Pas de level-up screen** : tous les choix se font au shop entre waves.
 - **Boss tous les 5 waves** : `isBossWave(wave)` dans `balance.ts`.
 - **XP = monnaie** : `state.runCurrency`. Carry 25 % géré dans `transitionToShop()` puis drainé pickup par pickup dans `wave-loop.ts:collectOrb()`.
+- **Armes (Brotato-like)** : `player.weapons` (max 6). Chaque arme a un archétype + tier 1-4. Le shop offre des armes (T1 toujours, T2 dès wave 4, T3 dès 8, T4 dès 12) et des bonus stat. Acheter un duplicata d'une arme déjà possédée la promeut d'un tier (cap T4). `player.damage / fireRate / projectileCount / pierce / range / critChance / bulletSpeed / bulletLife / bulletRadius` sont des **bonus globaux** appliqués à chaque arme via `effectiveWeaponStats(weapon, player)` — additifs (defaults 0) ou multiplicatifs (defaults 1).
 
 ---
 

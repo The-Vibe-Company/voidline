@@ -36,6 +36,16 @@ fn ranked_affordable(
 fn priority(snapshot: &Snapshot, id: &str) -> i32 {
     let wave = snapshot.wave;
     let projectiles = snapshot.player.projectile_count;
+
+    if let Some(rest) = id.strip_prefix("weapon:acquire:") {
+        let tier = parse_weapon_tier(rest);
+        return 100 + 5 * tier;
+    }
+    if let Some(rest) = id.strip_prefix("weapon:promote:") {
+        let tier = parse_weapon_tier(rest);
+        return 80 + 5 * tier;
+    }
+
     match (wave, id) {
         (1..=3, "damage-up") => 100,
         (1..=3, "fire-rate-up") => 90,
@@ -53,4 +63,11 @@ fn priority(snapshot: &Snapshot, id: &str) -> i32 {
         (_, "bullet-speed-up") => 35,
         _ => 0,
     }
+}
+
+fn parse_weapon_tier(rest: &str) -> i32 {
+    rest.rsplit(":t")
+        .next()
+        .and_then(|t| t.parse::<i32>().ok())
+        .unwrap_or(1)
 }

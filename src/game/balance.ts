@@ -75,6 +75,14 @@ export const shop = {
   rerollGrowth: 5,
 };
 
+export const weaponUnlockWaves = {
+  t2: 4,
+  t3: 8,
+  t4: 12,
+};
+
+export const weaponOfferWeight = 1.5;
+
 export const SPAWN_TELEGRAPH_DURATION = 0.7;
 export const SPAWN_TELEGRAPH_BOSS_DURATION = 1.2;
 export const SPAWN_MIN_DISTANCE_FROM_PLAYER = 220;

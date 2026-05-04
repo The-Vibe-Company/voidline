@@ -4,13 +4,14 @@ import { awardRunCrystals } from "./account";
 import { hideOverlays, showGameOver, showHangar, showShop, updateHud } from "../render/hud";
 import { stepWave } from "../game/wave-loop";
 import { resetShopState } from "../game/shop";
+import type { WeaponArchetypeId } from "../types";
 
 let runRewardClaimed = false;
 
-export function beginRun(): void {
+export function beginRun(starterWeaponId: WeaponArchetypeId = "pulse"): void {
   runRewardClaimed = false;
   resetShopState();
-  startRun();
+  startRun(starterWeaponId);
   hideOverlays();
   updateHud();
 }
