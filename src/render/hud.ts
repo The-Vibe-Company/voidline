@@ -5,7 +5,9 @@ import {
   currentRerollCost,
   currentShopOffers,
   tryBuyOffer,
+  tryMergeWeapons,
   tryRerollShop,
+  trySellWeapon,
 } from "../game/shop";
 import { advanceFromShop } from "../game/wave-flow";
 import { isBossWave } from "../game/balance";
@@ -19,9 +21,10 @@ import {
 import { purchaseMetaUpgrade } from "../systems/account";
 import {
   MAX_WEAPONS,
+  canMergeWeapons,
   findWeaponDef,
-  playerOwnsWeapon,
   playerLoadoutFull,
+  sellValue,
   weaponCatalog,
 } from "../game/weapon-catalog";
 import type {
@@ -167,6 +170,7 @@ export function resumeGame(): void {
 
 export function showShop(): void {
   hideOverlays();
+  resetMergeSelection();
   hud.shopOverlay.classList.add("active");
   renderShop();
 }
@@ -360,13 +364,10 @@ function renderShop(): void {
     } else {
       card.className = `shop-card-v2 shop-card-weapon tier-${offer.tier}`;
       const def = findWeaponDef(offer.defId);
-      const owned = playerOwnsWeapon(player, offer.defId);
-      const blockedFull = !owned && playerLoadoutFull(player);
+      const blockedFull = playerLoadoutFull(player);
       const cta = blockedFull
         ? "Loadout plein"
-        : offer.action === "promote"
-          ? `Promouvoir T${offer.tier}`
-          : `Acquérir T${offer.tier}`;
+        : `Acquérir T${offer.tier}`;
       card.setAttribute(
         "aria-label",
         accepted
@@ -389,39 +390,133 @@ function renderShop(): void {
   });
 }
 
+let mergeSelectionIndex: number | null = null;
+
 function loadoutSignature(): string {
-  return player.weapons.map((w) => `${w.defId}:${w.tier}`).join("|");
+  return player.weapons.map((w) => `${w.defId}:${w.tier}:${w.purchaseCost}`).join("|");
+}
+
+function shopLoadoutSignature(): string {
+  return `${loadoutSignature()}#sel:${mergeSelectionIndex ?? "-"}`;
 }
 
 const lastLoadoutSig = new WeakMap<HTMLElement, string>();
 
 function renderWeaponLoadouts(force = false): void {
-  renderWeaponLoadout(hud.weaponLoadout, force);
-  renderWeaponLoadout(hud.shopWeaponLoadout, force);
+  renderWeaponLoadout(hud.weaponLoadout, force, false);
+  renderWeaponLoadout(hud.shopWeaponLoadout, force, true);
 }
 
-function renderWeaponLoadout(target: HTMLElement, force = false): void {
-  const sig = loadoutSignature();
+function renderWeaponLoadout(target: HTMLElement, force = false, interactive = false): void {
+  const sig = interactive ? shopLoadoutSignature() : loadoutSignature();
   if (!force && lastLoadoutSig.get(target) === sig) return;
   lastLoadoutSig.set(target, sig);
   target.innerHTML = "";
+  const selected = interactive ? mergeSelectionIndex : null;
+  if (selected !== null && !player.weapons[selected]) {
+    mergeSelectionIndex = null;
+  }
   for (let i = 0; i < MAX_WEAPONS; i += 1) {
     const weapon = player.weapons[i];
-    const slot = document.createElement("span");
     if (!weapon) {
+      const slot = document.createElement("span");
       slot.className = "weapon-slot weapon-slot--empty";
       slot.innerHTML = `<span class="weapon-slot-index">${i + 1}</span>`;
       target.appendChild(slot);
       continue;
     }
     const def = findWeaponDef(weapon.defId);
-    slot.className = "weapon-slot weapon-slot--filled";
-    slot.innerHTML = `
-      <img class="weapon-slot-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none'" />
-      <span class="weapon-tier-badge weapon-tier-badge--${weapon.tier}">T${weapon.tier}</span>
-    `;
-    target.appendChild(slot);
+    if (interactive) {
+      const slot = document.createElement("div");
+      slot.className = "weapon-slot weapon-slot--filled weapon-slot--interactive";
+      slot.setAttribute("role", "button");
+      slot.tabIndex = 0;
+      const isSelected = selected === i;
+      const isMergeTarget =
+        selected !== null && selected !== i && canMergeWeapons(player, selected, i);
+      if (isSelected) slot.classList.add("weapon-slot--merge-source");
+      if (isMergeTarget) slot.classList.add("weapon-slot--merge-target");
+      const refund = sellValue(weapon);
+      const sellable = player.weapons.length > 1;
+      const sellMarkup = sellable
+        ? `<button type="button" class="weapon-slot-sell" data-sell="${i}" aria-label="Vendre ${def.name} T${weapon.tier} pour ${refund} XP" title="Vendre (+${refund} XP)">+${refund}</button>`
+        : "";
+      slot.innerHTML = `
+        <img class="weapon-slot-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none'" />
+        <span class="weapon-tier-badge weapon-tier-badge--${weapon.tier}">T${weapon.tier}</span>
+        ${sellMarkup}
+      `;
+      slot.dataset.slotIndex = String(i);
+      slot.addEventListener("click", (ev) => {
+        const tgt = ev.target as HTMLElement | null;
+        if (tgt && tgt.closest("[data-sell]")) return;
+        onWeaponSlotClick(i);
+      });
+      slot.addEventListener("keydown", (ev) => {
+        const tgt = ev.target as HTMLElement | null;
+        if (tgt && tgt.closest("[data-sell]")) return;
+        if (ev.key === "Enter" || ev.key === " ") {
+          ev.preventDefault();
+          onWeaponSlotClick(i);
+        }
+      });
+      if (sellable) {
+        const sellBtn = slot.querySelector<HTMLButtonElement>("[data-sell]");
+        sellBtn?.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          onWeaponSell(i);
+        });
+      }
+      target.appendChild(slot);
+    } else {
+      const slot = document.createElement("span");
+      slot.className = "weapon-slot weapon-slot--filled";
+      slot.innerHTML = `
+        <img class="weapon-slot-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none'" />
+        <span class="weapon-tier-badge weapon-tier-badge--${weapon.tier}">T${weapon.tier}</span>
+      `;
+      target.appendChild(slot);
+    }
   }
+}
+
+function onWeaponSlotClick(index: number): void {
+  if (mergeSelectionIndex === null) {
+    mergeSelectionIndex = index;
+    renderShop();
+    return;
+  }
+  if (mergeSelectionIndex === index) {
+    mergeSelectionIndex = null;
+    renderShop();
+    return;
+  }
+  if (canMergeWeapons(player, mergeSelectionIndex, index)) {
+    if (tryMergeWeapons(mergeSelectionIndex, index)) {
+      mergeSelectionIndex = null;
+      renderShop();
+      updateHud();
+      return;
+    }
+  }
+  mergeSelectionIndex = index;
+  renderShop();
+}
+
+function onWeaponSell(index: number): void {
+  if (mergeSelectionIndex === index) {
+    mergeSelectionIndex = null;
+  } else if (mergeSelectionIndex !== null && index < mergeSelectionIndex) {
+    mergeSelectionIndex -= 1;
+  }
+  if (trySellWeapon(index)) {
+    renderShop();
+    updateHud();
+  }
+}
+
+function resetMergeSelection(): void {
+  mergeSelectionIndex = null;
 }
 
 function onBuyOffer(index: number): void {

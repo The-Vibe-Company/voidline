@@ -3513,6 +3513,73 @@ h2 {
 .weapon-tier-badge--3 { color: #ffbf47; border-color: color-mix(in srgb, #ffbf47 60%, transparent); }
 .weapon-tier-badge--4 { color: #ff7afa; border-color: color-mix(in srgb, #ff7afa 60%, transparent); }
 
+.weapon-slot--interactive {
+  cursor: pointer;
+  appearance: none;
+  font: inherit;
+  transition: transform 0.08s ease, border-color 0.12s ease, background 0.12s ease;
+}
+
+.weapon-slot--interactive:hover {
+  border-color: color-mix(in srgb, var(--mint, #72ffb1) 60%, transparent);
+  background: color-mix(in srgb, var(--mint, #72ffb1) 12%, transparent);
+}
+
+.weapon-slot--interactive:focus-visible {
+  outline: 2px solid var(--mint, #72ffb1);
+  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--mint, #72ffb1) 80%, transparent);
+  background: color-mix(in srgb, var(--mint, #72ffb1) 18%, transparent);
+}
+
+.weapon-slot-sell:focus-visible {
+  outline: 2px solid #ffbf47;
+  outline-offset: 2px;
+}
+
+.weapon-slot--merge-source {
+  border-color: #ffbf47;
+  background: color-mix(in srgb, #ffbf47 18%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, #ffbf47 70%, transparent) inset;
+}
+
+.weapon-slot--merge-target {
+  border-color: #72ffb1;
+  background: color-mix(in srgb, #72ffb1 18%, transparent);
+  animation: weaponMergePulse 1.1s ease-in-out infinite;
+}
+
+@keyframes weaponMergePulse {
+  0%, 100% { box-shadow: 0 0 0 1px color-mix(in srgb, #72ffb1 60%, transparent) inset; }
+  50% { box-shadow: 0 0 0 2px color-mix(in srgb, #72ffb1 90%, transparent) inset; }
+}
+
+.weapon-slot-sell {
+  position: absolute;
+  bottom: 2px;
+  left: 4px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 9px;
+  font-weight: 700;
+  background: color-mix(in srgb, #ffbf47 18%, transparent);
+  color: #ffbf47;
+  border: 1px solid color-mix(in srgb, #ffbf47 50%, transparent);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.weapon-slot-sell:hover {
+  background: color-mix(in srgb, #ffbf47 32%, transparent);
+}
+
+.weapon-slot-sell:disabled,
+.weapon-slot-sell[data-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
 .weapon-card {
   border-color: color-mix(in srgb, var(--mint, #72ffb1) 50%, transparent);
 }

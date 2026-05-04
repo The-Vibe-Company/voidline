@@ -136,19 +136,57 @@ export function playerLoadoutFull(player: Player): boolean {
   return player.weapons.length >= MAX_WEAPONS;
 }
 
-export function acquireWeapon(player: Player, defId: WeaponArchetypeId, tierLevel: WeaponTier): boolean {
-  if (playerOwnsWeapon(player, defId)) return false;
+export function acquireWeapon(
+  player: Player,
+  defId: WeaponArchetypeId,
+  tierLevel: WeaponTier,
+  purchaseCost = 0,
+): boolean {
   if (playerLoadoutFull(player)) return false;
-  player.weapons.push({ defId, tier: tierLevel, fireTimer: 0, aimAngle: 0 });
+  player.weapons.push({ defId, tier: tierLevel, fireTimer: 0, aimAngle: 0, purchaseCost });
   return true;
 }
 
-export function promoteWeapon(player: Player, defId: WeaponArchetypeId): boolean {
-  const owned = findPlayerWeapon(player, defId);
-  if (!owned) return false;
-  if (owned.tier >= 4) return false;
-  owned.tier = (owned.tier + 1) as WeaponTier;
+export function canMergeWeapons(player: Player, indexA: number, indexB: number): boolean {
+  if (indexA === indexB) return false;
+  const a = player.weapons[indexA];
+  const b = player.weapons[indexB];
+  if (!a || !b) return false;
+  if (a.defId !== b.defId) return false;
+  if (a.tier !== b.tier) return false;
+  if (a.tier >= 4) return false;
   return true;
+}
+
+export function mergeWeapons(player: Player, indexA: number, indexB: number): Weapon | null {
+  if (!canMergeWeapons(player, indexA, indexB)) return null;
+  const a = player.weapons[indexA]!;
+  const b = player.weapons[indexB]!;
+  const [first, second] = indexA > indexB ? [indexA, indexB] : [indexB, indexA];
+  player.weapons.splice(first, 1);
+  player.weapons.splice(second, 1);
+  const merged: Weapon = {
+    defId: a.defId,
+    tier: (a.tier + 1) as WeaponTier,
+    fireTimer: 0,
+    aimAngle: 0,
+    purchaseCost: a.purchaseCost + b.purchaseCost,
+  };
+  player.weapons.push(merged);
+  return merged;
+}
+
+export function sellValue(weapon: Weapon): number {
+  return Math.floor(weapon.purchaseCost * 0.5);
+}
+
+export function sellWeapon(player: Player, index: number): number {
+  const weapon = player.weapons[index];
+  if (!weapon) return 0;
+  if (player.weapons.length <= 1) return 0;
+  const refund = sellValue(weapon);
+  player.weapons.splice(index, 1);
+  return refund;
 }
 
 export interface EffectiveWeaponStats {
@@ -181,5 +219,5 @@ export function effectiveWeaponStats(weapon: Weapon, player: Player): EffectiveW
 }
 
 export function makeStarterWeapon(defId: WeaponArchetypeId = "pulse"): Weapon {
-  return { defId, tier: 1, fireTimer: 0, aimAngle: -Math.PI / 2 };
+  return { defId, tier: 1, fireTimer: 0, aimAngle: -Math.PI / 2, purchaseCost: 0 };
 }

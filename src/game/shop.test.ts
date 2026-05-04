@@ -6,7 +6,9 @@ import {
   rerollShop,
   resetShopState,
   tryBuyOffer,
+  tryMergeWeapons,
   tryRerollShop,
+  trySellWeapon,
 } from "./shop";
 import { player, state, resetPlayerToBase } from "../state";
 import { shop as shopBalance } from "./balance";
@@ -54,26 +56,26 @@ describe("shop", () => {
 });
 
 describe("shop weapons", () => {
-  it("wave 1 only offers T1 weapons for acquisition", () => {
+  it("wave 1 only offers T1 weapons", () => {
     state.wave = 1;
     state.runCurrency = 0;
     for (let i = 0; i < 30; i += 1) {
       rerollShop(true);
       for (const offer of currentShopOffers()) {
-        if (offer.kind === "weapon" && offer.action === "acquire") {
+        if (offer.kind === "weapon") {
           expect(offer.tier).toBe(1);
         }
       }
     }
   });
 
-  it("wave 5 may offer T2 weapons via the acquire path", () => {
+  it("wave 5 may offer T2 weapons", () => {
     state.wave = 5;
     let sawT2 = false;
     for (let i = 0; i < 80 && !sawT2; i += 1) {
       rerollShop(true);
       for (const offer of currentShopOffers()) {
-        if (offer.kind === "weapon" && offer.action === "acquire" && offer.tier === 2) {
+        if (offer.kind === "weapon" && offer.tier === 2) {
           sawT2 = true;
         }
       }
@@ -84,34 +86,30 @@ describe("shop weapons", () => {
   it("buying a new weapon adds it to the loadout", () => {
     state.wave = 1;
     state.runCurrency = 1000;
-    const offer: ShopOffer = { kind: "weapon", defId: "smg", tier: 1, cost: 25, action: "acquire" };
+    const offer: ShopOffer = { kind: "weapon", defId: "smg", tier: 1, cost: 25 };
     rerollShop(true);
-    // Inject an SMG offer at index 0 deterministically
     (currentShopOffers() as ShopOffer[]).unshift(offer);
     expect(playerOwnsWeapon(player, "smg")).toBe(false);
     expect(tryBuyOffer(0)).toBe(true);
     expect(playerOwnsWeapon(player, "smg")).toBe(true);
+    const smg = player.weapons.find((w) => w.defId === "smg")!;
+    expect(smg.purchaseCost).toBe(25);
   });
 
-  it("buying a duplicate weapon promotes its tier", () => {
+  it("buying a duplicate weapon adds a second instance at the offered tier", () => {
     state.wave = 1;
     state.runCurrency = 1000;
-    acquireWeapon(player, "smg", 1);
-    const promoteOffer: ShopOffer = {
-      kind: "weapon",
-      defId: "smg",
-      tier: 1,
-      cost: 25,
-      action: "promote",
-    };
+    acquireWeapon(player, "smg", 1, 25);
+    const dup: ShopOffer = { kind: "weapon", defId: "smg", tier: 1, cost: 25 };
     rerollShop(true);
-    (currentShopOffers() as ShopOffer[]).unshift(promoteOffer);
+    (currentShopOffers() as ShopOffer[]).unshift(dup);
     expect(tryBuyOffer(0)).toBe(true);
-    const owned = player.weapons.find((w) => w.defId === "smg");
-    expect(owned?.tier).toBe(2);
+    const owned = player.weapons.filter((w) => w.defId === "smg");
+    expect(owned.length).toBe(2);
+    expect(owned.every((w) => w.tier === 1)).toBe(true);
   });
 
-  it("acquireWeapon helper is blocked when loadout is full", () => {
+  it("weapon offer is rejected when loadout is full", () => {
     state.wave = 1;
     state.runCurrency = 1000;
     acquireWeapon(player, "smg", 1);
@@ -120,52 +118,46 @@ describe("shop weapons", () => {
     acquireWeapon(player, "minigun", 1);
     acquireWeapon(player, "railgun", 1);
     expect(player.weapons.length).toBe(6);
-    // Trying to acquire a 7th distinct archetype is blocked. Since there are
-    // exactly 6 archetypes today, simulate by removing pulse and re-adding all
-    // 6 + an extra duplicate-arche acquire attempt.
-    const fakeOffer: ShopOffer = {
-      kind: "weapon",
-      defId: "smg",
-      tier: 1,
-      cost: 25,
-      action: "acquire",
-    };
-    // SMG owned → promote path, returns true. canAcceptOffer should accept (currency suffices, owned.tier<4).
-    expect(canAcceptOffer(fakeOffer)).toBe(true);
-  });
-
-  it("promote offers always target owned tier + 1, regardless of wave cap", () => {
-    state.wave = 12; // wave cap = T4
-    state.runCurrency = 0;
-    acquireWeapon(player, "smg", 1);
-    let sawSmgPromoteOffer = false;
-    for (let i = 0; i < 80 && !sawSmgPromoteOffer; i += 1) {
-      rerollShop(true);
-      for (const offer of currentShopOffers()) {
-        if (offer.kind === "weapon" && offer.defId === "smg") {
-          expect(offer.action).toBe("promote");
-          expect(offer.tier).toBe(2);
-          sawSmgPromoteOffer = true;
-          break;
-        }
-      }
-    }
-    expect(sawSmgPromoteOffer).toBe(true);
-  });
-
-  it("T4 owned weapon cannot be promoted further", () => {
-    state.wave = 12;
-    state.runCurrency = 10000;
-    acquireWeapon(player, "smg", 1);
-    const w = player.weapons.find((it) => it.defId === "smg")!;
-    w.tier = 4;
-    const offer: ShopOffer = {
-      kind: "weapon",
-      defId: "smg",
-      tier: 4,
-      cost: 300,
-      action: "promote",
-    };
+    const offer: ShopOffer = { kind: "weapon", defId: "smg", tier: 1, cost: 25 };
     expect(canAcceptOffer(offer)).toBe(false);
+  });
+
+  it("trySellWeapon refunds half the purchase cost into runCurrency", () => {
+    state.wave = 1;
+    state.runCurrency = 0;
+    acquireWeapon(player, "smg", 1, 27);
+    expect(player.weapons.length).toBe(2);
+    expect(trySellWeapon(1)).toBe(true);
+    expect(player.weapons.length).toBe(1);
+    expect(state.runCurrency).toBe(13);
+  });
+
+  it("trySellWeapon fails on invalid index", () => {
+    expect(trySellWeapon(99)).toBe(false);
+    expect(trySellWeapon(-1)).toBe(false);
+  });
+
+  it("trySellWeapon refuses to remove the last weapon", () => {
+    expect(player.weapons.length).toBe(1);
+    expect(trySellWeapon(0)).toBe(false);
+    expect(player.weapons.length).toBe(1);
+  });
+
+  it("tryMergeWeapons merges two same-archetype same-tier weapons", () => {
+    state.wave = 1;
+    acquireWeapon(player, "smg", 1, 25);
+    acquireWeapon(player, "smg", 1, 25);
+    expect(tryMergeWeapons(1, 2)).toBe(true);
+    const smgs = player.weapons.filter((w) => w.defId === "smg");
+    expect(smgs.length).toBe(1);
+    expect(smgs[0]!.tier).toBe(2);
+    expect(smgs[0]!.purchaseCost).toBe(50);
+  });
+
+  it("tryMergeWeapons rejects mismatched weapons", () => {
+    state.wave = 1;
+    acquireWeapon(player, "smg", 1, 25);
+    acquireWeapon(player, "shotgun", 1, 30);
+    expect(tryMergeWeapons(1, 2)).toBe(false);
   });
 });

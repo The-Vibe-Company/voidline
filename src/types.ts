@@ -55,6 +55,7 @@ export interface Weapon {
   tier: WeaponTier;
   fireTimer: number;
   aimAngle: number;
+  purchaseCost: number;
 }
 
 export interface World {
@@ -333,5 +334,4 @@ export type ShopOffer =
       defId: WeaponArchetypeId;
       tier: WeaponTier;
       cost: number;
-      action: "acquire" | "promote";
     };
