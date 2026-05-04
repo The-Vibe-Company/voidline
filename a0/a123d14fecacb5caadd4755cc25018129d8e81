@@ -1,0 +1,31 @@
+src/game/balance.test.ts
+  55069e4979a3d6bc 46-50
+src/game/weapon-catalog.ts
+  55069e4979a3d6bc 88,111-112
+src/game/wave-loop.test.ts
+  55069e4979a3d6bc 184-191
+src/game/upgrade-catalog.ts
+  55069e4979a3d6bc 51
+src/game/balance.ts
+  55069e4979a3d6bc 50-51,53,57,231
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "a0a123d14fecacb5caadd4755cc25018129d8e81",
+  "prompts": {
+    "55069e4979a3d6bc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5d12d413-6b61-4452-b5ea-cccbe6aaec80",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 383,
+      "overriden_lines": 0
+    }
+  }
+}
