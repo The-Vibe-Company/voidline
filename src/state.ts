@@ -1,5 +1,6 @@
 import type {
   Bullet,
+  EnemyBullet,
   EnemyEntity,
   ExperienceOrb,
   Floater,
@@ -56,6 +57,7 @@ export const player: Player = createPlayerBaseState();
 
 export const enemies: EnemyEntity[] = [];
 export const bullets: Bullet[] = [];
+export const enemyBullets: EnemyBullet[] = [];
 export const experienceOrbs: ExperienceOrb[] = [];
 export const particles: Particle[] = [];
 export const floaters: Floater[] = [];
@@ -65,6 +67,7 @@ export const counters = {
   nextEnemyId: 1,
   nextSpawnIndicatorId: 1,
   nextBulletId: 1,
+  nextEnemyBulletId: 1,
   nextExperienceId: 1,
   nextParticleId: 1,
   nextFloaterId: 1,

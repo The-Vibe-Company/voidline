@@ -47,6 +47,28 @@ export const boss = {
   scoreMultiplier: 8,
 };
 
+export const bossAttacks = {
+  shotIntervalBase: 2.4,
+  shotIntervalMin: 0.55,
+  shotProjectileBase: 1,
+  shotProjectileMax: 5,
+  shotSpread: 0.18,
+  shotSpeed: 220,
+  shotDamage: 14,
+  shotRadius: 7,
+  shotLife: 4,
+  shotWarmup: 1.4,
+  spawnIntervalBase: 8,
+  spawnIntervalMin: 2.8,
+  spawnCountBase: 1,
+  spawnCountMax: 3,
+  spawnWarmup: 5,
+  spawnRadius: 90,
+  spawnKinds: ["scout", "hunter"] as const,
+  aggressionRamp: 0.045,
+  aggressionCap: 3.2,
+};
+
 export const shop = {
   offers: 4,
   rerollBaseCost: 10,
@@ -125,4 +147,37 @@ export function enemySpeedScale(waveNumber: number): number {
 
 export function enemyDamageScale(waveNumber: number): number {
   return 1 + Math.min(1.5, (waveNumber - 1) * wave.damageScalePerWave);
+}
+
+export function bossAggression(elapsed: number): number {
+  if (elapsed <= 0) return 1;
+  return Math.min(bossAttacks.aggressionCap, 1 + elapsed * bossAttacks.aggressionRamp);
+}
+
+function aggressionT(elapsed: number): number {
+  const span = bossAttacks.aggressionCap - 1;
+  if (span <= 0) return 0;
+  return Math.min(1, Math.max(0, (bossAggression(elapsed) - 1) / span));
+}
+
+export function bossShotInterval(elapsed: number): number {
+  const t = aggressionT(elapsed);
+  return bossAttacks.shotIntervalBase + (bossAttacks.shotIntervalMin - bossAttacks.shotIntervalBase) * t;
+}
+
+export function bossShotProjectiles(elapsed: number): number {
+  const t = aggressionT(elapsed);
+  const raw = bossAttacks.shotProjectileBase + (bossAttacks.shotProjectileMax - bossAttacks.shotProjectileBase) * t;
+  return Math.max(1, Math.min(bossAttacks.shotProjectileMax, Math.round(raw)));
+}
+
+export function bossSpawnInterval(elapsed: number): number {
+  const t = aggressionT(elapsed);
+  return bossAttacks.spawnIntervalBase + (bossAttacks.spawnIntervalMin - bossAttacks.spawnIntervalBase) * t;
+}
+
+export function bossSpawnCount(elapsed: number): number {
+  const t = aggressionT(elapsed);
+  const raw = bossAttacks.spawnCountBase + (bossAttacks.spawnCountMax - bossAttacks.spawnCountBase) * t;
+  return Math.max(1, Math.min(bossAttacks.spawnCountMax, Math.round(raw)));
 }

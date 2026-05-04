@@ -177,6 +177,7 @@ button {
 }
 
 .boss-panel {
+  grid-column: 1 / -1;
   border-color: rgba(255, 90, 105, 0.42);
   background: linear-gradient(180deg, rgba(36, 9, 17, 0.82), rgba(8, 7, 12, 0.64));
 }
@@ -189,6 +190,7 @@ button {
   width: 0%;
   background: linear-gradient(90deg, var(--red), var(--amber));
   box-shadow: 0 0 18px rgba(255, 90, 105, 0.55);
+  transition: width 160ms ease;
 }
 
 .loadout {
