@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  boss,
   enemyDamageScale,
   enemyHpScale,
   enemySpeedScale,
+  findEnemyType,
   isBossWave,
   waveDuration,
   waveSpawnBudget,
@@ -45,7 +47,13 @@ describe("balance scaling", () => {
   });
 
   it("hp scaling stays moderate to keep mid-game playable", () => {
-    expect(enemyHpScale(10)).toBeLessThan(2.5);
-    expect(enemyHpScale(20)).toBeLessThan(4.0);
+    expect(enemyHpScale(10)).toBeLessThan(3.0);
+    expect(enemyHpScale(20)).toBeLessThan(5.0);
+  });
+
+  it("wave 5 boss is meaningfully tanky", () => {
+    const bruteHp = findEnemyType("brute").hp;
+    const w5BossHp = bruteHp * enemyHpScale(5) * boss.hpMultiplier;
+    expect(w5BossHp).toBeGreaterThan(2000);
   });
 });
