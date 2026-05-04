@@ -13,6 +13,7 @@ import type {
   World,
 } from "./types";
 import { makeStarterWeapon } from "./game/weapon-catalog";
+import { MINI_WAVE_COUNT } from "./game/balance";
 
 export const canvas = (typeof document !== "undefined"
   ? document.querySelector<HTMLCanvasElement>("#gameCanvas")
@@ -29,30 +30,38 @@ export const pointer: Pointer = {
 export const world: World = {
   width: 0,
   height: 0,
-  arenaWidth: 1600,
-  arenaHeight: 1100,
+  arenaWidth: 1280,
+  arenaHeight: 720,
   cameraX: 0,
   cameraY: 0,
   dpr: 1,
   time: 0,
   shake: 0,
+  hitstop: 0,
+  timescale: 1,
 };
 
 export const state: GameState = {
   mode: "menu",
   controlMode: "keyboard",
-  wave: 1,
+  miniWaveIndex: 0,
+  miniWaveCount: MINI_WAVE_COUNT,
   waveTimer: 0,
   waveTotalDuration: 0,
   enemiesAlive: 0,
   spawnTimer: 0,
   spawnsRemaining: 0,
-  runCurrency: 0,
-  carriedXp: 0,
-  pendingCarry: 0,
+  picksTaken: 0,
   score: 0,
-  highestWaveReached: 1,
+  kills: 0,
+  xpCollected: 0,
+  xpDropped: 0,
+  bossDefeated: false,
+  runStartedAt: 0,
   runElapsedSeconds: 0,
+  dailySeed: "",
+  rngState: 1,
+  starterWeaponId: "pulse",
 };
 
 export const player: Player = createPlayerBaseState();
@@ -98,9 +107,10 @@ export function createPlayerBaseState(): Player {
     pierce: 0,
     bulletRadius: 1,
     critChance: 0,
+    lifesteal: 0,
     invuln: 0,
     aimAngle: -Math.PI / 2,
-    weapons: [makeStarterWeapon()],
+    activeWeapon: makeStarterWeapon(),
   };
 }
 

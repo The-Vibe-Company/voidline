@@ -1,70 +1,133 @@
 import {
   attackTelegraphs,
   bullets,
+  counters,
   enemies,
   enemyBullets,
   experienceOrbs,
   floaters,
   particles,
   player,
+  resetPlayerToBase,
   spawnIndicators,
   state,
   world,
 } from "../state";
 import {
-  isBossWave,
-  waveDuration,
-  waveSpawnBudget,
-  xp as xpBalance,
+  MINI_WAVE_COUNT,
+  MINI_WAVE_DURATION,
+  isBossMiniWave,
+  miniWaveSpawnBudget,
 } from "./balance";
 import { clearRunEntities } from "./wave-loop";
-import { applyMetaUpgradesToPlayer } from "./meta-upgrade-catalog";
-import { accountProgress } from "../systems/account";
-import { resetPlayerToBase } from "../state";
-import { rerollShop } from "./shop";
-import { makeStarterWeapon } from "./weapon-catalog";
-import type { WeaponArchetypeId } from "../types";
+import { makeStarterWeapon, weaponCatalog } from "./weapon-catalog";
+import {
+  applyCardToPlayer,
+  rollCards,
+} from "./card-catalog";
+import { createRng, getDailySeedString, hashSeedString, type RngHandle } from "./daily-seed";
+import type { CardOffer, WeaponArchetypeId } from "../types";
 
-export function startRun(starterWeaponId: WeaponArchetypeId = "pulse"): void {
+let activeRng: RngHandle = createRng(1);
+let pendingOffers: readonly CardOffer[] | null = null;
+
+export function getActiveRng(): RngHandle {
+  return activeRng;
+}
+
+export function getPendingOffers(): readonly CardOffer[] | null {
+  return pendingOffers;
+}
+
+/**
+ * Probability of being offered a third card at the next pick, derived from the
+ * cumulative ratio of XP collected over XP dropped during the current run.
+ * 100 % collection -> always 3 cards. 0 % -> always 2 cards.
+ */
+export function thirdCardChance(): number {
+  if (state.xpDropped <= 0) return 0;
+  return Math.min(1, Math.max(0, state.xpCollected / state.xpDropped));
+}
+
+export function dailyStarterWeapon(date: Date = new Date()): WeaponArchetypeId {
+  const seed = getDailySeedString(date);
+  const rng = createRng(hashSeedString(seed));
+  return rng.pick(weaponCatalog).id;
+}
+
+export function startRun(starterWeaponId?: WeaponArchetypeId): void {
+  const seed = getDailySeedString();
+  state.dailySeed = seed;
+  activeRng = createRng(hashSeedString(seed));
+  const resolvedStarter = starterWeaponId ?? dailyStarterWeapon();
+
   state.mode = "playing";
-  state.wave = 1;
+  state.miniWaveIndex = 0;
+  state.miniWaveCount = MINI_WAVE_COUNT;
   state.score = 0;
-  state.runCurrency = 0;
-  state.carriedXp = 0;
-  state.pendingCarry = 0;
+  state.kills = 0;
+  state.xpCollected = 0;
+  state.xpDropped = 0;
+  state.bossDefeated = false;
+  state.picksTaken = 0;
   state.runElapsedSeconds = 0;
-  state.highestWaveReached = 1;
+  state.runStartedAt = Date.now();
+  state.starterWeaponId = resolvedStarter;
+  state.rngState = activeRng.state();
   resetPlayerToBase();
-  player.weapons = [makeStarterWeapon(starterWeaponId)];
-  applyMetaUpgradesToPlayer(accountProgress, player);
+  player.activeWeapon = makeStarterWeapon(resolvedStarter);
   clearRunEntities();
   player.x = world.arenaWidth / 2;
   player.y = world.arenaHeight / 2;
-  startWave(1);
+  pendingOffers = null;
+  startMiniWave(0);
 }
 
-export function startWave(waveNumber: number): void {
-  state.wave = waveNumber;
-  state.highestWaveReached = Math.max(state.highestWaveReached, waveNumber);
-  state.waveTotalDuration = waveDuration(waveNumber);
-  state.waveTimer = state.waveTotalDuration;
-  const baseSpawns = waveSpawnBudget(waveNumber);
-  state.spawnsRemaining = isBossWave(waveNumber) ? Math.max(2, Math.floor(baseSpawns / 2)) : baseSpawns;
+export function startMiniWave(index: number): void {
+  state.miniWaveIndex = index;
+  state.waveTotalDuration = MINI_WAVE_DURATION;
+  state.waveTimer = MINI_WAVE_DURATION;
+  state.spawnsRemaining = miniWaveSpawnBudget(index);
   state.spawnTimer = 0.4;
-  state.pendingCarry = state.carriedXp;
-  state.carriedXp = 0;
   state.mode = "playing";
-  player.invuln = 1;
+  player.invuln = 0.8;
+  pendingOffers = null;
 }
 
-export function transitionToShop(): void {
-  // Carryover: 25% of uncollected XP value
-  let leftover = 0;
-  for (const orb of experienceOrbs) {
-    leftover += orb.value;
-  }
-  state.carriedXp = Math.floor(leftover * xpBalance.carryRatio + state.pendingCarry);
-  state.pendingCarry = 0;
+export function transitionToCardPick(): void {
+  clearStageEntities();
+  const chance = thirdCardChance();
+  const cardCount: 2 | 3 = activeRng.next() < chance ? 3 : 2;
+  pendingOffers = rollCards(activeRng, player, state.picksTaken, cardCount);
+  state.rngState = activeRng.state();
+  state.mode = "card-pick";
+}
+
+export function applyCardAndAdvance(cardIndex: number): void {
+  if (!pendingOffers) return;
+  const offer = pendingOffers[cardIndex];
+  if (!offer) return;
+  applyCardToPlayer(offer.card, player, activeRng);
+  state.picksTaken += 1;
+  state.rngState = activeRng.state();
+  pendingOffers = null;
+  startMiniWave(state.miniWaveIndex + 1);
+}
+
+export function finishRunWithVictory(): void {
+  state.bossDefeated = true;
+  state.mode = "gameover";
+}
+
+export function isRunComplete(): boolean {
+  return state.miniWaveIndex >= MINI_WAVE_COUNT;
+}
+
+export function isFinalMiniWave(): boolean {
+  return isBossMiniWave(state.miniWaveIndex);
+}
+
+function clearStageEntities(): void {
   experienceOrbs.length = 0;
   enemies.length = 0;
   enemyBullets.length = 0;
@@ -74,10 +137,9 @@ export function transitionToShop(): void {
   particles.length = 0;
   floaters.length = 0;
   state.enemiesAlive = 0;
-  rerollShop(true);
-  state.mode = "shop";
-}
-
-export function advanceFromShop(): void {
-  startWave(state.wave + 1);
+  counters.nextEnemyId = 1;
+  counters.nextEnemyBulletId = 1;
+  counters.nextSpawnIndicatorId = 1;
+  counters.nextBulletId = 1;
+  counters.nextAttackTelegraphId = 1;
 }

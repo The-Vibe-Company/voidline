@@ -10,6 +10,7 @@ import {
   world,
 } from "../state";
 import {
+  BOSS_MINI_WAVE_INDEX,
   bossAttacks,
   bossAggression,
   bossShotInterval,
@@ -18,21 +19,24 @@ import {
   bossSpawnInterval,
 } from "./balance";
 import { clearRunEntities, spawnBoss, stepWave, updateSpawnIndicators } from "./wave-loop";
+import { startRun } from "./wave-flow";
 
 function materializeBossNow(): void {
   spawnBoss();
-  // run telegraph long enough to materialize
   updateSpawnIndicators(99);
 }
 
 beforeEach(() => {
+  world.arenaWidth = 1280;
+  world.arenaHeight = 720;
+  startRun("pulse");
   clearRunEntities();
   resetPlayerToBase();
   counters.nextEnemyId = 1;
   counters.nextSpawnIndicatorId = 1;
   counters.nextEnemyBulletId = 1;
   state.mode = "playing";
-  state.wave = 5;
+  state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
   state.waveTimer = 60;
   state.waveTotalDuration = 60;
   state.spawnTimer = 99;
@@ -72,7 +76,6 @@ describe("boss aggression curves", () => {
 describe("boss in-game AI", () => {
   it("fires its first salvo after the warmup", () => {
     materializeBossNow();
-    // Move player out of contact range so the boss does not eat us before firing
     player.x = 100;
     player.y = 100;
     const boss = enemies[0]!;
@@ -82,7 +85,6 @@ describe("boss in-game AI", () => {
 
     expect(enemyBullets.length).toBe(0);
 
-    // step a few frames covering the warmup
     for (let i = 0; i < 60; i += 1) stepWave(0.05);
 
     expect(enemyBullets.length).toBeGreaterThanOrEqual(1);

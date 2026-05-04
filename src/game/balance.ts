@@ -1,5 +1,10 @@
 import type { EnemyKind, EnemyType } from "../types";
 
+export const MINI_WAVE_COUNT = 6;
+export const MINI_WAVE_DURATION = 25;
+export const RUN_TOTAL_DURATION = MINI_WAVE_COUNT * MINI_WAVE_DURATION;
+export const BOSS_MINI_WAVE_INDEX = MINI_WAVE_COUNT - 1;
+
 export const arena = {
   width: 1600,
   height: 1100,
@@ -20,9 +25,8 @@ export const playerBase = {
 };
 
 export const xp = {
-  carryRatio: 0.25,
-  pickupRadius: 32,
-  pullSpeed: 320,
+  pickupRadius: 36,
+  pullSpeed: 360,
   shardCount: {
     scout: 1,
     hunter: 2,
@@ -42,63 +46,46 @@ export const xp = {
 };
 
 export const wave = {
-  baseDurationSeconds: 45,
-  durationGrowthSeconds: 3,
-  durationMaxSeconds: 90,
-  bossEvery: 5,
-  spawnBudgetBase: 30,
-  spawnBudgetGrowth: 9,
-  hpScalePerWave: 0.18,
-  speedScalePerWave: 0.025,
-  damageScalePerWave: 0.06,
+  miniWaveDuration: MINI_WAVE_DURATION,
+  miniWaveCount: MINI_WAVE_COUNT,
+  spawnBudgetPerWave: [10, 14, 18, 22, 26, 1] as const,
+  hpScalePerStep: 0.45,
+  speedScalePerStep: 0.06,
+  damageScalePerStep: 0.18,
 };
 
 export const boss = {
-  hpMultiplier: 10,
-  speedMultiplier: 0.65,
-  damageMultiplier: 1.8,
-  radiusMultiplier: 2.2,
-  scoreMultiplier: 8,
+  hpMultiplier: 14,
+  speedMultiplier: 0.62,
+  damageMultiplier: 1.7,
+  radiusMultiplier: 2.4,
+  scoreMultiplier: 12,
 };
 
 export const bossAttacks = {
-  shotIntervalBase: 1.8,
-  shotIntervalMin: 0.45,
-  shotProjectileBase: 2,
-  shotProjectileMax: 6,
-  shotSpread: 0.2,
+  shotIntervalBase: 1.6,
+  shotIntervalMin: 0.4,
+  shotProjectileBase: 3,
+  shotProjectileMax: 7,
+  shotSpread: 0.22,
   shotSpeed: 240,
   shotDamage: 18,
   shotRadius: 7,
   shotLife: 4,
-  shotWarmup: 1.0,
-  spawnIntervalBase: 6,
-  spawnIntervalMin: 2.2,
+  shotWarmup: 0.9,
+  spawnIntervalBase: 5,
+  spawnIntervalMin: 1.8,
   spawnCountBase: 2,
   spawnCountMax: 4,
-  spawnWarmup: 3.5,
+  spawnWarmup: 3.0,
   spawnRadius: 90,
   spawnKinds: ["scout", "hunter"] as const,
-  aggressionRamp: 0.06,
-  aggressionCap: 3.2,
+  aggressionRamp: 0.08,
+  aggressionCap: 3.6,
 };
 
-export const shop = {
-  offers: 4,
-  rerollBaseCost: 10,
-  rerollGrowth: 5,
-};
-
-export const weaponUnlockWaves = {
-  t2: 4,
-  t3: 8,
-  t4: 12,
-};
-
-export const weaponOfferWeight = 1.5;
-
-export const SPAWN_TELEGRAPH_DURATION = 0.7;
-export const SPAWN_TELEGRAPH_BOSS_DURATION = 1.2;
+export const SPAWN_TELEGRAPH_DURATION = 0.55;
+export const SPAWN_TELEGRAPH_BOSS_DURATION = 1.0;
 export const SPAWN_MIN_DISTANCE_FROM_PLAYER = 220;
 export const SPAWN_ARENA_MARGIN = 60;
 
@@ -107,14 +94,6 @@ export const STINGER_DASH_DURATION = 0.35;
 export const STINGER_RECOVER_PAUSE = 0.55;
 export const SPLITTER_CHILD_COUNT = 2;
 export const SPLITTER_CHILD_HP_RATIO = 0.6;
-
-export const BOSS_VOLLEY_INTERVAL = 3.5;
-export const BOSS_VOLLEY_COUNT = 3;
-export const BOSS_VOLLEY_TELEGRAPH = 0.8;
-export const BOSS_VOLLEY_SPREAD = 0.45;
-export const BOSS_PROJECTILE_SPEED = 240;
-export const BOSS_PROJECTILE_LIFE = 3.5;
-export const BOSS_PROJECTILE_DAMAGE_RATIO = 0.55;
 
 export const enemyTypes: readonly EnemyType[] = [
   {
@@ -208,31 +187,25 @@ export function findEnemyType(id: EnemyKind): EnemyType {
   return found;
 }
 
-export function waveDuration(waveNumber: number): number {
-  return Math.min(
-    wave.durationMaxSeconds,
-    wave.baseDurationSeconds + (waveNumber - 1) * wave.durationGrowthSeconds,
-  );
+export function isBossMiniWave(miniWaveIndex: number): boolean {
+  return miniWaveIndex === BOSS_MINI_WAVE_INDEX;
 }
 
-export function waveSpawnBudget(waveNumber: number): number {
-  return wave.spawnBudgetBase + (waveNumber - 1) * wave.spawnBudgetGrowth;
+export function miniWaveSpawnBudget(miniWaveIndex: number): number {
+  const idx = Math.max(0, Math.min(MINI_WAVE_COUNT - 1, miniWaveIndex));
+  return wave.spawnBudgetPerWave[idx] ?? 1;
 }
 
-export function isBossWave(waveNumber: number): boolean {
-  return waveNumber > 0 && waveNumber % wave.bossEvery === 0;
+export function enemyHpScale(miniWaveIndex: number): number {
+  return 1 + Math.max(0, miniWaveIndex) * wave.hpScalePerStep;
 }
 
-export function enemyHpScale(waveNumber: number): number {
-  return 1 + (waveNumber - 1) * wave.hpScalePerWave;
+export function enemySpeedScale(miniWaveIndex: number): number {
+  return 1 + Math.min(0.6, Math.max(0, miniWaveIndex) * wave.speedScalePerStep);
 }
 
-export function enemySpeedScale(waveNumber: number): number {
-  return 1 + Math.min(1.0, (waveNumber - 1) * wave.speedScalePerWave);
-}
-
-export function enemyDamageScale(waveNumber: number): number {
-  return 1 + Math.min(1.5, (waveNumber - 1) * wave.damageScalePerWave);
+export function enemyDamageScale(miniWaveIndex: number): number {
+  return 1 + Math.min(1.5, Math.max(0, miniWaveIndex) * wave.damageScalePerStep);
 }
 
 export function bossAggression(elapsed: number): number {

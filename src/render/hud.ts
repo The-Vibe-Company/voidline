@@ -1,95 +1,49 @@
 import { enemies, player, state } from "../state";
 import { clamp } from "../utils";
 import {
-  canAcceptOffer,
-  currentRerollCost,
-  currentShopOffers,
-  tryBuyOffer,
-  tryRerollShop,
-} from "../game/shop";
-import { advanceFromShop } from "../game/wave-flow";
-import { isBossWave } from "../game/balance";
-import { previewUpgradeOnPlayer } from "../game/upgrade-catalog";
+  applyCardAndAdvance,
+  getPendingOffers,
+} from "../game/wave-flow";
+import { findWeaponDef } from "../game/weapon-catalog";
+import { dailyStarterWeapon } from "../game/wave-flow";
+import { getDailySeedString } from "../game/daily-seed";
 import { accountProgress } from "../systems/account";
-import {
-  canPurchaseLevel,
-  metaUpgradeCatalog,
-  metaUpgradeLevel,
-} from "../game/meta-upgrade-catalog";
-import { purchaseMetaUpgrade } from "../systems/account";
-import {
-  MAX_WEAPONS,
-  findWeaponDef,
-  playerOwnsWeapon,
-  playerLoadoutFull,
-  weaponCatalog,
-} from "../game/weapon-catalog";
+import { getDailyLeaderboard } from "./leaderboard";
+import { MINI_WAVE_COUNT } from "../game/balance";
 import type {
+  CardOffer,
   ControlMode,
-  Upgrade,
-  UpgradeStat,
+  LeaderboardEntry,
   WeaponArchetypeId,
 } from "../types";
 
+type StartRunHandler = (id?: WeaponArchetypeId) => void;
+let startRunHandler: StartRunHandler | null = null;
+
+export function setStartRunHandler(handler: StartRunHandler): void {
+  startRunHandler = handler;
+}
+
 const hud = {
-  wave: query<HTMLElement>("#waveValue"),
-  waveTimer: query<HTMLElement>("#waveTimerValue"),
-  currency: query<HTMLElement>("#currencyValue"),
-  carry: query<HTMLElement>("#carryValue"),
-  score: query<HTMLElement>("#scoreValue"),
-  health: query<HTMLElement>("#healthBar"),
-  bossPanel: query<HTMLElement>("#bossPanel"),
-  bossHealth: query<HTMLElement>("#bossHealthBar"),
-  stats: {
-    hull: query<HTMLElement>("#statHull"),
-    damage: query<HTMLElement>("#statDamage"),
-    fireRate: query<HTMLElement>("#statFireRate"),
-    volley: query<HTMLElement>("#statVolley"),
-    speed: query<HTMLElement>("#statSpeed"),
-    pierce: query<HTMLElement>("#statPierce"),
-    crit: query<HTMLElement>("#statCrit"),
-    caliber: query<HTMLElement>("#statCaliber"),
-    range: query<HTMLElement>("#statRange"),
-  },
+  hudShell: queryOptional<HTMLElement>(".hud"),
+  wave: queryOptional<HTMLElement>("#waveValue"),
+  waveTimer: queryOptional<HTMLElement>("#waveTimerValue"),
+  health: queryOptional<HTMLElement>("#healthBar"),
+  bossPanel: queryOptional<HTMLElement>("#bossPanel"),
+  bossHealth: queryOptional<HTMLElement>("#bossHealthBar"),
   hangarOverlay: query<HTMLElement>("#hangarOverlay"),
-  shopOverlay: query<HTMLElement>("#shopOverlay"),
-  shopGrid: query<HTMLElement>("#shopGrid"),
-  shopCurrency: query<HTMLElement>("#shopCurrency"),
-  shopCarry: query<HTMLElement>("#shopCarry"),
-  shopWaveNumber: query<HTMLElement>("#shopWaveNumber"),
-  shopNextHint: query<HTMLElement>("#shopNextHint"),
-  shopNextHintWave: query<HTMLElement>("#shopNextHintWave"),
-  shopNextWaveNumber: query<HTMLElement>("#shopNextWaveNumber"),
-  shopRerollButton: query<HTMLButtonElement>("#shopRerollButton"),
-  shopRerollCost: query<HTMLElement>("#shopRerollCost"),
-  shopNextButton: query<HTMLButtonElement>("#shopNextButton"),
-  weaponLoadout: query<HTMLElement>("#weaponLoadout"),
-  shopWeaponLoadout: query<HTMLElement>("#shopWeaponLoadout"),
-  weaponPickerOverlay: query<HTMLElement>("#weaponPickerOverlay"),
-  weaponPickerGrid: query<HTMLElement>("#weaponPickerGrid"),
-  shopStats: {
-    hp: query<HTMLElement>("#shopStatHull"),
-    damage: query<HTMLElement>("#shopStatDamage"),
-    fireRate: query<HTMLElement>("#shopStatFireRate"),
-    projectileCount: query<HTMLElement>("#shopStatVolley"),
-    speed: query<HTMLElement>("#shopStatSpeed"),
-    pierce: query<HTMLElement>("#shopStatPierce"),
-    critChance: query<HTMLElement>("#shopStatCrit"),
-    bulletRadius: query<HTMLElement>("#shopStatCaliber"),
-    bulletSpeed: query<HTMLElement>("#shopStatBulletSpeed"),
-    range: query<HTMLElement>("#shopStatRange"),
-  },
+  cardPickOverlay: query<HTMLElement>("#cardPickOverlay"),
   pauseOverlay: query<HTMLElement>("#pauseOverlay"),
   gameOverOverlay: query<HTMLElement>("#gameOverOverlay"),
-  finalWave: query<HTMLElement>("#finalWave"),
-  finalScore: query<HTMLElement>("#finalScore"),
-  runRecapGrid: query<HTMLElement>("#runRecapGrid"),
-  hangarMeta: query<HTMLElement>("#hangarMeta"),
-  recordWave: query<HTMLElement>("#recordWave"),
-  recordScore: query<HTMLElement>("#recordScore"),
-  recordTime: query<HTMLElement>("#recordTime"),
+  hangarMeta: queryOptional<HTMLElement>("#hangarMeta"),
+  recordWave: queryOptional<HTMLElement>("#recordWave"),
+  recordScore: queryOptional<HTMLElement>("#recordScore"),
+  recordTime: queryOptional<HTMLElement>("#recordTime"),
   recordsSummary: queryOptional<HTMLElement>("[data-records-summary]"),
   accountCrystals: queryOptional<HTMLElement>("[data-account-crystals]"),
+  finalWave: queryOptional<HTMLElement>("#finalWave"),
+  finalScore: queryOptional<HTMLElement>("#finalScore"),
+  runRecapGrid: queryOptional<HTMLElement>("#runRecapGrid"),
 };
 
 function query<T extends HTMLElement>(selector: string): T {
@@ -109,37 +63,9 @@ export function setControlMode(mode: ControlMode): void {
 
 export function hideOverlays(): void {
   hud.hangarOverlay.classList.remove("active");
-  hud.shopOverlay.classList.remove("active");
+  hud.cardPickOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
-  hud.weaponPickerOverlay.classList.remove("active");
-}
-
-export function showWeaponPicker(onPick: (defId: WeaponArchetypeId) => void): void {
-  hideOverlays();
-  hud.weaponPickerGrid.innerHTML = "";
-  for (const def of weaponCatalog) {
-    const stats = def.tiers[0]!;
-    const card = document.createElement("button");
-    card.className = "upgrade-card weapon-card weapon-picker-card";
-    card.type = "button";
-    card.dataset.weaponId = def.id;
-    card.innerHTML = `
-      <span class="upgrade-stamp weapon-stamp" aria-hidden="true">
-        <span class="weapon-tier-badge weapon-tier-badge--1">T1</span>
-        <img class="upgrade-stamp-img weapon-stamp-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none';this.parentElement.dataset.fallback='${def.id.charAt(0).toUpperCase()}'" />
-      </span>
-      <span class="upgrade-copy">
-        <h3>${def.name}</h3>
-        <p>${def.description}</p>
-        <p class="weapon-card-stats">DMG ${stats.damage} · ${stats.fireRate.toFixed(1)}/s · ${stats.projectileCount > 1 ? `${stats.projectileCount} proj · ` : ""}portée ${stats.range}</p>
-      </span>
-      <strong class="upgrade-effect">Choisir</strong>
-    `;
-    card.addEventListener("click", () => onPick(def.id));
-    hud.weaponPickerGrid.appendChild(card);
-  }
-  hud.weaponPickerOverlay.classList.add("active");
 }
 
 export function showHangar(): void {
@@ -149,7 +75,7 @@ export function showHangar(): void {
   hud.hangarOverlay.classList.add("active");
   renderHangar();
   requestAnimationFrame(() =>
-    document.querySelector<HTMLButtonElement>("#startButton")?.focus(),
+    document.querySelector<HTMLButtonElement>("[data-starter-button]")?.focus(),
   );
 }
 
@@ -165,330 +91,181 @@ export function resumeGame(): void {
   hud.pauseOverlay.classList.remove("active");
 }
 
-export function showShop(): void {
+export function showCardPick(): void {
   hideOverlays();
-  hud.shopOverlay.classList.add("active");
-  renderShop();
+  hud.cardPickOverlay.classList.add("active");
+  renderCardPick();
 }
 
 export function showGameOver(): void {
   hud.gameOverOverlay.classList.add("active");
-  hud.finalWave.textContent = String(state.highestWaveReached);
-  hud.finalScore.textContent = String(state.score);
-  hud.runRecapGrid.innerHTML = "";
-  const reward = accountProgress.lastRunReward;
-  const items = [
-    { label: "Wave", value: String(state.highestWaveReached) },
-    { label: "Temps", value: formatTime(state.runElapsedSeconds) },
-    { label: "Score", value: String(state.score) },
-    { label: "Cristaux", value: `+${reward?.crystalsGained ?? 0}` },
-  ];
-  for (const item of items) {
-    const article = document.createElement("article");
-    article.className = "recap-stat";
-    article.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
-    hud.runRecapGrid.appendChild(article);
-  }
-}
-
-type ShopStatKey = keyof typeof hud.shopStats;
-
-const STAT_TO_CHIP: Record<UpgradeStat, ShopStatKey> = {
-  damage: "damage",
-  damageMul: "damage",
-  fireRate: "fireRate",
-  fireRateMul: "fireRate",
-  speed: "speed",
-  maxHp: "hp",
-  projectileCount: "projectileCount",
-  pierce: "pierce",
-  bulletRadius: "bulletRadius",
-  critChance: "critChance",
-  bulletSpeed: "bulletSpeed",
-  range: "range",
-};
-
-function tierForCost(cost: number): "common" | "rare" | "epic" {
-  if (cost <= 30) return "common";
-  if (cost <= 50) return "rare";
-  return "epic";
-}
-
-function tierLabel(tier: "common" | "rare" | "epic"): string {
-  if (tier === "common") return "Commun";
-  if (tier === "rare") return "Rare";
-  return "Épique";
-}
-
-function formatStatValue(stat: UpgradeStat, value: number): string {
-  switch (stat) {
-    case "fireRate":
-      return `${value.toFixed(1)}/s`;
-    case "critChance":
-      return `${Math.round(value * 100)}%`;
-    case "bulletRadius":
-      return `x${value.toFixed(2)}`;
-    case "bulletSpeed":
-      return Math.round(value).toString();
-    default:
-      return Math.round(value).toString();
-  }
-}
-
-function updateShopHeader(): void {
-  const finishedWave = state.wave;
-  const nextWave = state.wave + 1;
-  hud.shopWaveNumber.textContent = String(finishedWave);
-  hud.shopNextHintWave.textContent = String(nextWave);
-  hud.shopNextWaveNumber.textContent = String(nextWave);
-  hud.shopCurrency.textContent = String(state.runCurrency);
-  hud.shopCarry.textContent = String(state.carriedXp);
-  const rerollCost = currentRerollCost();
-  hud.shopRerollCost.textContent = String(rerollCost);
-  hud.shopRerollButton.disabled = state.runCurrency < rerollCost;
-
-  const nextIsBoss = isBossWave(nextWave);
-  hud.shopNextHint.classList.toggle("is-boss", nextIsBoss);
-  hud.shopNextButton.classList.toggle("is-boss", nextIsBoss);
-  if (nextIsBoss) {
-    hud.shopNextHint.innerHTML = `<span class="boss-glyph" aria-hidden="true">⚠</span> Boss wave <strong>${nextWave}</strong>`;
-  } else {
-    hud.shopNextHint.innerHTML = `Prochaine&nbsp;: <strong>Wave ${nextWave}</strong>`;
-  }
-}
-
-function renderShopStats(): void {
-  hud.shopStats.hp.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
-  hud.shopStats.damage.textContent = String(Math.round(player.damage));
-  hud.shopStats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;
-  hud.shopStats.projectileCount.textContent = String(player.projectileCount);
-  hud.shopStats.speed.textContent = String(Math.round(player.speed));
-  hud.shopStats.pierce.textContent = String(player.pierce);
-  hud.shopStats.critChance.textContent = `${Math.round(player.critChance * 100)}%`;
-  hud.shopStats.bulletRadius.textContent = `x${player.bulletRadius.toFixed(2)}`;
-  hud.shopStats.bulletSpeed.textContent = String(Math.round(player.bulletSpeed));
-  hud.shopStats.range.textContent = String(Math.round(player.range));
-}
-
-function highlightStatChips(upgrade: Upgrade): void {
-  clearStatChipHighlight();
-  for (const effect of upgrade.effects) {
-    const chipKey = STAT_TO_CHIP[effect.stat];
-    const chip = hud.shopStats[chipKey];
-    const wrapper = chip?.parentElement as HTMLElement | null;
-    if (wrapper) {
-      wrapper.classList.add("is-affected");
-      wrapper.classList.toggle("is-malus", effect.amount < 0);
+  if (hud.finalWave) hud.finalWave.textContent = String(state.miniWaveIndex + 1);
+  if (hud.finalScore) hud.finalScore.textContent = String(state.score);
+  if (hud.runRecapGrid) {
+    hud.runRecapGrid.innerHTML = "";
+    const recap = state.bossDefeated
+      ? "Boss vaincu — clear complet"
+      : `Mini-vague ${state.miniWaveIndex + 1}/${MINI_WAVE_COUNT}`;
+    const items = [
+      { label: "Résultat", value: recap },
+      { label: "Temps", value: formatTime(state.runElapsedSeconds) },
+      { label: "Score", value: String(state.score) },
+      { label: "Kills", value: String(state.kills) },
+    ];
+    for (const item of items) {
+      const article = document.createElement("article");
+      article.className = "recap-stat";
+      article.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
+      hud.runRecapGrid.appendChild(article);
     }
   }
 }
 
-function clearStatChipHighlight(): void {
-  hud.shopOverlay
-    .querySelectorAll<HTMLElement>(".stat-chip.is-affected")
-    .forEach((el) => {
-      el.classList.remove("is-affected", "is-malus");
-    });
+const REVEAL_DURATION_MS = 1800;
+let revealTimerHandle: ReturnType<typeof setTimeout> | null = null;
+let revealReady = false;
+
+function renderCardPick(): void {
+  const offers = getPendingOffers();
+  if (!offers) return;
+  const xpDropped = state.xpDropped;
+  const xpCollected = state.xpCollected;
+  const xpPct = xpDropped > 0 ? Math.min(100, Math.round((xpCollected / xpDropped) * 100)) : 0;
+  const cardCount = offers.length;
+
+  hud.cardPickOverlay.innerHTML = "";
+  const modal = document.createElement("div");
+  modal.className = `card-pick-modal cards-${cardCount} is-rolling`;
+  modal.setAttribute("role", "dialog");
+  modal.setAttribute("aria-modal", "true");
+  modal.innerHTML = `
+    <header class="card-pick-head">
+      <p class="eyebrow">Mini-vague ${state.miniWaveIndex + 1} terminée</p>
+      <h2>Choisis une carte</h2>
+      <div class="card-pick-roll" data-roll>
+        <span class="card-pick-roll-label">XP collecté</span>
+        <div class="card-pick-roll-bar">
+          <span class="card-pick-roll-fill" style="--xp-pct:${xpPct}%"></span>
+        </div>
+        <span class="card-pick-roll-stat"><strong>${xpCollected}</strong>/${xpDropped} (${xpPct}%)</span>
+        <span class="card-pick-roll-spinner" aria-hidden="true"></span>
+        <span class="card-pick-roll-result" data-result></span>
+      </div>
+      <p class="card-pick-hint" data-hint hidden></p>
+    </header>
+    <div class="card-pick-grid" data-grid hidden></div>
+    <footer class="card-pick-foot">Mini-vague ${state.miniWaveIndex + 2}/${MINI_WAVE_COUNT} ${state.miniWaveIndex + 1 === MINI_WAVE_COUNT - 1 ? "(Boss)" : ""}</footer>
+  `;
+  hud.cardPickOverlay.appendChild(modal);
+
+  if (revealTimerHandle) clearTimeout(revealTimerHandle);
+  revealReady = false;
+  revealTimerHandle = setTimeout(() => {
+    revealCards(modal, offers, cardCount, xpPct);
+  }, REVEAL_DURATION_MS);
 }
 
-function refreshShopAffordability(): void {
-  const cards = hud.shopGrid.querySelectorAll<HTMLButtonElement>(".shop-card-v2");
-  const offers = currentShopOffers();
-  cards.forEach((card, idx) => {
-    const offer = offers[idx];
-    if (!offer) return;
-    card.disabled = !canAcceptOffer(offer);
-  });
-}
-
-function renderShop(): void {
-  updateShopHeader();
-  renderWeaponLoadouts();
-  renderShopStats();
-  clearStatChipHighlight();
-  hud.shopGrid.innerHTML = "";
-  const offers = currentShopOffers();
-  hud.shopGrid.dataset.count = String(offers.length);
-  if (offers.length === 0) {
-    const empty = document.createElement("p");
-    empty.className = "shop-empty";
-    empty.textContent = "Plus rien à acheter — passe à la suite.";
-    hud.shopGrid.appendChild(empty);
-    return;
-  }
-  offers.forEach((offer, index) => {
-    const card = document.createElement("button");
-    card.type = "button";
-    card.style.setProperty("--card-delay", `${index * 60}ms`);
-    const accepted = canAcceptOffer(offer);
-    card.disabled = !accepted;
-    card.dataset.offerIndex = String(index);
-    if (offer.kind === "upgrade") {
-      const tier = tierForCost(offer.cost);
-      const preview = previewUpgradeOnPlayer(offer.upgrade, player);
-      card.className = `shop-card-v2 tier-${tier}`;
-      const previewRows = preview
-        .map((entry) => {
-          const before = formatStatValue(entry.stat, entry.before);
-          const after = formatStatValue(entry.stat, entry.after);
-          return `
-          <span class="shop-preview-row ${entry.isMalus ? "is-malus" : "is-buff"}">
-            <span class="lbl">${entry.label}</span>
-            <span class="vals"><em>${before}</em><span class="arr" aria-hidden="true">→</span><strong>${after}</strong></span>
-          </span>`;
-        })
-        .join("");
-      const ariaSummary = `${offer.upgrade.name}, ${offer.upgrade.description}, ${offer.cost} XP`;
-      card.setAttribute(
-        "aria-label",
-        accepted ? `Acheter ${ariaSummary}` : `${ariaSummary} (XP insuffisants)`,
-      );
-      card.innerHTML = `
-        <span class="shop-card-tier" aria-hidden="true">${tierLabel(tier)}</span>
-        <span class="shop-card-icon" aria-hidden="true">
-          <img src="${offer.upgrade.icon}" alt="" />
-        </span>
-        <h3 class="shop-card-name">${offer.upgrade.name}</h3>
-        <p class="shop-card-desc">${offer.upgrade.description}</p>
-        <span class="shop-card-preview" aria-hidden="true">${previewRows}</span>
-        <span class="shop-card-cost" aria-hidden="true"><strong>${offer.cost}</strong><span class="unit">XP</span></span>
-      `;
-      card.addEventListener("mouseenter", () => highlightStatChips(offer.upgrade));
-      card.addEventListener("mouseleave", clearStatChipHighlight);
-      card.addEventListener("focus", () => highlightStatChips(offer.upgrade));
-      card.addEventListener("blur", clearStatChipHighlight);
+function revealCards(
+  modal: HTMLElement,
+  offers: readonly CardOffer[],
+  cardCount: number,
+  xpPct: number,
+): void {
+  revealReady = true;
+  modal.classList.remove("is-rolling");
+  modal.classList.add("is-revealed");
+  const result = modal.querySelector<HTMLElement>("[data-result]");
+  if (result) {
+    if (cardCount === 3) {
+      result.className = "card-pick-roll-result is-bonus";
+      result.textContent = `+1 carte bonus`;
     } else {
-      card.className = `shop-card-v2 shop-card-weapon tier-${offer.tier}`;
-      const def = findWeaponDef(offer.defId);
-      const owned = playerOwnsWeapon(player, offer.defId);
-      const blockedFull = !owned && playerLoadoutFull(player);
-      const cta = blockedFull
-        ? "Loadout plein"
-        : offer.action === "promote"
-          ? `Promouvoir T${offer.tier}`
-          : `Acquérir T${offer.tier}`;
-      card.setAttribute(
-        "aria-label",
-        accepted
-          ? `${cta} ${def.name}, ${offer.cost} XP`
-          : `${def.name} T${offer.tier} (${blockedFull ? "loadout plein" : "XP insuffisants"})`,
-      );
-      card.innerHTML = `
-        <span class="shop-card-tier weapon-tier-badge weapon-tier-badge--${offer.tier}" aria-hidden="true">T${offer.tier}</span>
-        <span class="shop-card-icon" aria-hidden="true">
-          <img src="${def.icon}" alt="" onerror="this.style.display='none'" />
-        </span>
-        <h3 class="shop-card-name">${def.name}</h3>
-        <p class="shop-card-desc">${def.description}</p>
-        <p class="weapon-card-cta" aria-hidden="true">${cta}</p>
-        <span class="shop-card-cost" aria-hidden="true"><strong>${offer.cost}</strong><span class="unit">XP</span></span>
-      `;
+      result.className = "card-pick-roll-result is-standard";
+      result.textContent = xpPct >= 100 ? "Pas de bonus cette fois" : `Atteins 100% pour 3 cartes`;
     }
-    card.addEventListener("click", () => onBuyOffer(index));
-    hud.shopGrid.appendChild(card);
-  });
-}
-
-function loadoutSignature(): string {
-  return player.weapons.map((w) => `${w.defId}:${w.tier}`).join("|");
-}
-
-const lastLoadoutSig = new WeakMap<HTMLElement, string>();
-
-function renderWeaponLoadouts(force = false): void {
-  renderWeaponLoadout(hud.weaponLoadout, force);
-  renderWeaponLoadout(hud.shopWeaponLoadout, force);
-}
-
-function renderWeaponLoadout(target: HTMLElement, force = false): void {
-  const sig = loadoutSignature();
-  if (!force && lastLoadoutSig.get(target) === sig) return;
-  lastLoadoutSig.set(target, sig);
-  target.innerHTML = "";
-  for (let i = 0; i < MAX_WEAPONS; i += 1) {
-    const weapon = player.weapons[i];
-    const slot = document.createElement("span");
-    if (!weapon) {
-      slot.className = "weapon-slot weapon-slot--empty";
-      slot.innerHTML = `<span class="weapon-slot-index">${i + 1}</span>`;
-      target.appendChild(slot);
-      continue;
-    }
-    const def = findWeaponDef(weapon.defId);
-    slot.className = "weapon-slot weapon-slot--filled";
-    slot.innerHTML = `
-      <img class="weapon-slot-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none'" />
-      <span class="weapon-tier-badge weapon-tier-badge--${weapon.tier}">T${weapon.tier}</span>
-    `;
-    target.appendChild(slot);
+  }
+  const hint = modal.querySelector<HTMLElement>("[data-hint]");
+  if (hint) {
+    hint.hidden = false;
+    hint.innerHTML = cardCount === 3
+      ? `Touches <kbd>1</kbd>, <kbd>2</kbd> ou <kbd>3</kbd>`
+      : `Touches <kbd>1</kbd> ou <kbd>2</kbd>`;
+  }
+  const grid = modal.querySelector<HTMLElement>("[data-grid]");
+  if (grid) {
+    grid.hidden = false;
+    offers.forEach((offer, index) => {
+      const card = buildCardElement(offer, index);
+      card.style.setProperty("--card-delay", `${index * 80}ms`);
+      grid.appendChild(card);
+    });
   }
 }
 
-function onBuyOffer(index: number): void {
-  if (tryBuyOffer(index)) {
-    renderShop();
-    updateHud();
-  }
+function buildCardElement(offer: CardOffer, index: number): HTMLElement {
+  const card = document.createElement("button");
+  card.type = "button";
+  card.className = `card-pick-card rarity-${offer.card.rarity}`;
+  card.dataset.cardIndex = String(index);
+  card.innerHTML = `
+    <span class="card-pick-rarity">${offer.card.rarity === "mutation" ? "MUTATION" : offer.card.rarity === "rare" ? "RARE" : "COMMUN"}</span>
+    <span class="card-pick-key">${index + 1}</span>
+    <h3 class="card-pick-name">${offer.card.name}</h3>
+    <p class="card-pick-desc">${offer.card.description}</p>
+  `;
+  card.addEventListener("click", () => onPickCard(index));
+  return card;
 }
 
-function onReroll(): void {
-  if (tryRerollShop()) {
-    renderShop();
-    updateHud();
-  }
+export function pickCardByIndex(index: number): void {
+  if (state.mode !== "card-pick") return;
+  if (!revealReady) return;
+  const offers = getPendingOffers();
+  if (!offers || index < 0 || index >= offers.length) return;
+  onPickCard(index);
 }
 
-function onNextWave(): void {
+function onPickCard(index: number): void {
+  if (!revealReady) return;
+  if (revealTimerHandle) {
+    clearTimeout(revealTimerHandle);
+    revealTimerHandle = null;
+  }
+  applyCardAndAdvance(index);
   hideOverlays();
-  advanceFromShop();
   updateHud();
 }
 
 export function updateHud(): void {
-  hud.wave.textContent = String(state.wave);
-  hud.waveTimer.textContent = formatTime(state.waveTimer);
-  hud.currency.textContent = String(state.runCurrency);
-  hud.carry.textContent = String(state.pendingCarry);
-  hud.score.textContent = String(state.score);
-  const hpPct = clamp(player.hp / Math.max(1, player.maxHp), 0, 1);
-  hud.health.style.width = `${hpPct * 100}%`;
-  hud.health.style.background =
-    hpPct > 0.4
-      ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
-      : "linear-gradient(90deg, #ff5a69, #ffbf47)";
-  const bossEnemy =
-    state.mode === "playing" ? enemies.find((e) => e.isBoss) : undefined;
-  if (bossEnemy) {
-    hud.bossPanel.dataset.active = "true";
-    const bossPct = clamp(bossEnemy.hp / Math.max(1, bossEnemy.maxHp), 0, 1);
-    hud.bossHealth.style.width = `${bossPct * 100}%`;
-  } else {
-    hud.bossPanel.dataset.active = "false";
+  if (hud.hudShell) {
+    const visible = state.mode === "playing" || state.mode === "paused";
+    hud.hudShell.dataset.hudMode = visible ? "visible" : "hidden";
   }
-  hud.stats.hull.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
-  hud.stats.damage.textContent = formatBonus(player.damage);
-  hud.stats.fireRate.textContent = `${formatBonus(player.fireRate, 1)}/s`;
-  hud.stats.volley.textContent = formatBonus(player.projectileCount);
-  hud.stats.speed.textContent = String(Math.round(player.speed));
-  hud.stats.pierce.textContent = formatBonus(player.pierce);
-  hud.stats.crit.textContent = `${formatBonus(Math.round(player.critChance * 100))}%`;
-  hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
-  hud.stats.range.textContent = formatBonus(Math.round(player.range));
-  renderWeaponLoadout(hud.weaponLoadout);
-  if (hud.accountCrystals) {
-    hud.accountCrystals.textContent = String(accountProgress.crystals);
+  if (hud.wave) {
+    hud.wave.textContent = `${state.miniWaveIndex + 1}/${MINI_WAVE_COUNT}`;
   }
-  if (state.mode === "shop") {
-    updateShopHeader();
-    renderShopStats();
-    refreshShopAffordability();
+  if (hud.waveTimer) {
+    hud.waveTimer.textContent = formatTime(state.waveTimer);
   }
-}
-
-function formatBonus(value: number, fractionDigits = 0): string {
-  const rounded = fractionDigits > 0 ? value.toFixed(fractionDigits) : String(Math.round(value));
-  if (value > 0) return `+${rounded}`;
-  return rounded;
+  if (hud.health) {
+    const hpPct = clamp(player.hp / Math.max(1, player.maxHp), 0, 1);
+    hud.health.style.width = `${hpPct * 100}%`;
+    hud.health.style.background =
+      hpPct > 0.4
+        ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
+        : "linear-gradient(90deg, #ff5a69, #ffbf47)";
+  }
+  if (hud.bossPanel && hud.bossHealth) {
+    const bossEnemy =
+      state.mode === "playing" ? enemies.find((e) => e.isBoss) : undefined;
+    if (bossEnemy) {
+      hud.bossPanel.dataset.active = "true";
+      const bossPct = clamp(bossEnemy.hp / Math.max(1, bossEnemy.maxHp), 0, 1);
+      hud.bossHealth.style.width = `${bossPct * 100}%`;
+    } else {
+      hud.bossPanel.dataset.active = "false";
+    }
+  }
 }
 
 function formatTime(seconds: number): string {
@@ -499,44 +276,55 @@ function formatTime(seconds: number): string {
 }
 
 export function renderHangar(): void {
-  if (hud.accountCrystals) {
-    hud.accountCrystals.textContent = String(accountProgress.crystals);
-  }
-  hud.recordWave.textContent = String(accountProgress.records.bestWave);
-  hud.recordScore.textContent = String(accountProgress.records.bestScore);
-  hud.recordTime.textContent = formatTime(accountProgress.records.bestTimeSeconds);
+  if (hud.recordWave) hud.recordWave.textContent = String(accountProgress.records.bestMiniWave);
+  if (hud.recordScore) hud.recordScore.textContent = String(accountProgress.records.bestScore);
+  if (hud.recordTime) hud.recordTime.textContent = formatTime(accountProgress.records.bestTimeSeconds);
   if (hud.recordsSummary) {
-    hud.recordsSummary.textContent = `Records: wave ${accountProgress.records.bestWave} · ${formatTime(accountProgress.records.bestTimeSeconds)}`;
+    hud.recordsSummary.textContent = `Records: vague ${accountProgress.records.bestMiniWave}/${MINI_WAVE_COUNT} · ${formatTime(accountProgress.records.bestTimeSeconds)}`;
   }
 
+  if (!hud.hangarMeta) return;
   hud.hangarMeta.innerHTML = "";
-  for (const upgrade of metaUpgradeCatalog) {
-    const level = metaUpgradeLevel(accountProgress, upgrade.id);
-    const atMax = level >= upgrade.maxLevel;
-    const nextCost = atMax ? null : upgrade.costAt(level);
-    const purchase = canPurchaseLevel(accountProgress, upgrade.id);
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = "meta-card";
-    card.disabled = !purchase.ok;
-    const stateLabel = atMax ? "MAX" : `${nextCost} ◆`;
-    card.innerHTML = `
-      <span class="meta-card-head">
-        <img class="meta-stamp-img" src="${upgrade.icon}" alt="" />
-        <span class="meta-card-title">
-          <strong>${upgrade.name}</strong>
-          <span class="meta-card-level">L${level}/${upgrade.maxLevel}</span>
-        </span>
-      </span>
-      <p>${upgrade.description}</p>
-      <span class="meta-card-cost">${stateLabel}</span>
-    `;
-    card.addEventListener("click", () => {
-      const result = purchaseMetaUpgrade(upgrade.id);
-      if (result.ok) renderHangar();
+
+  const todaySeed = getDailySeedString();
+  const todayStarter = dailyStarterWeapon();
+  const todayDef = findWeaponDef(todayStarter);
+  const seedBlock = document.createElement("section");
+  seedBlock.className = "hangar-seed-block";
+  seedBlock.innerHTML = `
+    <p class="eyebrow">Daily run</p>
+    <strong class="hangar-seed-value">${todaySeed}</strong>
+    <p class="hangar-seed-hint">Arme du jour : <strong>${todayDef.name}</strong> — même seed pour tous, bats ton record.</p>
+  `;
+  hud.hangarMeta.appendChild(seedBlock);
+
+  const leaderboard = getDailyLeaderboard(todaySeed);
+  const leaderboardBlock = document.createElement("section");
+  leaderboardBlock.className = "hangar-leaderboard-block";
+  leaderboardBlock.innerHTML = `<p class="eyebrow">Top 5 du jour</p>`;
+  if (leaderboard.length === 0) {
+    leaderboardBlock.innerHTML += `<p class="hangar-leaderboard-empty">Pas encore de score — sois le premier.</p>`;
+  } else {
+    const list = document.createElement("ol");
+    list.className = "hangar-leaderboard-list";
+    leaderboard.forEach((entry, idx) => {
+      const item = document.createElement("li");
+      item.innerHTML = formatLeaderboardLine(entry, idx + 1);
+      list.appendChild(item);
     });
-    hud.hangarMeta.appendChild(card);
+    leaderboardBlock.appendChild(list);
   }
+  hud.hangarMeta.appendChild(leaderboardBlock);
+}
+
+function formatLeaderboardLine(entry: LeaderboardEntry, rank: number): string {
+  const def = findWeaponDef(entry.starterWeaponId);
+  const flag = entry.bossDefeated ? "★" : "";
+  return `<span class="lb-rank">#${rank}</span><span class="lb-score">${entry.score}</span><span class="lb-meta">${def.name} · vague ${entry.miniWave}/${MINI_WAVE_COUNT} · ${formatTime(entry.elapsedSeconds)} ${flag}</span>`;
+}
+
+export function triggerStartRun(): void {
+  if (startRunHandler) startRunHandler();
 }
 
 export function bindHudEvents(onStart: () => void, onRestart: () => void, onResetProgress: () => void): void {
@@ -549,6 +337,4 @@ export function bindHudEvents(onStart: () => void, onRestart: () => void, onRese
       if (!window.confirm("Réinitialiser la progression ?")) return;
       onResetProgress();
     });
-  hud.shopRerollButton.addEventListener("click", onReroll);
-  hud.shopNextButton.addEventListener("click", onNextWave);
 }

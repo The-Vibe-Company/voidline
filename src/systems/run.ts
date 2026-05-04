@@ -1,27 +1,32 @@
-import { state } from "../state";
+import { state, world } from "../state";
 import { startRun } from "../game/wave-flow";
-import { awardRunCrystals } from "./account";
-import { hideOverlays, showGameOver, showHangar, showShop, updateHud } from "../render/hud";
+import { recordRun } from "./account";
+import { hideOverlays, showCardPick, showGameOver, showHangar, updateHud } from "../render/hud";
 import { stepWave } from "../game/wave-loop";
-import { resetShopState } from "../game/shop";
+import { tickWorldFx } from "../game/hitstop";
+import { submitEntry } from "../render/leaderboard";
 import type { WeaponArchetypeId } from "../types";
 
 let runRewardClaimed = false;
 
-export function beginRun(starterWeaponId: WeaponArchetypeId = "pulse"): void {
+export function beginRun(starterWeaponId?: WeaponArchetypeId): void {
   runRewardClaimed = false;
-  resetShopState();
+  world.hitstop = 0;
+  world.timescale = 1;
   startRun(starterWeaponId);
   hideOverlays();
   updateHud();
 }
 
-export function update(dt: number): void {
+export function update(realDt: number): void {
   if (state.mode !== "playing") return;
-  stepWave(dt);
+  const dt = tickWorldFx(realDt);
+  if (dt > 0) {
+    stepWave(dt);
+  }
   const next = state.mode as string;
-  if (next === "shop") {
-    showShop();
+  if (next === "card-pick") {
+    showCardPick();
   } else if (next === "gameover") {
     onGameOver();
   }
@@ -30,10 +35,21 @@ export function update(dt: number): void {
 function onGameOver(): void {
   if (runRewardClaimed) return;
   runRewardClaimed = true;
-  awardRunCrystals({
-    wave: state.highestWaveReached,
+  recordRun({
+    miniWaveReached: state.miniWaveIndex + (state.bossDefeated ? 1 : 0),
+    bossDefeated: state.bossDefeated,
     elapsedSeconds: state.runElapsedSeconds,
     score: state.score,
+    kills: state.kills,
+  });
+  submitEntry({
+    score: state.score,
+    miniWave: state.miniWaveIndex + (state.bossDefeated ? 1 : 0),
+    bossDefeated: state.bossDefeated,
+    starterWeaponId: state.starterWeaponId,
+    elapsedSeconds: Math.floor(state.runElapsedSeconds),
+    date: new Date().toISOString(),
+    seed: state.dailySeed,
   });
   showGameOver();
 }
