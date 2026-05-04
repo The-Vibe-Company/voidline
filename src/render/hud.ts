@@ -161,7 +161,7 @@ function renderShop(): void {
     card.dataset.offerIndex = String(index);
     card.innerHTML = `
       <span class="upgrade-stamp" aria-hidden="true">
-        <span class="upgrade-stamp-glyph">${offer.upgrade.icon}</span>
+        <img class="upgrade-stamp-img" src="${offer.upgrade.icon}" alt="" />
       </span>
       <span class="upgrade-copy">
         <h3>${offer.upgrade.name}</h3>
@@ -255,8 +255,11 @@ export function renderHangar(): void {
     const stateLabel = atMax ? "MAX" : `${nextCost} ◆`;
     card.innerHTML = `
       <span class="meta-card-head">
-        <strong>${upgrade.name}</strong>
-        <span>L${level}/${upgrade.maxLevel}</span>
+        <img class="meta-stamp-img" src="${upgrade.icon}" alt="" />
+        <span class="meta-card-title">
+          <strong>${upgrade.name}</strong>
+          <span class="meta-card-level">L${level}/${upgrade.maxLevel}</span>
+        </span>
       </span>
       <p>${upgrade.description}</p>
       <span class="meta-card-cost">${stateLabel}</span>
