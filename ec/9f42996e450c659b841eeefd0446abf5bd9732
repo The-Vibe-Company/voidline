@@ -1,0 +1,33 @@
+src/game/upgrade-catalog.ts
+  76da2caf694028fc 10-12,18,20,78-80,84-86,124,126,153-154,157-158
+src/game/upgrade-catalog.test.ts
+  76da2caf694028fc 18,20,22-43,83-86,89,93,121,124-125
+src/types.ts
+  76da2caf694028fc 93,95,303,305
+src/state.ts
+  76da2caf694028fc 91,93
+src/render/hud.ts
+  76da2caf694028fc 198,200
+src/game/weapon-catalog.ts
+  76da2caf694028fc 170-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "ec9f42996e450c659b841eeefd0446abf5bd9732",
+  "prompts": {
+    "76da2caf694028fc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8931cdb6-baaf-495f-b151-5f99c84cd789",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 60,
+      "total_deletions": 75,
+      "accepted_lines": 422,
+      "overriden_lines": 0
+    }
+  }
+}
