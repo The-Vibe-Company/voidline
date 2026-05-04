@@ -113,21 +113,59 @@
         </div>
       </section>
 
-      <section class="overlay" id="shopOverlay" aria-labelledby="shopTitle">
-        <div class="upgrade-modal shop-modal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
-          <header class="upgrade-header">
-            <p class="eyebrow">Boutique de wave</p>
-            <h2 id="shopTitle">Wave terminée</h2>
-            <p class="upgrade-prompt">
-              Monnaie: <strong id="shopCurrency">0</strong> &middot;
-              Carry restant: <strong id="shopCarry">0</strong>
-            </p>
+      <section class="overlay shop-overlay" id="shopOverlay" aria-labelledby="shopTitle">
+        <div class="shop-modal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
+          <span class="modal-corner tl" aria-hidden="true"></span>
+          <span class="modal-corner tr" aria-hidden="true"></span>
+          <span class="modal-corner bl" aria-hidden="true"></span>
+          <span class="modal-corner br" aria-hidden="true"></span>
+          <span class="modal-scanline" aria-hidden="true"></span>
+
+          <header class="shop-head">
+            <div class="shop-head-titles">
+              <p class="eyebrow"><span class="eyebrow-glyph" aria-hidden="true">◆</span> Boutique</p>
+              <h2 id="shopTitle">Wave <span id="shopWaveNumber">1</span> terminée</h2>
+              <p class="shop-next" id="shopNextHint">Prochaine&nbsp;: <strong>Wave <span id="shopNextHintWave">2</span></strong></p>
+            </div>
+            <div class="shop-head-currency" aria-live="polite">
+              <span class="shop-coin">
+                <span class="lbl">XP</span>
+                <strong id="shopCurrency">0</strong>
+              </span>
+              <span class="shop-carry">
+                <span class="lbl">Réserve</span>
+                <strong id="shopCarry">0</strong>
+              </span>
+            </div>
           </header>
-          <div class="upgrade-grid" id="shopGrid"></div>
-          <div class="shop-actions">
-            <button class="secondary-action" id="shopRerollButton" type="button">Reroll (10)</button>
-            <button class="primary-action" id="shopNextButton" type="button">Wave suivante &rarr;</button>
-          </div>
+
+          <div class="shop-grid" id="shopGrid"></div>
+
+          <aside class="shop-stats" aria-label="Stats actuelles">
+            <span class="shop-stats-title">Stats</span>
+            <span class="stat-chip" data-stat="hp"><span>Coque</span><strong id="shopStatHull">100/100</strong></span>
+            <span class="stat-chip" data-stat="damage"><span>Dégâts</span><strong id="shopStatDamage">24</strong></span>
+            <span class="stat-chip" data-stat="fireRate"><span>Cadence</span><strong id="shopStatFireRate">1.6/s</strong></span>
+            <span class="stat-chip" data-stat="projectileCount"><span>Salve</span><strong id="shopStatVolley">1</strong></span>
+            <span class="stat-chip" data-stat="speed"><span>Vitesse</span><strong id="shopStatSpeed">145</strong></span>
+            <span class="stat-chip" data-stat="pierce"><span>Pierce</span><strong id="shopStatPierce">0</strong></span>
+            <span class="stat-chip" data-stat="critChance"><span>Crit</span><strong id="shopStatCrit">0%</strong></span>
+            <span class="stat-chip" data-stat="bulletRadius"><span>Calibre</span><strong id="shopStatCaliber">x1.00</strong></span>
+            <span class="stat-chip" data-stat="bulletSpeed"><span>Vélocité</span><strong id="shopStatBulletSpeed">380</strong></span>
+            <span class="stat-chip" data-stat="range"><span>Portée</span><strong id="shopStatRange">240</strong></span>
+          </aside>
+
+          <footer class="shop-foot">
+            <button class="ghost-action" id="shopRerollButton" type="button">
+              <span class="ico" aria-hidden="true">⟳</span>
+              <span class="lbl">Reroll</span>
+              <span class="cost"><strong id="shopRerollCost">10</strong> XP</span>
+            </button>
+            <button class="primary-action shop-next-button" id="shopNextButton" type="button">
+              <span class="lbl">Wave <span id="shopNextWaveNumber">2</span></span>
+              <span class="arrow" aria-hidden="true">→</span>
+            </button>
+          </footer>
         </div>
       </section>
 

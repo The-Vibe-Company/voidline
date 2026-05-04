@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { applyUpgradeToPlayer, findUpgrade, upgradeCatalog } from "./upgrade-catalog";
+import {
+  applyUpgradeToPlayer,
+  findUpgrade,
+  previewUpgradeOnPlayer,
+  upgradeCatalog,
+} from "./upgrade-catalog";
 import { createPlayerBaseState } from "../state";
 
 describe("upgrade catalog", () => {
@@ -85,5 +90,55 @@ describe("upgrade catalog", () => {
   it("upgrade ids are unique", () => {
     const ids = upgradeCatalog.map((u) => u.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("previewUpgradeOnPlayer", () => {
+  it("does not mutate the source player", () => {
+    const player = createPlayerBaseState();
+    const snapshot = { ...player };
+    previewUpgradeOnPlayer(findUpgrade("damage-up"), player);
+    expect(player).toEqual(snapshot);
+  });
+
+  it("returns before/after for a simple buff", () => {
+    const player = createPlayerBaseState();
+    const preview = previewUpgradeOnPlayer(findUpgrade("damage-up"), player);
+    expect(preview).toHaveLength(1);
+    expect(preview[0]).toMatchObject({
+      stat: "damage",
+      before: player.damage,
+      after: player.damage + 8,
+      isMalus: false,
+    });
+  });
+
+  it("flags malus entries on multi-effect upgrades", () => {
+    const player = createPlayerBaseState();
+    const preview = previewUpgradeOnPlayer(findUpgrade("projectile-up"), player);
+    expect(preview).toHaveLength(2);
+    const projectile = preview.find((p) => p.stat === "projectileCount")!;
+    const damage = preview.find((p) => p.stat === "damage")!;
+    expect(projectile.before).toBe(player.projectileCount);
+    expect(projectile.after).toBe(player.projectileCount + 1);
+    expect(projectile.isMalus).toBe(false);
+    expect(damage.before).toBe(player.damage);
+    expect(damage.after).toBe(player.damage - 3);
+    expect(damage.isMalus).toBe(true);
+  });
+
+  it("handles multiplicative effects", () => {
+    const player = createPlayerBaseState();
+    const preview = previewUpgradeOnPlayer(findUpgrade("bullet-radius-up"), player);
+    expect(preview[0].before).toBeCloseTo(1, 5);
+    expect(preview[0].after).toBeCloseTo(1.3, 5);
+  });
+
+  it("respects the crit cap of 0.95 in the preview", () => {
+    const player = createPlayerBaseState();
+    player.critChance = 0.92;
+    const preview = previewUpgradeOnPlayer(findUpgrade("crit-up"), player);
+    expect(preview[0].before).toBeCloseTo(0.92, 5);
+    expect(preview[0].after).toBeCloseTo(0.95, 5);
   });
 });
