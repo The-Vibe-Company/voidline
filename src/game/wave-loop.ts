@@ -57,12 +57,7 @@ export function stepWave(dt: number): void {
     return;
   }
 
-  if (
-    state.waveTimer <= 0 &&
-    state.spawnsRemaining <= 0 &&
-    enemies.length === 0 &&
-    spawnIndicators.length === 0
-  ) {
+  if (state.waveTimer <= 0) {
     transitionToShop();
   }
 }

@@ -8,6 +8,8 @@ import {
   tryRerollShop,
 } from "../game/shop";
 import { advanceFromShop } from "../game/wave-flow";
+import { isBossWave } from "../game/balance";
+import { previewUpgradeOnPlayer } from "../game/upgrade-catalog";
 import { accountProgress } from "../systems/account";
 import {
   canPurchaseLevel,
@@ -22,7 +24,12 @@ import {
   playerLoadoutFull,
   weaponCatalog,
 } from "../game/weapon-catalog";
-import type { ControlMode, ShopOffer, WeaponArchetypeId } from "../types";
+import type {
+  ControlMode,
+  Upgrade,
+  UpgradeStat,
+  WeaponArchetypeId,
+} from "../types";
 
 const hud = {
   wave: query<HTMLElement>("#waveValue"),
@@ -47,12 +54,29 @@ const hud = {
   shopGrid: query<HTMLElement>("#shopGrid"),
   shopCurrency: query<HTMLElement>("#shopCurrency"),
   shopCarry: query<HTMLElement>("#shopCarry"),
+  shopWaveNumber: query<HTMLElement>("#shopWaveNumber"),
+  shopNextHint: query<HTMLElement>("#shopNextHint"),
+  shopNextHintWave: query<HTMLElement>("#shopNextHintWave"),
+  shopNextWaveNumber: query<HTMLElement>("#shopNextWaveNumber"),
   shopRerollButton: query<HTMLButtonElement>("#shopRerollButton"),
+  shopRerollCost: query<HTMLElement>("#shopRerollCost"),
   shopNextButton: query<HTMLButtonElement>("#shopNextButton"),
   weaponLoadout: query<HTMLElement>("#weaponLoadout"),
   shopWeaponLoadout: query<HTMLElement>("#shopWeaponLoadout"),
   weaponPickerOverlay: query<HTMLElement>("#weaponPickerOverlay"),
   weaponPickerGrid: query<HTMLElement>("#weaponPickerGrid"),
+  shopStats: {
+    hp: query<HTMLElement>("#shopStatHull"),
+    damage: query<HTMLElement>("#shopStatDamage"),
+    fireRate: query<HTMLElement>("#shopStatFireRate"),
+    projectileCount: query<HTMLElement>("#shopStatVolley"),
+    speed: query<HTMLElement>("#shopStatSpeed"),
+    pierce: query<HTMLElement>("#shopStatPierce"),
+    critChance: query<HTMLElement>("#shopStatCrit"),
+    bulletRadius: query<HTMLElement>("#shopStatCaliber"),
+    bulletSpeed: query<HTMLElement>("#shopStatBulletSpeed"),
+    range: query<HTMLElement>("#shopStatRange"),
+  },
   pauseOverlay: query<HTMLElement>("#pauseOverlay"),
   gameOverOverlay: query<HTMLElement>("#gameOverOverlay"),
   finalWave: query<HTMLElement>("#finalWave"),
@@ -165,15 +189,106 @@ export function showGameOver(): void {
   }
 }
 
+type ShopStatKey = keyof typeof hud.shopStats;
+
+const STAT_TO_CHIP: Record<UpgradeStat, ShopStatKey> = {
+  damage: "damage",
+  fireRate: "fireRate",
+  speed: "speed",
+  maxHp: "hp",
+  projectileCount: "projectileCount",
+  pierce: "pierce",
+  bulletRadius: "bulletRadius",
+  critChance: "critChance",
+  bulletSpeed: "bulletSpeed",
+  range: "range",
+};
+
+function tierForCost(cost: number): "common" | "rare" | "epic" {
+  if (cost <= 30) return "common";
+  if (cost <= 50) return "rare";
+  return "epic";
+}
+
+function tierLabel(tier: "common" | "rare" | "epic"): string {
+  if (tier === "common") return "Commun";
+  if (tier === "rare") return "Rare";
+  return "Épique";
+}
+
+function formatStatValue(stat: UpgradeStat, value: number): string {
+  switch (stat) {
+    case "fireRate":
+      return `${value.toFixed(1)}/s`;
+    case "critChance":
+      return `${Math.round(value * 100)}%`;
+    case "bulletRadius":
+      return `x${value.toFixed(2)}`;
+    case "bulletSpeed":
+      return Math.round(value).toString();
+    default:
+      return Math.round(value).toString();
+  }
+}
+
 function updateShopHeader(): void {
+  const finishedWave = state.wave;
+  const nextWave = state.wave + 1;
+  hud.shopWaveNumber.textContent = String(finishedWave);
+  hud.shopNextHintWave.textContent = String(nextWave);
+  hud.shopNextWaveNumber.textContent = String(nextWave);
   hud.shopCurrency.textContent = String(state.runCurrency);
-  hud.shopCarry.textContent = String(state.pendingCarry);
-  hud.shopRerollButton.textContent = `Reroll (${currentRerollCost()})`;
-  hud.shopRerollButton.disabled = state.runCurrency < currentRerollCost();
+  hud.shopCarry.textContent = String(state.carriedXp);
+  const rerollCost = currentRerollCost();
+  hud.shopRerollCost.textContent = String(rerollCost);
+  hud.shopRerollButton.disabled = state.runCurrency < rerollCost;
+
+  const nextIsBoss = isBossWave(nextWave);
+  hud.shopNextHint.classList.toggle("is-boss", nextIsBoss);
+  hud.shopNextButton.classList.toggle("is-boss", nextIsBoss);
+  if (nextIsBoss) {
+    hud.shopNextHint.innerHTML = `<span class="boss-glyph" aria-hidden="true">⚠</span> Boss wave <strong>${nextWave}</strong>`;
+  } else {
+    hud.shopNextHint.innerHTML = `Prochaine&nbsp;: <strong>Wave ${nextWave}</strong>`;
+  }
+}
+
+function renderShopStats(): void {
+  hud.shopStats.hp.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
+  hud.shopStats.damage.textContent = String(Math.round(player.damage));
+  hud.shopStats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;
+  hud.shopStats.projectileCount.textContent = String(player.projectileCount);
+  hud.shopStats.speed.textContent = String(Math.round(player.speed));
+  hud.shopStats.pierce.textContent = String(player.pierce);
+  hud.shopStats.critChance.textContent = `${Math.round(player.critChance * 100)}%`;
+  hud.shopStats.bulletRadius.textContent = `x${player.bulletRadius.toFixed(2)}`;
+  hud.shopStats.bulletSpeed.textContent = String(Math.round(player.bulletSpeed));
+  hud.shopStats.range.textContent = String(Math.round(player.range));
+}
+
+function highlightStatChips(upgrade: Upgrade): void {
+  clearStatChipHighlight();
+  for (const effect of upgrade.effects) {
+    const chipKey = STAT_TO_CHIP[effect.stat];
+    const chip = hud.shopStats[chipKey];
+    const wrapper = chip?.parentElement as HTMLElement | null;
+    if (wrapper) {
+      wrapper.classList.add("is-affected");
+      wrapper.classList.toggle("is-malus", effect.amount < 0);
+    }
+  }
+}
+
+function clearStatChipHighlight(): void {
+  hud.shopOverlay
+    .querySelectorAll<HTMLElement>(".stat-chip.is-affected")
+    .forEach((el) => {
+      el.classList.remove("is-affected", "is-malus");
+    });
 }
 
 function refreshShopAffordability(): void {
-  const cards = hud.shopGrid.querySelectorAll<HTMLButtonElement>(".shop-card");
+  const cards = hud.shopGrid.querySelectorAll<HTMLButtonElement>(".shop-card-v2");
   const offers = currentShopOffers();
   cards.forEach((card, idx) => {
     const offer = offers[idx];
@@ -182,63 +297,89 @@ function refreshShopAffordability(): void {
   });
 }
 
-function shopCardHtml(offer: ShopOffer): string {
-  if (offer.kind === "upgrade") {
-    return `
-      <span class="upgrade-stamp" aria-hidden="true">
-        <img class="upgrade-stamp-img" src="${offer.upgrade.icon}" alt="" />
-      </span>
-      <span class="upgrade-copy">
-        <h3>${offer.upgrade.name}</h3>
-        <p>${offer.upgrade.description}</p>
-      </span>
-      <strong class="upgrade-effect">${offer.cost} XP</strong>
-    `;
-  }
-  const def = findWeaponDef(offer.defId);
-  const tierLabel = `T${offer.tier}`;
-  const owned = playerOwnsWeapon(player, offer.defId);
-  const blockedFull = !owned && playerLoadoutFull(player);
-  const cta = blockedFull
-    ? "Loadout plein"
-    : offer.action === "promote"
-      ? `Promouvoir ${tierLabel}`
-      : `Acquérir ${tierLabel}`;
-  return `
-    <span class="upgrade-stamp weapon-stamp" aria-hidden="true">
-      <span class="weapon-tier-badge weapon-tier-badge--${offer.tier}">${tierLabel}</span>
-      <img class="upgrade-stamp-img weapon-stamp-img" src="${def.icon}" alt="" onerror="this.style.display='none';this.parentElement.dataset.fallback='${def.id.charAt(0).toUpperCase()}'" />
-    </span>
-    <span class="upgrade-copy">
-      <h3>${def.name} <span class="weapon-card-tier">${tierLabel}</span></h3>
-      <p>${def.description}</p>
-      <p class="weapon-card-cta">${cta}</p>
-    </span>
-    <strong class="upgrade-effect">${offer.cost} XP</strong>
-  `;
-}
-
 function renderShop(): void {
   updateShopHeader();
   renderWeaponLoadouts();
+  renderShopStats();
+  clearStatChipHighlight();
   hud.shopGrid.innerHTML = "";
   const offers = currentShopOffers();
+  hud.shopGrid.dataset.count = String(offers.length);
   if (offers.length === 0) {
     const empty = document.createElement("p");
     empty.className = "shop-empty";
     empty.textContent = "Plus rien à acheter — passe à la suite.";
     hud.shopGrid.appendChild(empty);
+    return;
   }
   offers.forEach((offer, index) => {
     const card = document.createElement("button");
-    card.className =
-      offer.kind === "weapon"
-        ? "upgrade-card shop-card weapon-card"
-        : "upgrade-card shop-card";
     card.type = "button";
-    card.disabled = !canAcceptOffer(offer);
+    card.style.setProperty("--card-delay", `${index * 60}ms`);
+    const accepted = canAcceptOffer(offer);
+    card.disabled = !accepted;
     card.dataset.offerIndex = String(index);
-    card.innerHTML = shopCardHtml(offer);
+    if (offer.kind === "upgrade") {
+      const tier = tierForCost(offer.cost);
+      const preview = previewUpgradeOnPlayer(offer.upgrade, player);
+      card.className = `shop-card-v2 tier-${tier}`;
+      const previewRows = preview
+        .map((entry) => {
+          const before = formatStatValue(entry.stat, entry.before);
+          const after = formatStatValue(entry.stat, entry.after);
+          return `
+          <span class="shop-preview-row ${entry.isMalus ? "is-malus" : "is-buff"}">
+            <span class="lbl">${entry.label}</span>
+            <span class="vals"><em>${before}</em><span class="arr" aria-hidden="true">→</span><strong>${after}</strong></span>
+          </span>`;
+        })
+        .join("");
+      const ariaSummary = `${offer.upgrade.name}, ${offer.upgrade.description}, ${offer.cost} XP`;
+      card.setAttribute(
+        "aria-label",
+        accepted ? `Acheter ${ariaSummary}` : `${ariaSummary} (XP insuffisants)`,
+      );
+      card.innerHTML = `
+        <span class="shop-card-tier" aria-hidden="true">${tierLabel(tier)}</span>
+        <span class="shop-card-icon" aria-hidden="true">
+          <img src="${offer.upgrade.icon}" alt="" />
+        </span>
+        <h3 class="shop-card-name">${offer.upgrade.name}</h3>
+        <p class="shop-card-desc">${offer.upgrade.description}</p>
+        <span class="shop-card-preview" aria-hidden="true">${previewRows}</span>
+        <span class="shop-card-cost" aria-hidden="true"><strong>${offer.cost}</strong><span class="unit">XP</span></span>
+      `;
+      card.addEventListener("mouseenter", () => highlightStatChips(offer.upgrade));
+      card.addEventListener("mouseleave", clearStatChipHighlight);
+      card.addEventListener("focus", () => highlightStatChips(offer.upgrade));
+      card.addEventListener("blur", clearStatChipHighlight);
+    } else {
+      card.className = `shop-card-v2 shop-card-weapon tier-${offer.tier}`;
+      const def = findWeaponDef(offer.defId);
+      const owned = playerOwnsWeapon(player, offer.defId);
+      const blockedFull = !owned && playerLoadoutFull(player);
+      const cta = blockedFull
+        ? "Loadout plein"
+        : offer.action === "promote"
+          ? `Promouvoir T${offer.tier}`
+          : `Acquérir T${offer.tier}`;
+      card.setAttribute(
+        "aria-label",
+        accepted
+          ? `${cta} ${def.name}, ${offer.cost} XP`
+          : `${def.name} T${offer.tier} (${blockedFull ? "loadout plein" : "XP insuffisants"})`,
+      );
+      card.innerHTML = `
+        <span class="shop-card-tier weapon-tier-badge weapon-tier-badge--${offer.tier}" aria-hidden="true">T${offer.tier}</span>
+        <span class="shop-card-icon" aria-hidden="true">
+          <img src="${def.icon}" alt="" onerror="this.style.display='none'" />
+        </span>
+        <h3 class="shop-card-name">${def.name}</h3>
+        <p class="shop-card-desc">${def.description}</p>
+        <p class="weapon-card-cta" aria-hidden="true">${cta}</p>
+        <span class="shop-card-cost" aria-hidden="true"><strong>${offer.cost}</strong><span class="unit">XP</span></span>
+      `;
+    }
     card.addEventListener("click", () => onBuyOffer(index));
     hud.shopGrid.appendChild(card);
   });
@@ -326,6 +467,7 @@ export function updateHud(): void {
   }
   if (state.mode === "shop") {
     updateShopHeader();
+    renderShopStats();
     refreshShopAffordability();
   }
 }

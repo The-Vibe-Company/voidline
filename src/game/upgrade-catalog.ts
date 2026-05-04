@@ -1,4 +1,4 @@
-import type { Player, Upgrade } from "../types";
+import type { Player, Upgrade, UpgradeStat } from "../types";
 
 const ICON_BASE = "/icons/upgrades";
 
@@ -133,4 +133,79 @@ export function findUpgrade(id: string): Upgrade {
   const upgrade = upgradeCatalog.find((entry) => entry.id === id);
   if (!upgrade) throw new Error(`Unknown upgrade: ${id}`);
   return upgrade;
+}
+
+const STAT_LABELS: Record<UpgradeStat, string> = {
+  damage: "Dégâts",
+  fireRate: "Cadence",
+  speed: "Vitesse",
+  maxHp: "Coque",
+  projectileCount: "Salve",
+  pierce: "Pierce",
+  bulletRadius: "Calibre",
+  critChance: "Crit",
+  bulletSpeed: "Vélocité",
+  range: "Portée",
+};
+
+export interface UpgradePreviewEntry {
+  stat: UpgradeStat;
+  label: string;
+  before: number;
+  after: number;
+  isMalus: boolean;
+}
+
+function clonePlayerStats(player: Player): Player {
+  return { ...player };
+}
+
+export function statValue(player: Player, stat: UpgradeStat): number {
+  switch (stat) {
+    case "damage":
+      return player.damage;
+    case "fireRate":
+      return player.fireRate;
+    case "speed":
+      return player.speed;
+    case "maxHp":
+      return player.maxHp;
+    case "projectileCount":
+      return player.projectileCount;
+    case "pierce":
+      return player.pierce;
+    case "bulletRadius":
+      return player.bulletRadius;
+    case "critChance":
+      return player.critChance;
+    case "bulletSpeed":
+      return player.bulletSpeed;
+    case "range":
+      return player.range;
+  }
+}
+
+export function previewUpgradeOnPlayer(
+  upgrade: Upgrade,
+  player: Player,
+): UpgradePreviewEntry[] {
+  const clone = clonePlayerStats(player);
+  const entries: UpgradePreviewEntry[] = [];
+  for (const effect of upgrade.effects) {
+    const before = statValue(clone, effect.stat);
+    applyUpgradeToPlayer({ ...upgrade, effects: [effect] }, clone);
+    const after = statValue(clone, effect.stat);
+    entries.push({
+      stat: effect.stat,
+      label: STAT_LABELS[effect.stat],
+      before,
+      after,
+      isMalus: effect.amount < 0,
+    });
+  }
+  return entries;
+}
+
+export function statLabel(stat: UpgradeStat): string {
+  return STAT_LABELS[stat];
 }
