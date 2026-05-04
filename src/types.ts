@@ -264,7 +264,7 @@ export interface GameState {
   score: number;
   kills: number;
   xpCollected: number;
-  xpDropped: number;
+  xpMax: number;
   bossDefeated: boolean;
   bossFightStartedAt: number;
   bossKillElapsed: number;

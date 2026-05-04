@@ -41,12 +41,13 @@ export function getPendingOffers(): readonly CardOffer[] | null {
 
 /**
  * Probability of being offered a third card at the next pick, derived from the
- * cumulative ratio of XP collected over XP dropped during the current run.
- * 100 % collection -> always 3 cards. 0 % -> always 2 cards.
+ * cumulative ratio of XP collected over the maximum XP that could have been
+ * obtained from every enemy spawned this run (including enemies the player
+ * never killed). 100 % means full clear and full pickup -> always 3 cards.
  */
 export function thirdCardChance(): number {
-  if (state.xpDropped <= 0) return 0;
-  return Math.min(1, Math.max(0, state.xpCollected / state.xpDropped));
+  if (state.xpMax <= 0) return 0;
+  return Math.min(1, Math.max(0, state.xpCollected / state.xpMax));
 }
 
 export function dailyStarterWeapon(date: Date = new Date()): WeaponArchetypeId {
@@ -67,7 +68,7 @@ export function startRun(starterWeaponId?: WeaponArchetypeId): void {
   state.score = 0;
   state.kills = 0;
   state.xpCollected = 0;
-  state.xpDropped = 0;
+  state.xpMax = 0;
   state.bossDefeated = false;
   state.bossFightStartedAt = 0;
   state.bossKillElapsed = 0;

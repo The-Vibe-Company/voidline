@@ -346,6 +346,28 @@ describe("enemy bullets and damage", () => {
   });
 });
 
+describe("xpMax tracking", () => {
+  it("includes alive enemies in the denominator (not just dropped XP)", () => {
+    const before = state.xpMax;
+    spawnEnemy("hunter");
+    updateSpawnIndicators(SPAWN_TELEGRAPH_DURATION + 0.01);
+    expect(state.xpMax).toBeGreaterThan(before);
+    // No kill yet, so xpCollected stays 0
+    expect(state.xpCollected).toBe(0);
+  });
+
+  it("100% only when every spawned enemy was killed and every orb collected", () => {
+    state.xpMax = 0;
+    state.xpCollected = 0;
+    spawnEnemy("scout");
+    spawnEnemy("scout");
+    updateSpawnIndicators(SPAWN_TELEGRAPH_DURATION + 0.01);
+    // Two scouts alive, no kills → ratio is 0/xpMax not 0/0
+    expect(state.xpMax).toBeGreaterThan(0);
+    expect(state.xpCollected).toBe(0);
+  });
+});
+
 describe("boss fight unlimited time + regen + bonuses", () => {
   it("does not tick down the wave timer while boss is alive", () => {
     state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;

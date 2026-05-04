@@ -266,6 +266,7 @@ function materializeEnemy(indicator: SpawnIndicator): void {
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
+  state.xpMax += expectedXpValue(enemy.kind, false);
 }
 
 function materializeBoss(indicator: SpawnIndicator): void {
@@ -307,6 +308,7 @@ function materializeBoss(indicator: SpawnIndicator): void {
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
   state.bossFightStartedAt = state.runElapsedSeconds;
+  state.xpMax += expectedXpValue(enemy.kind, true);
 }
 
 export function updateSpawnIndicators(dt: number): void {
@@ -895,14 +897,18 @@ function spawnSplitterChildren(parent: EnemyEntity): void {
       attackVy: 0,
     };
     enemies.push(child);
+    state.xpMax += expectedXpValue(child.kind, false);
   }
   state.enemiesAlive = enemies.length;
 }
 
+function expectedXpValue(kind: EnemyKind, isBoss: boolean): number {
+  return (xpBalance.orbValuePerEnemy[kind] ?? 4) * (isBoss ? 6 : 1);
+}
+
 function dropExperience(enemy: EnemyEntity): void {
   const shards = xpBalance.shardCount[enemy.kind] ?? 1;
-  const totalValue =
-    (xpBalance.orbValuePerEnemy[enemy.kind] ?? 4) * (enemy.isBoss ? 6 : 1);
+  const totalValue = expectedXpValue(enemy.kind, enemy.isBoss);
   const perOrb = Math.max(1, Math.round(totalValue / shards));
   for (let i = 0; i < shards; i += 1) {
     const angle = getActiveRng().next() * Math.PI * 2;
@@ -917,7 +923,6 @@ function dropExperience(enemy: EnemyEntity): void {
       value: perOrb,
       age: 0,
     });
-    state.xpDropped += perOrb;
   }
 }
 

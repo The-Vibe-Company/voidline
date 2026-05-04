@@ -136,9 +136,9 @@ let revealReady = false;
 function renderCardPick(): void {
   const offers = getPendingOffers();
   if (!offers) return;
-  const xpDropped = state.xpDropped;
+  const xpMaxLocal = state.xpMax;
   const xpCollected = state.xpCollected;
-  const xpPct = xpDropped > 0 ? Math.min(100, Math.round((xpCollected / xpDropped) * 100)) : 0;
+  const xpPct = xpMaxLocal > 0 ? Math.min(100, Math.round((xpCollected / xpMaxLocal) * 100)) : 0;
   const cardCount = offers.length;
 
   hud.cardPickOverlay.innerHTML = "";
@@ -155,7 +155,7 @@ function renderCardPick(): void {
         <div class="card-pick-roll-bar">
           <span class="card-pick-roll-fill" style="--xp-pct:${xpPct}%"></span>
         </div>
-        <span class="card-pick-roll-stat"><strong>${xpCollected}</strong>/${xpDropped} (${xpPct}%)</span>
+        <span class="card-pick-roll-stat"><strong>${xpCollected}</strong>/${xpMaxLocal} (${xpPct}%)</span>
         <span class="card-pick-roll-spinner" aria-hidden="true"></span>
         <span class="card-pick-roll-result" data-result></span>
       </div>
