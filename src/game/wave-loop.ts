@@ -2,6 +2,7 @@ import {
   bullets,
   counters,
   enemies,
+  enemyBullets,
   experienceOrbs,
   floaters,
   keys,
@@ -17,6 +18,11 @@ import {
   SPAWN_MIN_DISTANCE_FROM_PLAYER,
   SPAWN_TELEGRAPH_BOSS_DURATION,
   SPAWN_TELEGRAPH_DURATION,
+  bossAttacks,
+  bossShotInterval,
+  bossShotProjectiles,
+  bossSpawnCount,
+  bossSpawnInterval,
   enemyDamageScale,
   enemyHpScale,
   enemySpeedScale,
@@ -44,6 +50,7 @@ export function stepWave(dt: number): void {
   updateEnemies(cappedDt);
   updatePlayerFire(cappedDt);
   updateBullets(cappedDt);
+  updateEnemyBullets(cappedDt);
   updateExperience(cappedDt);
   updateParticles(cappedDt);
   updateFloaters(cappedDt);
@@ -221,6 +228,9 @@ function materializeBoss(indicator: SpawnIndicator): void {
     hit: 0,
     isBoss: true,
     contactCooldown: 0,
+    bossElapsed: 0,
+    bossShotTimer: bossAttacks.shotWarmup,
+    bossSpawnTimer: bossAttacks.spawnWarmup,
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
@@ -283,9 +293,102 @@ function updateEnemies(dt: number): void {
       spawnFloater(player.x, player.y - 18, `-${Math.round(enemy.damage)}`, "#ff5a69");
       world.shake = Math.min(0.5, world.shake + 0.18);
     }
+    if (enemy.isBoss) updateBossAI(enemy, dt);
   }
   separateEnemies();
   state.enemiesAlive = enemies.length;
+}
+
+function updateBossAI(boss: EnemyEntity, dt: number): void {
+  const elapsed = (boss.bossElapsed ?? 0) + dt;
+  boss.bossElapsed = elapsed;
+  boss.bossShotTimer = (boss.bossShotTimer ?? bossAttacks.shotWarmup) - dt;
+  if (boss.bossShotTimer <= 0) {
+    fireBossSalvo(boss);
+    boss.bossShotTimer = bossShotInterval(elapsed);
+  }
+  boss.bossSpawnTimer = (boss.bossSpawnTimer ?? bossAttacks.spawnWarmup) - dt;
+  if (boss.bossSpawnTimer <= 0) {
+    spawnBossMinions(boss);
+    boss.bossSpawnTimer = bossSpawnInterval(elapsed);
+  }
+}
+
+function fireBossSalvo(boss: EnemyEntity): void {
+  const elapsed = boss.bossElapsed ?? 0;
+  const count = bossShotProjectiles(elapsed);
+  const baseAngle = Math.atan2(player.y - boss.y, player.x - boss.x);
+  const totalSpread = (count - 1) * bossAttacks.shotSpread;
+  for (let i = 0; i < count; i += 1) {
+    const t = count === 1 ? 0 : i / (count - 1) - 0.5;
+    const angle = baseAngle + t * totalSpread;
+    enemyBullets.push({
+      id: counters.nextEnemyBulletId++,
+      x: boss.x + Math.cos(angle) * (boss.radius + 4),
+      y: boss.y + Math.sin(angle) * (boss.radius + 4),
+      vx: Math.cos(angle) * bossAttacks.shotSpeed,
+      vy: Math.sin(angle) * bossAttacks.shotSpeed,
+      radius: bossAttacks.shotRadius,
+      damage: bossAttacks.shotDamage,
+      life: bossAttacks.shotLife,
+    });
+  }
+}
+
+function spawnBossMinions(boss: EnemyEntity): void {
+  const elapsed = boss.bossElapsed ?? 0;
+  const count = bossSpawnCount(elapsed);
+  const kinds = bossAttacks.spawnKinds;
+  for (let i = 0; i < count; i += 1) {
+    const kind = kinds[Math.floor(Math.random() * kinds.length)] ?? "scout";
+    const angle = Math.random() * Math.PI * 2;
+    const radius = bossAttacks.spawnRadius;
+    const x = clampInArena(boss.x + Math.cos(angle) * radius, true);
+    const y = clampInArena(boss.y + Math.sin(angle) * radius, false);
+    const type = findEnemyType(kind);
+    spawnIndicators.push({
+      id: counters.nextSpawnIndicatorId++,
+      kind,
+      isBoss: false,
+      radius: type.radius,
+      color: type.color,
+      x,
+      y,
+      life: SPAWN_TELEGRAPH_DURATION,
+      maxLife: SPAWN_TELEGRAPH_DURATION,
+    });
+  }
+}
+
+function clampInArena(v: number, isX: boolean): number {
+  const max = isX ? world.arenaWidth : world.arenaHeight;
+  return Math.max(SPAWN_ARENA_MARGIN, Math.min(max - SPAWN_ARENA_MARGIN, v));
+}
+
+function updateEnemyBullets(dt: number): void {
+  for (let i = enemyBullets.length - 1; i >= 0; i -= 1) {
+    const b = enemyBullets[i]!;
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
+    if (
+      b.life <= 0 ||
+      b.x < -EDGE_PADDING ||
+      b.x > world.arenaWidth + EDGE_PADDING ||
+      b.y < -EDGE_PADDING ||
+      b.y > world.arenaHeight + EDGE_PADDING
+    ) {
+      enemyBullets.splice(i, 1);
+      continue;
+    }
+    if (player.invuln <= 0 && circleHit(b, player)) {
+      player.hp -= b.damage;
+      player.invuln = 0.5;
+      spawnFloater(player.x, player.y - 18, `-${Math.round(b.damage)}`, "#ff5a69");
+      world.shake = Math.min(0.5, world.shake + 0.18);
+      enemyBullets.splice(i, 1);
+    }
+  }
 }
 
 function separateEnemies(): void {
@@ -545,6 +648,7 @@ export function clearRunEntities(): void {
   enemies.length = 0;
   spawnIndicators.length = 0;
   bullets.length = 0;
+  enemyBullets.length = 0;
   experienceOrbs.length = 0;
   particles.length = 0;
   floaters.length = 0;

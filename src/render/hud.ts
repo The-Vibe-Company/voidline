@@ -1,4 +1,4 @@
-import { player, state } from "../state";
+import { enemies, player, state } from "../state";
 import { clamp } from "../utils";
 import {
   currentRerollCost,
@@ -25,6 +25,8 @@ const hud = {
   carry: query<HTMLElement>("#carryValue"),
   score: query<HTMLElement>("#scoreValue"),
   health: query<HTMLElement>("#healthBar"),
+  bossPanel: query<HTMLElement>("#bossPanel"),
+  bossHealth: query<HTMLElement>("#bossHealthBar"),
   stats: {
     hull: query<HTMLElement>("#statHull"),
     damage: query<HTMLElement>("#statDamage"),
@@ -340,6 +342,15 @@ export function updateHud(): void {
     hpPct > 0.4
       ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
       : "linear-gradient(90deg, #ff5a69, #ffbf47)";
+  const bossEnemy =
+    state.mode === "playing" ? enemies.find((e) => e.isBoss) : undefined;
+  if (bossEnemy) {
+    hud.bossPanel.dataset.active = "true";
+    const bossPct = clamp(bossEnemy.hp / Math.max(1, bossEnemy.maxHp), 0, 1);
+    hud.bossHealth.style.width = `${bossPct * 100}%`;
+  } else {
+    hud.bossPanel.dataset.active = "false";
+  }
   hud.stats.hull.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
   hud.stats.damage.textContent = String(Math.round(player.damage));
   hud.stats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;

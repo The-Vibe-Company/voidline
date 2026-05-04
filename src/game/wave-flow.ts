@@ -1,6 +1,7 @@
 import {
   bullets,
   enemies,
+  enemyBullets,
   experienceOrbs,
   floaters,
   particles,
@@ -62,6 +63,7 @@ export function transitionToShop(): void {
   state.pendingCarry = 0;
   experienceOrbs.length = 0;
   enemies.length = 0;
+  enemyBullets.length = 0;
   spawnIndicators.length = 0;
   bullets.length = 0;
   particles.length = 0;

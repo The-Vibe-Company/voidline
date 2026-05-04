@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import {
   bullets,
   enemies,
+  enemyBullets,
   experienceOrbs,
   floaters,
   particles,
@@ -24,6 +25,7 @@ export class BattleScene extends Phaser.Scene {
     brute: new ImageRenderPool(this, textureKeys.enemies.brute, 20),
   };
   private readonly bulletPool = new ImageRenderPool(this, textureKeys.bullet, 30);
+  private readonly enemyBulletPool = new ImageRenderPool(this, textureKeys.bullet, 24);
   private readonly xpPool = new ImageRenderPool(this, textureKeys.xp, 15);
   private readonly spawnIndicatorPool = new ImageRenderPool(this, textureKeys.particle, 8);
   private readonly particlePool = new ImageRenderPool(this, textureKeys.particle, 10);
@@ -117,6 +119,7 @@ export class BattleScene extends Phaser.Scene {
     this.syncExperience(frame);
     this.syncSpawnIndicators(frame);
     this.syncBullets(frame);
+    this.syncEnemyBullets(frame);
     this.syncEnemies(frame);
     this.syncPlayer();
     this.syncParticles(frame);
@@ -153,8 +156,23 @@ export class BattleScene extends Phaser.Scene {
       sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));
       sprite.setScale(Math.max(0.45, bullet.radius / 5));
       sprite.setAlpha(0.95);
+      sprite.setTint(0xffffff);
     }
     this.bulletPool.sweep(frame);
+  }
+
+  private syncEnemyBullets(frame: number): void {
+    for (const bullet of enemyBullets) {
+      if (!this.inView(bullet.x, bullet.y, bullet.radius + 16)) continue;
+      const sprite = this.enemyBulletPool.sync(bullet.id, frame);
+      sprite.setTexture(textureKeys.bullet);
+      sprite.setPosition(bullet.x, bullet.y);
+      sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));
+      sprite.setScale(Math.max(0.55, bullet.radius / 4));
+      sprite.setAlpha(0.95);
+      sprite.setTint(0xff5a69);
+    }
+    this.enemyBulletPool.sweep(frame);
   }
 
   private syncExperience(frame: number): void {

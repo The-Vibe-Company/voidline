@@ -79,6 +79,20 @@ export interface EnemyEntity {
   hit: number;
   isBoss: boolean;
   contactCooldown: number;
+  bossElapsed?: number;
+  bossShotTimer?: number;
+  bossSpawnTimer?: number;
+}
+
+export interface EnemyBullet {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  damage: number;
+  life: number;
 }
 
 export interface SpawnIndicator {
