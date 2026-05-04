@@ -183,6 +183,7 @@ export function sellValue(weapon: Weapon): number {
 export function sellWeapon(player: Player, index: number): number {
   const weapon = player.weapons[index];
   if (!weapon) return 0;
+  if (player.weapons.length <= 1) return 0;
   const refund = sellValue(weapon);
   player.weapons.splice(index, 1);
   return refund;

@@ -122,10 +122,11 @@ describe("weapon catalog", () => {
     expect(playerOwnsWeapon(player, "smg")).toBe(false);
   });
 
-  it("sellWeapon on starter returns 0", () => {
+  it("sellWeapon refuses to remove the last weapon and keeps the starter equipped", () => {
     const player = createPlayerBaseState();
     expect(sellWeapon(player, 0)).toBe(0);
-    expect(player.weapons.length).toBe(0);
+    expect(player.weapons.length).toBe(1);
+    expect(player.weapons[0]!.defId).toBe("pulse");
   });
 
   it("effectiveWeaponStats stacks player bonuses on weapon base", () => {

@@ -453,6 +453,8 @@ function renderWeaponLoadout(target: HTMLElement, force = false, interactive = f
         onWeaponSlotClick(i);
       });
       slot.addEventListener("keydown", (ev) => {
+        const tgt = ev.target as HTMLElement | null;
+        if (tgt && tgt.closest("[data-sell]")) return;
         if (ev.key === "Enter" || ev.key === " ") {
           ev.preventDefault();
           onWeaponSlotClick(i);
