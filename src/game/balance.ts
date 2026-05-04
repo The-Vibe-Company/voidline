@@ -47,14 +47,14 @@ export const wave = {
   durationMaxSeconds: 90,
   bossEvery: 5,
   spawnBudgetBase: 25,
-  spawnBudgetGrowth: 8,
-  hpScalePerWave: 0.18,
+  spawnBudgetGrowth: 6,
+  hpScalePerWave: 0.14,
   speedScalePerWave: 0.025,
-  damageScalePerWave: 0.08,
+  damageScalePerWave: 0.05,
 };
 
 export const boss = {
-  hpMultiplier: 14,
+  hpMultiplier: 7,
   speedMultiplier: 0.6,
   damageMultiplier: 1.6,
   radiusMultiplier: 2.2,
@@ -228,7 +228,7 @@ export function enemyHpScale(waveNumber: number): number {
 }
 
 export function enemySpeedScale(waveNumber: number): number {
-  return 1 + Math.min(0.6, (waveNumber - 1) * wave.speedScalePerWave);
+  return 1 + Math.min(1.0, (waveNumber - 1) * wave.speedScalePerWave);
 }
 
 export function enemyDamageScale(waveNumber: number): number {

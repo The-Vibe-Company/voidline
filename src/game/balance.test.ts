@@ -43,4 +43,9 @@ describe("balance scaling", () => {
     expect(waveSpawnBudget(2)).toBeGreaterThan(waveSpawnBudget(1));
     expect(waveSpawnBudget(10)).toBeGreaterThan(waveSpawnBudget(2));
   });
+
+  it("hp scaling stays moderate to keep mid-game playable", () => {
+    expect(enemyHpScale(10)).toBeLessThan(2.5);
+    expect(enemyHpScale(20)).toBeLessThan(4.0);
+  });
 });
