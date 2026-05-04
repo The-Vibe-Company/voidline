@@ -165,7 +165,12 @@ export interface EnemyEntity {
   bossElapsed?: number;
   bossShotTimer?: number;
   bossSpawnTimer?: number;
+  bossFirePattern?: BossFirePattern;
+  bossMovePattern?: BossMovePattern;
 }
+
+export type BossFirePattern = "aimed" | "spread" | "sweep";
+export type BossMovePattern = "chase" | "orbit" | "dashPulse";
 
 export interface SpawnIndicator {
   id: number;

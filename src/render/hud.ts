@@ -6,9 +6,17 @@ import {
 } from "../game/wave-flow";
 import { findWeaponDef } from "../game/weapon-catalog";
 import { dailyStarterWeapon } from "../game/wave-flow";
-import { getDailySeedString } from "../game/daily-seed";
+import {
+  createRng,
+  getCachedSeed,
+  getDailySeedString,
+  hashSeedString,
+} from "../game/daily-seed";
+import { rollDailyCardPool } from "../game/card-catalog";
 import { accountProgress } from "../systems/account";
 import { getDailyLeaderboard } from "./leaderboard";
+import { getAlias, setAlias, getOrCreatePlayerId } from "../systems/identity";
+import { fetchLeaderboard, upsertPlayer, type LeaderboardEntryResponse } from "../systems/api";
 import { BOSS_MINI_WAVE_INDEX, MINI_WAVE_COUNT } from "../game/balance";
 import type {
   CardOffer,
@@ -318,35 +326,251 @@ export function renderHangar(): void {
   if (!hud.hangarMeta) return;
   hud.hangarMeta.innerHTML = "";
 
-  const todaySeed = getDailySeedString();
+  const cached = getCachedSeed();
+  const todaySeed = cached?.date ?? getDailySeedString();
+  const seedSourceLabel =
+    cached?.source === "server"
+      ? "Serveur ✓"
+      : cached?.source === "offline"
+        ? "Hors-ligne ⚠"
+        : "Connexion…";
   const todayStarter = dailyStarterWeapon();
   const todayDef = findWeaponDef(todayStarter);
+
+  // Derive the daily card pool from the same seed as the runtime so the player
+  // can preview it from the hangar before starting the run.
+  const seedNumber = cached?.seed ?? hashSeedString(todaySeed);
+  const previewRng = createRng(seedNumber);
+  const previewPool = rollDailyCardPool(previewRng);
+
   const seedBlock = document.createElement("section");
   seedBlock.className = "hangar-seed-block";
   seedBlock.innerHTML = `
-    <p class="eyebrow">Daily run</p>
+    <p class="eyebrow">Daily run · <span class="hangar-seed-source">${seedSourceLabel}</span></p>
     <strong class="hangar-seed-value">${todaySeed}</strong>
     <p class="hangar-seed-hint">Arme du jour : <strong>${todayDef.name}</strong> — même seed pour tous, bats ton record.</p>
+    <button type="button" class="hangar-seed-toggle" id="poolToggleBtn">Voir le pool de cartes</button>
   `;
   hud.hangarMeta.appendChild(seedBlock);
+  seedBlock
+    .querySelector<HTMLButtonElement>("#poolToggleBtn")
+    ?.addEventListener("click", () => openPoolModal(todaySeed, previewPool));
 
-  const leaderboard = getDailyLeaderboard(todaySeed);
+  // Alias block (identity for online leaderboard).
+  const aliasBlock = document.createElement("section");
+  aliasBlock.className = "hangar-alias-block";
+  hud.hangarMeta.appendChild(aliasBlock);
+  renderAliasBlock(aliasBlock, { editing: false });
+
   const leaderboardBlock = document.createElement("section");
   leaderboardBlock.className = "hangar-leaderboard-block";
-  leaderboardBlock.innerHTML = `<p class="eyebrow">Top 5 du jour</p>`;
-  if (leaderboard.length === 0) {
-    leaderboardBlock.innerHTML += `<p class="hangar-leaderboard-empty">Pas encore de score — sois le premier.</p>`;
-  } else {
-    const list = document.createElement("ol");
-    list.className = "hangar-leaderboard-list";
-    leaderboard.forEach((entry, idx) => {
-      const item = document.createElement("li");
-      item.innerHTML = formatLeaderboardLine(entry, idx + 1);
-      list.appendChild(item);
-    });
-    leaderboardBlock.appendChild(list);
-  }
+  leaderboardBlock.innerHTML = `<p class="eyebrow">Top 10 du jour</p><p class="hangar-leaderboard-empty">Chargement…</p>`;
   hud.hangarMeta.appendChild(leaderboardBlock);
+
+  // Online leaderboard fetch (best-effort), fallback to local.
+  fetchLeaderboard(todaySeed)
+    .then((data) => renderOnlineLeaderboard(leaderboardBlock, data.entries))
+    .catch(() => renderLocalLeaderboardFallback(leaderboardBlock, todaySeed));
+}
+
+let poolDialog: HTMLDialogElement | null = null;
+
+function openPoolModal(
+  seedDate: string,
+  pool: ReadonlyArray<{ name: string; description: string; rarity: string }>,
+): void {
+  if (!poolDialog) {
+    poolDialog = document.createElement("dialog");
+    poolDialog.className = "pool-modal";
+    document.body.appendChild(poolDialog);
+    poolDialog.addEventListener("click", (event) => {
+      // Click on backdrop = close.
+      if (event.target === poolDialog) poolDialog?.close();
+    });
+  }
+  poolDialog.innerHTML = `
+    <header class="pool-modal-header">
+      <div>
+        <p class="eyebrow">Pool du jour · ${escapeHtml(seedDate)}</p>
+        <h2>${pool.length} cartes disponibles</h2>
+      </div>
+      <button type="button" class="pool-modal-close" id="poolCloseBtn" aria-label="Fermer">×</button>
+    </header>
+    <ul class="pool-modal-list">
+      ${pool
+        .map(
+          (c) => `
+        <li>
+          <div class="pool-modal-line">
+            <strong>${escapeHtml(c.name)}</strong>
+            <span class="hangar-pool-rarity hangar-pool-rarity-${escapeHtml(c.rarity)}">${escapeHtml(c.rarity)}</span>
+          </div>
+          <p class="pool-modal-desc">${escapeHtml(c.description)}</p>
+        </li>`,
+        )
+        .join("")}
+    </ul>
+  `;
+  poolDialog.querySelector<HTMLButtonElement>("#poolCloseBtn")?.addEventListener("click", () => {
+    poolDialog?.close();
+  });
+  poolDialog.showModal();
+}
+
+interface AliasBlockState {
+  editing: boolean;
+  value?: string;
+  error?: string;
+  busy?: boolean;
+}
+
+function renderAliasBlock(container: HTMLElement, st: AliasBlockState): void {
+  container.innerHTML = "";
+  const current = getAlias();
+  if (!st.editing) {
+    if (current) {
+      container.innerHTML = `
+        <p class="eyebrow">Pseudo</p>
+        <div class="hangar-alias-display">
+          <strong class="hangar-alias-value">${escapeHtml(current)}</strong>
+          <button type="button" class="hangar-alias-edit" id="aliasEditBtn">Modifier</button>
+        </div>
+      `;
+      container
+        .querySelector<HTMLButtonElement>("#aliasEditBtn")
+        ?.addEventListener("click", () => renderAliasBlock(container, { editing: true, value: current }));
+    } else {
+      container.innerHTML = `
+        <p class="eyebrow">Pseudo (optionnel)</p>
+        <button type="button" class="hangar-alias-add" id="aliasAddBtn">Ajouter pseudo</button>
+      `;
+      container
+        .querySelector<HTMLButtonElement>("#aliasAddBtn")
+        ?.addEventListener("click", () => renderAliasBlock(container, { editing: true, value: "" }));
+    }
+    return;
+  }
+
+  const initial = st.value ?? current ?? "";
+  const errorHtml = st.error
+    ? `<p class="hangar-alias-error" id="aliasError" role="alert">${escapeHtml(st.error)}</p>`
+    : "";
+  const disabledAttr = st.busy ? "disabled" : "";
+  const ariaDescribedBy = st.error ? ' aria-describedby="aliasError"' : "";
+  container.innerHTML = `
+    <label class="eyebrow" for="aliasInput">Pseudo</label>
+    <div class="hangar-alias-edit-row">
+      <input type="text" id="aliasInput" maxlength="24" placeholder="Anonyme" value="${escapeHtml(initial)}" ${disabledAttr}${ariaDescribedBy} />
+      <button type="button" id="aliasSaveBtn" ${disabledAttr}>Valider</button>
+      <button type="button" id="aliasCancelBtn" ${disabledAttr}>Annuler</button>
+    </div>
+    ${errorHtml}
+  `;
+  const input = container.querySelector<HTMLInputElement>("#aliasInput");
+  const saveBtn = container.querySelector<HTMLButtonElement>("#aliasSaveBtn");
+  const cancelBtn = container.querySelector<HTMLButtonElement>("#aliasCancelBtn");
+  input?.focus();
+  input?.setSelectionRange(initial.length, initial.length);
+
+  const submit = async (): Promise<void> => {
+    const raw = input?.value ?? "";
+    renderAliasBlock(container, { editing: true, value: raw, busy: true });
+    const cleaned = (raw || "").trim().slice(0, 24);
+    if (!cleaned) {
+      // Empty alias = clear it. Wait for server confirmation before mutating local state
+      // so a network failure doesn't desync local and server identity.
+      const result = await upsertPlayer(getOrCreatePlayerId(), null);
+      if (!result.ok && result.reason === "network") {
+        renderAliasBlock(container, { editing: true, value: raw, error: "Réseau indisponible. Réessaie." });
+        return;
+      }
+      setAlias(null);
+      renderAliasBlock(container, { editing: false });
+      return;
+    }
+    const result = await upsertPlayer(getOrCreatePlayerId(), cleaned);
+    if (result.ok) {
+      setAlias(cleaned);
+      renderAliasBlock(container, { editing: false });
+      return;
+    }
+    if (result.reason === "taken") {
+      renderAliasBlock(container, {
+        editing: true,
+        value: cleaned,
+        error: `« ${cleaned} » est déjà pris. Choisis un autre pseudo.`,
+      });
+      return;
+    }
+    renderAliasBlock(container, {
+      editing: true,
+      value: cleaned,
+      error: "Réseau indisponible. Réessaie.",
+    });
+  };
+
+  saveBtn?.addEventListener("click", () => {
+    void submit();
+  });
+  cancelBtn?.addEventListener("click", () => renderAliasBlock(container, { editing: false }));
+  input?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      void submit();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      renderAliasBlock(container, { editing: false });
+    }
+  });
+}
+
+function escapeHtml(s: string): string {
+  return s.replace(/[&<>"']/g, (c) => {
+    if (c === "&") return "&amp;";
+    if (c === "<") return "&lt;";
+    if (c === ">") return "&gt;";
+    if (c === '"') return "&quot;";
+    return "&#39;";
+  });
+}
+
+function renderOnlineLeaderboard(
+  container: HTMLElement,
+  entries: readonly LeaderboardEntryResponse[],
+): void {
+  container.innerHTML = `<p class="eyebrow">Top 10 du jour</p>`;
+  if (entries.length === 0) {
+    container.innerHTML += `<p class="hangar-leaderboard-empty">Pas encore de score — sois le premier.</p>`;
+    return;
+  }
+  const list = document.createElement("ol");
+  list.className = "hangar-leaderboard-list";
+  entries.forEach((entry, idx) => {
+    const item = document.createElement("li");
+    const def = findWeaponDef(entry.starter_weapon as WeaponArchetypeId);
+    const flag = entry.boss_defeated ? "★" : "";
+    const alias = entry.alias ? escapeHtml(entry.alias) : "Anonyme";
+    item.innerHTML = `<span class="lb-rank">#${idx + 1}</span><span class="lb-score">${entry.score}</span><span class="lb-meta">${alias} · ${def.name} · vague ${entry.mini_wave}/${MINI_WAVE_COUNT} · ${formatTime(entry.run_seconds)} ${flag}</span>`;
+    list.appendChild(item);
+  });
+  container.appendChild(list);
+}
+
+function renderLocalLeaderboardFallback(container: HTMLElement, seed: string): void {
+  const local = getDailyLeaderboard(seed);
+  container.innerHTML = `<p class="eyebrow">Top du jour (local)</p>`;
+  if (local.length === 0) {
+    container.innerHTML += `<p class="hangar-leaderboard-empty">Pas encore de score — sois le premier.</p>`;
+    return;
+  }
+  const list = document.createElement("ol");
+  list.className = "hangar-leaderboard-list";
+  local.forEach((entry, idx) => {
+    const item = document.createElement("li");
+    item.innerHTML = formatLeaderboardLine(entry, idx + 1);
+    list.appendChild(item);
+  });
+  container.appendChild(list);
 }
 
 function formatLeaderboardLine(entry: LeaderboardEntry, rank: number): string {

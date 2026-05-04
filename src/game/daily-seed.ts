@@ -5,6 +5,74 @@ export function getDailySeedString(date: Date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+export type SeedSource = "server" | "offline";
+
+export interface ResolvedDailySeed {
+  date: string;
+  seed: number;
+  source: SeedSource;
+}
+
+const STORAGE_KEY_PREFIX = "voidline:seed:";
+let cachedSeed: ResolvedDailySeed | null = null;
+
+export function getCachedSeed(): ResolvedDailySeed | null {
+  return cachedSeed;
+}
+
+function readStorage(date: string): number | null {
+  try {
+    const raw = window.localStorage.getItem(`${STORAGE_KEY_PREFIX}${date}`);
+    if (!raw) return null;
+    const parsed = Number.parseInt(raw, 10);
+    if (!Number.isFinite(parsed)) return null;
+    return parsed >>> 0;
+  } catch {
+    return null;
+  }
+}
+
+function writeStorage(date: string, seed: number): void {
+  try {
+    window.localStorage.setItem(`${STORAGE_KEY_PREFIX}${date}`, String(seed >>> 0));
+  } catch {
+    /* ignore */
+  }
+}
+
+export async function bootstrapDailySeed(
+  fetcher: () => Promise<{ date: string; seed: number }>,
+  timeoutMs = 2500,
+): Promise<ResolvedDailySeed> {
+  const offlineDate = getDailySeedString();
+  try {
+    const result = await Promise.race<{ date: string; seed: number }>([
+      fetcher(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("seed fetch timeout")), timeoutMs)),
+    ]);
+    const seed = result.seed >>> 0;
+    cachedSeed = { date: result.date, seed, source: "server" };
+    writeStorage(result.date, seed);
+    return cachedSeed;
+  } catch {
+    const stored = readStorage(offlineDate);
+    if (stored != null) {
+      cachedSeed = { date: offlineDate, seed: stored, source: "offline" };
+      return cachedSeed;
+    }
+    cachedSeed = {
+      date: offlineDate,
+      seed: hashSeedString(offlineDate),
+      source: "offline",
+    };
+    return cachedSeed;
+  }
+}
+
+export function setCachedSeedForTest(value: ResolvedDailySeed | null): void {
+  cachedSeed = value;
+}
+
 export function hashSeedString(seed: string): number {
   let h = 2166136261 >>> 0;
   for (let i = 0; i < seed.length; i += 1) {
