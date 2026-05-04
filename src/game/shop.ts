@@ -10,10 +10,9 @@ import {
 } from "./balance";
 import {
   acquireWeapon,
-  findPlayerWeapon,
+  mergeWeapons,
   playerLoadoutFull,
-  playerOwnsWeapon,
-  promoteWeapon,
+  sellWeapon,
   weaponCatalog,
   weaponTierStats,
 } from "./weapon-catalog";
@@ -51,20 +50,14 @@ export function maxUnlockedTier(waveNumber: number): WeaponTier {
   return 1;
 }
 
-function weaponOfferTierFor(def: WeaponDef, waveNumber: number): WeaponTier {
-  const owned = findPlayerWeapon(player, def.id);
-  if (owned) {
-    return Math.min(4, owned.tier + 1) as WeaponTier;
-  }
+function weaponOfferTierFor(_def: WeaponDef, waveNumber: number): WeaponTier {
   return maxUnlockedTier(waveNumber);
 }
 
 function buildWeaponOffer(def: WeaponDef, waveNumber: number): ShopOffer {
   const tier = weaponOfferTierFor(def, waveNumber);
   const stats = weaponTierStats(def, tier);
-  const owned = findPlayerWeapon(player, def.id);
-  const action: "acquire" | "promote" = owned ? "promote" : "acquire";
-  return { kind: "weapon", defId: def.id, tier, cost: stats.cost, action };
+  return { kind: "weapon", defId: def.id, tier, cost: stats.cost };
 }
 
 interface OfferCandidate {
@@ -83,8 +76,6 @@ function buildCandidates(waveNumber: number): OfferCandidate[] {
     });
   }
   for (const def of weaponCatalog) {
-    const owned = findPlayerWeapon(player, def.id);
-    if (owned && owned.tier >= 4) continue;
     candidates.push({
       offer: buildWeaponOffer(def, waveNumber),
       weight: weaponOfferWeight,
@@ -126,10 +117,6 @@ export function tryRerollShop(): boolean {
 export function canAcceptOffer(offer: ShopOffer): boolean {
   if (state.runCurrency < offer.cost) return false;
   if (offer.kind === "upgrade") return true;
-  if (playerOwnsWeapon(player, offer.defId)) {
-    const owned = findPlayerWeapon(player, offer.defId)!;
-    return owned.tier < 4;
-  }
   return !playerLoadoutFull(player);
 }
 
@@ -140,13 +127,23 @@ export function tryBuyOffer(index: number): boolean {
   state.runCurrency -= offer.cost;
   if (offer.kind === "upgrade") {
     applyUpgradeToPlayer(offer.upgrade, player);
-  } else if (playerOwnsWeapon(player, offer.defId)) {
-    promoteWeapon(player, offer.defId);
   } else {
-    acquireWeapon(player, offer.defId, offer.tier);
+    acquireWeapon(player, offer.defId, offer.tier, offer.cost);
   }
   runtime.offers.splice(index, 1);
   return true;
+}
+
+export function trySellWeapon(index: number): boolean {
+  if (index < 0 || index >= player.weapons.length) return false;
+  if (player.weapons.length <= 1) return false;
+  const refund = sellWeapon(player, index);
+  state.runCurrency += refund;
+  return true;
+}
+
+export function tryMergeWeapons(indexA: number, indexB: number): boolean {
+  return mergeWeapons(player, indexA, indexB) !== null;
 }
 
 export function resetShopState(): void {
