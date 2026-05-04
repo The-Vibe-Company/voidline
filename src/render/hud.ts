@@ -437,7 +437,7 @@ function renderWeaponLoadout(target: HTMLElement, force = false, interactive = f
       if (isSelected) slot.classList.add("weapon-slot--merge-source");
       if (isMergeTarget) slot.classList.add("weapon-slot--merge-target");
       const refund = sellValue(weapon);
-      const sellable = player.weapons.length > 1 && refund > 0;
+      const sellable = player.weapons.length > 1;
       const sellMarkup = sellable
         ? `<button type="button" class="weapon-slot-sell" data-sell="${i}" aria-label="Vendre ${def.name} T${weapon.tier} pour ${refund} XP" title="Vendre (+${refund} XP)">+${refund}</button>`
         : "";
