@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "mode": "playing",
+  "wave": 1,
+  "waveTimer": 44.5,
+  "runElapsed": 0.5,
+  "score": 0,
+  "currency": 0,
+  "hp": 100,
+  "maxHp": 100,
+  "player": {
+    "x": 800,
+    "y": 550,
+    "speed": 145,
+    "damage": 24,
+    "fireRate": 1.6,
+    "range": 240,
+    "projectileCount": 1,
+    "pierce": 0,
+    "critChance": 0
+  },
+  "enemies": [
+    {
+      "id": 1,
+      "kind": "scout",
+      "x": 100,
+      "y": 100,
+      "radius": 9,
+      "hp": 32,
+      "maxHp": 32,
+      "speed": 80,
+      "damage": 12,
+      "isBoss": false
+    }
+  ],
+  "orbs": [
+    { "id": 1, "x": 760, "y": 540, "value": 4 }
+  ]
+}

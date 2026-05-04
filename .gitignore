@@ -6,3 +6,5 @@ coverage/
 .vercel
 .context/
 .claude/
+/sim/target/
+/sim/headless-host/node_modules/

@@ -1,0 +1,11 @@
+{
+  "name": "voidline-headless-host",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx host.mjs"
+  },
+  "dependencies": {
+    "tsx": "^4.20.6"
+  }
+}
