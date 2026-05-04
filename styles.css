@@ -3525,6 +3525,18 @@ h2 {
   background: color-mix(in srgb, var(--mint, #72ffb1) 12%, transparent);
 }
 
+.weapon-slot--interactive:focus-visible {
+  outline: 2px solid var(--mint, #72ffb1);
+  outline-offset: 2px;
+  border-color: color-mix(in srgb, var(--mint, #72ffb1) 80%, transparent);
+  background: color-mix(in srgb, var(--mint, #72ffb1) 18%, transparent);
+}
+
+.weapon-slot-sell:focus-visible {
+  outline: 2px solid #ffbf47;
+  outline-offset: 2px;
+}
+
 .weapon-slot--merge-source {
   border-color: #ffbf47;
   background: color-mix(in srgb, #ffbf47 18%, transparent);
