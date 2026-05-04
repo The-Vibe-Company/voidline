@@ -67,13 +67,15 @@ describe("shop weapons", () => {
     }
   });
 
-  it("wave 5 may offer T2 weapons", () => {
+  it("wave 5 may offer T2 weapons via the acquire path", () => {
     state.wave = 5;
     let sawT2 = false;
-    for (let i = 0; i < 50 && !sawT2; i += 1) {
+    for (let i = 0; i < 80 && !sawT2; i += 1) {
       rerollShop(true);
       for (const offer of currentShopOffers()) {
-        if (offer.kind === "weapon" && offer.tier === 2) sawT2 = true;
+        if (offer.kind === "weapon" && offer.action === "acquire" && offer.tier === 2) {
+          sawT2 = true;
+        }
       }
     }
     expect(sawT2).toBe(true);

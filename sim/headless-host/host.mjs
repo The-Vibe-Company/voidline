@@ -171,7 +171,7 @@ function shopState() {
     offers: shop.currentShopOffers().map((offer) => {
       if (offer.kind === "weapon") {
         return {
-          id: `weapon:${offer.defId}:t${offer.tier}`,
+          id: `weapon:${offer.action}:${offer.defId}:t${offer.tier}`,
           cost: offer.cost,
           kind: "weapon",
           defId: offer.defId,
