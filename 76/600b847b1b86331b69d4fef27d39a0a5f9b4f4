@@ -1,0 +1,37 @@
+src/phaser/scenes/BattleScene.ts
+  76da2caf694028fc 3,6,27-29,32,35,41,56-57,129,131,157-200
+src/game/balance.ts
+  76da2caf694028fc 1,26-41,75-88,100,112,124-171,175
+src/state.ts
+  76da2caf694028fc 2,4,61,66,72,76
+src/game/wave-loop.ts
+  76da2caf694028fc 2,6,18-24,29-33,44-50,65-66,154-155,157-173,177-180,215-220,245-252,282-289,334-341,343-618,620-624,626-644,778-821,950-951
+src/game/wave-flow.ts
+  76da2caf694028fc 1-8,61-62
+src/types.ts
+  76da2caf694028fc 5-17,74-82,103-110,138-162
+src/phaser/textures.ts
+  76da2caf694028fc 9,16-18,27,104,119,122-133,137-156
+src/game/wave-loop.test.ts
+  76da2caf694028fc 3-4,7,15-17,22-23,30,43-44,53,56-60,154-349
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "76600b847b1b86331b69d4fef27d39a0a5f9b4f4",
+  "prompts": {
+    "76da2caf694028fc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "8931cdb6-baaf-495f-b151-5f99c84cd789",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 890,
+      "total_deletions": 37,
+      "accepted_lines": 884,
+      "overriden_lines": 0
+    }
+  }
+}
