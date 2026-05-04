@@ -1,6 +1,6 @@
 # Voidline
 
-Petit rogue-lite spatial jouable dans le navigateur.
+Petit Brotato-like spatial jouable dans le navigateur. 100 % TypeScript + Phaser 4.
 
 ## Lancer
 
@@ -9,7 +9,7 @@ npm install
 npm run dev
 ```
 
-Puis ouvre l'URL affichee par Vite (par defaut `http://127.0.0.1:5173`).
+Puis ouvre l'URL affichée par Vite (par défaut `http://127.0.0.1:5173`).
 
 ## Build production
 
@@ -20,46 +20,27 @@ npm run preview
 
 ## Boucle de jeu
 
-- Deplace le vaisseau avec les fleches directionnelles ou WASD.
-- Passe en mode trackpad pour diriger le vaisseau vers le curseur.
-- Explore une arene plus grande que l'ecran avec une camera qui suit le vaisseau.
-- Le vaisseau cible et tire automatiquement sur l'ennemi le plus proche.
-- Les ennemis lachent des fragments d'XP a recuperer dans l'arene.
-- Monte de niveau en ramassant assez d'XP pour choisir une arme level-up ou une technologie.
-- Les technologies remplacent les tomes: degats, cadence, projectiles, calibre, aimant, crit, defense, vitesse.
-- Survis 10 minutes pour faire apparaitre le boss du niveau; le battre fait passer au niveau suivant.
-- Les cristaux gagnes a la fin d'une run achetent personnages, armes et technologies.
-- Battre le boss du niveau 1 debloque le depart direct niveau 2, avec bonus de cristaux mais sans bonus de puissance.
-- Les ameliorations existent en tiers Standard, Rare, Prototype et Singularity.
-- Consulte les stats globales du vaisseau dans le panneau de gauche.
-- Mets en pause avec Esc ou P.
-- Survis le plus longtemps possible, bats les boss et reinvestis tes cristaux dans le hangar.
+- Déplace le vaisseau avec les flèches ou WASD ; le vaisseau tire automatiquement sur l'ennemi le plus proche.
+- Tu démarres en wave 1 (~20 s). À la fin d'une wave : transition shop.
+- **Monnaie = boules d'XP** ramassées pendant la wave (`runCurrency`). Les XP non ramassées laissent un **carry de 25 %** récupérable lors de la wave suivante.
+- Le shop propose 4 augmentations (dégâts, cadence, vitesse, PV max, projectiles, pénétration, calibre, crit, vélocité). Re-roll possible (coût croissant).
+- Toutes les 5 waves (5, 10, 15, …) : wave boss.
+- Mort → écran de fin → cristaux gagnés → hangar pour acheter des méta-upgrades permanentes.
+- Pause avec ESC ou P.
 
 ## Structure
 
-- `index.html` : structure de la page et overlays.
-- `styles.css` : interface, HUD et ecrans de menu.
-- `src/main.ts` : point d'entree (simulation, Phaser, input, HUD).
-- `src/state.ts` : singletons mutables (state, player, world, collections).
-- `src/types.ts` : interfaces TypeScript du jeu.
-- `src/utils.ts` : helpers (clamp, circleHit, xpToNextLevel, ...).
-- `src/simulation/` : wrapper TypeScript autour du moteur Rust/WASM.
-- `src/phaser/` : runtime WebGL Phaser, scenes, textures generees, pools de rendu.
-- `src/generated/voidline-wasm/` : bindings WASM generes depuis `sim/crates/voidline-wasm`.
-- `sim/crates/voidline-sim/` : moteur gameplay Rust source de verite.
-- `src/game/` : catalogues, balance exportee, input, progression meta.
-- `src/entities/` : entites visuelles TypeScript restantes (particules, zones XP).
-- `src/systems/` : wrappers UI/systemes pour run, upgrades, relics, compte.
-- `src/render/` : HUD DOM et overlays.
-
-`src/render/hud.ts` conserve les overlays DOM. Phaser rend le monde et lit le snapshot produit par Rust; les regles de jeu ne dependent pas des sprites ni d'une copie TypeScript.
-
-## Perf
-
-Le mode stress navigateur accepte des parametres d'URL :
-
-```text
-?bench=1&enemies=2000&bullets=300&orbs=1000&seconds=20
-```
-
-Le jeu cible 60 FPS desktop avec un fixture de rendu WebGL lourd, culling camera, pools de rendu et budgets visuels pour les particules, textes et XP visibles.
+- `index.html` / `styles.css` : structure DOM et HUD.
+- `src/main.ts` : point d'entrée.
+- `src/state.ts` : état runtime (player, enemies, bullets, …).
+- `src/types.ts` : interfaces TS.
+- `src/game/balance.ts` : constantes gameplay (durée wave, scaling ennemis, XP, shop, boss).
+- `src/game/wave-loop.ts` : moteur TS — `stepWave(dt)` (mouvement, spawn, IA, tir, collisions, XP).
+- `src/game/wave-flow.ts` : transitions `startRun` / `startWave` / `transitionToShop` / `advanceFromShop`.
+- `src/game/shop.ts` : offres, achat, re-roll.
+- `src/game/upgrade-catalog.ts` : objets shop.
+- `src/game/meta-upgrade-catalog.ts` : méta-upgrades hangar.
+- `src/systems/run.ts` : `update(dt)` orchestre la boucle.
+- `src/systems/account.ts` : cristaux, records, persistence (`localStorage` clé `voidline:metaProgress:v2`).
+- `src/render/hud.ts` : overlays DOM (HUD, shop, hangar, pause, gameover).
+- `src/phaser/` : rendu Phaser (scenes, textures générées, pools de sprites).

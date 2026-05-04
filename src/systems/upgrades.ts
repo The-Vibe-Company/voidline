@@ -1,12 +1,6 @@
-import type { UpgradeChoice } from "../types";
-import { markLoadoutDirty } from "../simulation/events";
-import { applyRustUpgrade, draftRustUpgrades } from "../simulation/rust-engine";
+import { player } from "../state";
+import { applyUpgradeToPlayer, findUpgrade } from "../game/upgrade-catalog";
 
-export function pickUpgrades(count: number): UpgradeChoice[] {
-  return draftRustUpgrades(count);
-}
-
-export function applyUpgrade(choice: UpgradeChoice): void {
-  applyRustUpgrade(choice);
-  markLoadoutDirty();
+export function applyOwnedUpgrade(id: string): void {
+  applyUpgradeToPlayer(findUpgrade(id), player);
 }

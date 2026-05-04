@@ -4,31 +4,20 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "wasm:build": "node scripts/build-wasm.mjs",
-    "predev": "npm run wasm:build",
     "dev": "vite",
-    "build": "npm run wasm:build && tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "pretest": "npm run wasm:build",
     "test": "vitest run",
-    "test:balance": "vitest run src/game/balance.test.ts src/game/balance-curves.test.ts",
-    "data:export": "cross-env RUN_DATA_EXPORT=1 vitest run scripts/export-balance.test.ts",
-    "data:check": "cross-env CHECK_DATA_EXPORT=1 vitest run scripts/export-balance.test.ts",
-    "balance:check": "scripts/balance-check.sh",
     "test:watch": "vitest",
-    "prebench": "npm run wasm:build",
-    "bench": "vitest bench --run",
     "smoke": "npm run build && node scripts/browser-smoke.mjs"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
-    "cross-env": "^10.1.0",
     "playwright": "1.58.1",
     "typescript": "^5.6.3",
     "vite": "^8.0.10",
-    "vitest": "^4.1.5",
-    "wasm-pack": "^0.14.0"
+    "vitest": "^4.1.5"
   },
   "dependencies": {
     "phaser": "4.0.0"
