@@ -21,6 +21,7 @@ const waveLoop = await import("../../src/game/wave-loop.ts");
 const shop = await import("../../src/game/shop.ts");
 const account = await import("../../src/systems/account.ts");
 const metaCatalog = await import("../../src/game/meta-upgrade-catalog.ts");
+const weaponCatalog = await import("../../src/game/weapon-catalog.ts");
 
 const { state, world, pointer, player, enemies, experienceOrbs, bullets, particles, floaters, counters } = stateModule;
 let rewardAwarded = false;
@@ -80,7 +81,48 @@ function setMetaLevels(metaLevels = {}) {
   }
 }
 
+function aggregatedPlayerStats() {
+  if (!player.weapons || player.weapons.length === 0) {
+    return {
+      damage: 0,
+      fireRate: 0,
+      range: 0,
+      projectileCount: 0,
+      pierce: 0,
+      critChance: 0,
+    };
+  }
+  let weightedDamage = 0;
+  let totalShotsPerSec = 0;
+  let totalFireRate = 0;
+  let maxRange = 0;
+  let totalProjectiles = 0;
+  let totalPierce = 0;
+  let maxCrit = 0;
+  for (const weapon of player.weapons) {
+    const eff = weaponCatalog.effectiveWeaponStats(weapon, player);
+    const shotsPerSec = eff.fireRate * eff.projectileCount;
+    weightedDamage += eff.damage * shotsPerSec;
+    totalShotsPerSec += shotsPerSec;
+    totalFireRate += eff.fireRate;
+    if (eff.range > maxRange) maxRange = eff.range;
+    totalProjectiles += eff.projectileCount;
+    totalPierce += eff.pierce;
+    if (eff.critChance > maxCrit) maxCrit = eff.critChance;
+  }
+  const avgDamage = totalShotsPerSec > 0 ? weightedDamage / totalShotsPerSec : 0;
+  return {
+    damage: avgDamage,
+    fireRate: totalFireRate,
+    range: maxRange,
+    projectileCount: totalProjectiles,
+    pierce: totalPierce,
+    critChance: maxCrit,
+  };
+}
+
 function snapshot() {
+  const agg = aggregatedPlayerStats();
   return {
     schema_version: 1,
     mode: state.mode,
@@ -95,12 +137,12 @@ function snapshot() {
       x: player.x,
       y: player.y,
       speed: player.speed,
-      damage: player.damage,
-      fireRate: player.fireRate,
-      range: player.range,
-      projectileCount: player.projectileCount,
-      pierce: player.pierce,
-      critChance: player.critChance,
+      damage: agg.damage,
+      fireRate: agg.fireRate,
+      range: agg.range,
+      projectileCount: agg.projectileCount,
+      pierce: agg.pierce,
+      critChance: agg.critChance,
     },
     enemies: enemies.map((enemy) => ({
       id: enemy.id,
@@ -126,10 +168,23 @@ function snapshot() {
 function shopState() {
   return {
     schema_version: 1,
-    offers: shop.currentShopOffers().map((offer) => ({
-      id: offer.upgrade.id,
-      cost: offer.cost,
-    })),
+    offers: shop.currentShopOffers().map((offer) => {
+      if (offer.kind === "weapon") {
+        return {
+          id: `weapon:${offer.defId}:t${offer.tier}`,
+          cost: offer.cost,
+          kind: "weapon",
+          defId: offer.defId,
+          tier: offer.tier,
+          action: offer.action,
+        };
+      }
+      return {
+        id: offer.upgrade.id,
+        cost: offer.cost,
+        kind: "upgrade",
+      };
+    }),
     rerollCost: shop.currentRerollCost(),
     currency: state.runCurrency,
   };

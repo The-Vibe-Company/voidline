@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { applyUpgradeToPlayer, findUpgrade, upgradeCatalog } from "./upgrade-catalog";
 import { createPlayerBaseState } from "../state";
+import { effectiveWeaponStats, makeStarterWeapon } from "./weapon-catalog";
 
 describe("upgrade catalog", () => {
   it("findUpgrade resolves catalog entries", () => {
@@ -69,11 +70,21 @@ describe("upgrade catalog", () => {
     expect(player.damage).toBe(before.damage - 2);
   });
 
-  it("damage cannot drop below 1 even after stacked malus", () => {
+  it("effective weapon damage stays >= 1 even after stacked malus", () => {
     const player = createPlayerBaseState();
-    player.damage = 2;
-    applyUpgradeToPlayer(findUpgrade("projectile-up"), player);
-    expect(player.damage).toBeGreaterThanOrEqual(1);
+    for (let i = 0; i < 20; i += 1) {
+      applyUpgradeToPlayer(findUpgrade("projectile-up"), player);
+      applyUpgradeToPlayer(findUpgrade("pierce-up"), player);
+    }
+    const eff = effectiveWeaponStats(makeStarterWeapon(), player);
+    expect(eff.damage).toBeGreaterThanOrEqual(1);
+  });
+
+  it("damage upgrade adds bonus that stacks on starter weapon base", () => {
+    const player = createPlayerBaseState();
+    applyUpgradeToPlayer(findUpgrade("damage-up"), player);
+    const eff = effectiveWeaponStats(makeStarterWeapon(), player);
+    expect(eff.damage).toBe(24 + 8);
   });
 
   it("every upgrade exposes an icon asset path", () => {

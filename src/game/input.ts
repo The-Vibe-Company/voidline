@@ -1,5 +1,11 @@
 import { canvas, keys, pointer, state } from "../state";
-import { pauseGame, resumeGame, setControlMode, showHangar } from "../render/hud";
+import {
+  pauseGame,
+  resumeGame,
+  setControlMode,
+  showHangar,
+  showWeaponPicker,
+} from "../render/hud";
 import { beginRun } from "../systems/run";
 
 export function bindInput(): void {
@@ -29,7 +35,7 @@ export function bindInput(): void {
     }
 
     if (state.mode === "menu" && action) {
-      beginRun();
+      showWeaponPicker((defId) => beginRun(defId));
       return;
     }
     if (state.mode === "gameover" && action) {

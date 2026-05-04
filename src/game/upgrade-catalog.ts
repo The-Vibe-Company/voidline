@@ -95,7 +95,7 @@ export function applyUpgradeToPlayer(upgrade: Upgrade, target: Player): void {
   for (const effect of upgrade.effects) {
     switch (effect.stat) {
       case "damage":
-        target.damage = Math.max(1, target.damage + effect.amount);
+        target.damage += effect.amount;
         break;
       case "fireRate":
         target.fireRate += effect.amount;

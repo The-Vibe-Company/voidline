@@ -1,6 +1,7 @@
 import { player, state } from "../state";
 import { clamp } from "../utils";
 import {
+  canAcceptOffer,
   currentRerollCost,
   currentShopOffers,
   tryBuyOffer,
@@ -14,7 +15,14 @@ import {
   metaUpgradeLevel,
 } from "../game/meta-upgrade-catalog";
 import { purchaseMetaUpgrade } from "../systems/account";
-import type { ControlMode } from "../types";
+import {
+  MAX_WEAPONS,
+  findWeaponDef,
+  playerOwnsWeapon,
+  playerLoadoutFull,
+  weaponCatalog,
+} from "../game/weapon-catalog";
+import type { ControlMode, ShopOffer, WeaponArchetypeId } from "../types";
 
 const hud = {
   wave: query<HTMLElement>("#waveValue"),
@@ -41,6 +49,10 @@ const hud = {
   shopCarry: query<HTMLElement>("#shopCarry"),
   shopRerollButton: query<HTMLButtonElement>("#shopRerollButton"),
   shopNextButton: query<HTMLButtonElement>("#shopNextButton"),
+  weaponLoadout: query<HTMLElement>("#weaponLoadout"),
+  shopWeaponLoadout: query<HTMLElement>("#shopWeaponLoadout"),
+  weaponPickerOverlay: query<HTMLElement>("#weaponPickerOverlay"),
+  weaponPickerGrid: query<HTMLElement>("#weaponPickerGrid"),
   pauseOverlay: query<HTMLElement>("#pauseOverlay"),
   gameOverOverlay: query<HTMLElement>("#gameOverOverlay"),
   finalWave: query<HTMLElement>("#finalWave"),
@@ -74,6 +86,34 @@ export function hideOverlays(): void {
   hud.shopOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
+  hud.weaponPickerOverlay.classList.remove("active");
+}
+
+export function showWeaponPicker(onPick: (defId: WeaponArchetypeId) => void): void {
+  hideOverlays();
+  hud.weaponPickerGrid.innerHTML = "";
+  for (const def of weaponCatalog) {
+    const stats = def.tiers[0]!;
+    const card = document.createElement("button");
+    card.className = "upgrade-card weapon-card weapon-picker-card";
+    card.type = "button";
+    card.dataset.weaponId = def.id;
+    card.innerHTML = `
+      <span class="upgrade-stamp weapon-stamp" aria-hidden="true" data-fallback="${def.id.charAt(0).toUpperCase()}">
+        <span class="weapon-tier-badge weapon-tier-badge--1">T1</span>
+        <img class="upgrade-stamp-img weapon-stamp-img" src="${def.icon}" alt="" onerror="this.style.display='none'" />
+      </span>
+      <span class="upgrade-copy">
+        <h3>${def.name}</h3>
+        <p>${def.description}</p>
+        <p class="weapon-card-stats">DMG ${stats.damage} · ${stats.fireRate.toFixed(1)}/s · ${stats.projectileCount > 1 ? `${stats.projectileCount} proj · ` : ""}portée ${stats.range}</p>
+      </span>
+      <strong class="upgrade-effect">Choisir</strong>
+    `;
+    card.addEventListener("click", () => onPick(def.id));
+    hud.weaponPickerGrid.appendChild(card);
+  }
+  hud.weaponPickerOverlay.classList.add("active");
 }
 
 export function showHangar(): void {
@@ -138,12 +178,49 @@ function refreshShopAffordability(): void {
   cards.forEach((card, idx) => {
     const offer = offers[idx];
     if (!offer) return;
-    card.disabled = state.runCurrency < offer.cost;
+    card.disabled = !canAcceptOffer(offer);
   });
+}
+
+function shopCardHtml(offer: ShopOffer): string {
+  if (offer.kind === "upgrade") {
+    return `
+      <span class="upgrade-stamp" aria-hidden="true">
+        <img class="upgrade-stamp-img" src="${offer.upgrade.icon}" alt="" />
+      </span>
+      <span class="upgrade-copy">
+        <h3>${offer.upgrade.name}</h3>
+        <p>${offer.upgrade.description}</p>
+      </span>
+      <strong class="upgrade-effect">${offer.cost} XP</strong>
+    `;
+  }
+  const def = findWeaponDef(offer.defId);
+  const tierLabel = `T${offer.tier}`;
+  const owned = playerOwnsWeapon(player, offer.defId);
+  const blockedFull = !owned && playerLoadoutFull(player);
+  const cta = blockedFull
+    ? "Loadout plein"
+    : offer.action === "promote"
+      ? `Promouvoir ${tierLabel}`
+      : `Acquérir ${tierLabel}`;
+  return `
+    <span class="upgrade-stamp weapon-stamp" aria-hidden="true">
+      <span class="weapon-tier-badge weapon-tier-badge--${offer.tier}">${tierLabel}</span>
+      <img class="upgrade-stamp-img weapon-stamp-img" src="${def.icon}" alt="" onerror="this.style.display='none';this.parentElement.dataset.fallback='${def.id.charAt(0).toUpperCase()}'" />
+    </span>
+    <span class="upgrade-copy">
+      <h3>${def.name} <span class="weapon-card-tier">${tierLabel}</span></h3>
+      <p>${def.description}</p>
+      <p class="weapon-card-cta">${cta}</p>
+    </span>
+    <strong class="upgrade-effect">${offer.cost} XP</strong>
+  `;
 }
 
 function renderShop(): void {
   updateShopHeader();
+  renderWeaponLoadouts();
   hud.shopGrid.innerHTML = "";
   const offers = currentShopOffers();
   if (offers.length === 0) {
@@ -154,24 +231,45 @@ function renderShop(): void {
   }
   offers.forEach((offer, index) => {
     const card = document.createElement("button");
-    card.className = "upgrade-card shop-card";
+    card.className =
+      offer.kind === "weapon"
+        ? "upgrade-card shop-card weapon-card"
+        : "upgrade-card shop-card";
     card.type = "button";
-    const canBuy = state.runCurrency >= offer.cost;
-    card.disabled = !canBuy;
+    card.disabled = !canAcceptOffer(offer);
     card.dataset.offerIndex = String(index);
-    card.innerHTML = `
-      <span class="upgrade-stamp" aria-hidden="true">
-        <img class="upgrade-stamp-img" src="${offer.upgrade.icon}" alt="" />
-      </span>
-      <span class="upgrade-copy">
-        <h3>${offer.upgrade.name}</h3>
-        <p>${offer.upgrade.description}</p>
-      </span>
-      <strong class="upgrade-effect">${offer.cost} XP</strong>
-    `;
+    card.innerHTML = shopCardHtml(offer);
     card.addEventListener("click", () => onBuyOffer(index));
     hud.shopGrid.appendChild(card);
   });
+}
+
+function renderWeaponLoadouts(): void {
+  renderWeaponLoadout(hud.weaponLoadout);
+  renderWeaponLoadout(hud.shopWeaponLoadout);
+}
+
+function renderWeaponLoadout(target: HTMLElement): void {
+  target.innerHTML = "";
+  for (let i = 0; i < MAX_WEAPONS; i += 1) {
+    const weapon = player.weapons[i];
+    const slot = document.createElement("span");
+    if (!weapon) {
+      slot.className = "weapon-slot weapon-slot--empty";
+      slot.innerHTML = `<span class="weapon-slot-index">${i + 1}</span>`;
+      target.appendChild(slot);
+      continue;
+    }
+    const def = findWeaponDef(weapon.defId);
+    slot.className = "weapon-slot weapon-slot--filled";
+    slot.dataset.fallback = def.id.charAt(0).toUpperCase();
+    slot.innerHTML = `
+      <img class="weapon-slot-img" src="${def.icon}" alt="" onerror="this.style.display='none'" />
+      <span class="weapon-tier-badge weapon-tier-badge--${weapon.tier}">T${weapon.tier}</span>
+      <span class="weapon-slot-name">${def.name}</span>
+    `;
+    target.appendChild(slot);
+  }
 }
 
 function onBuyOffer(index: number): void {
@@ -207,14 +305,15 @@ export function updateHud(): void {
       ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
       : "linear-gradient(90deg, #ff5a69, #ffbf47)";
   hud.stats.hull.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
-  hud.stats.damage.textContent = String(Math.round(player.damage));
-  hud.stats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;
-  hud.stats.volley.textContent = String(player.projectileCount);
+  hud.stats.damage.textContent = formatBonus(player.damage);
+  hud.stats.fireRate.textContent = `${formatBonus(player.fireRate, 1)}/s`;
+  hud.stats.volley.textContent = formatBonus(player.projectileCount);
   hud.stats.speed.textContent = String(Math.round(player.speed));
-  hud.stats.pierce.textContent = String(player.pierce);
-  hud.stats.crit.textContent = `${Math.round(player.critChance * 100)}%`;
+  hud.stats.pierce.textContent = formatBonus(player.pierce);
+  hud.stats.crit.textContent = `${formatBonus(Math.round(player.critChance * 100))}%`;
   hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
-  hud.stats.range.textContent = String(Math.round(player.range));
+  hud.stats.range.textContent = formatBonus(Math.round(player.range));
+  renderWeaponLoadout(hud.weaponLoadout);
   if (hud.accountCrystals) {
     hud.accountCrystals.textContent = String(accountProgress.crystals);
   }
@@ -222,6 +321,12 @@ export function updateHud(): void {
     updateShopHeader();
     refreshShopAffordability();
   }
+}
+
+function formatBonus(value: number, fractionDigits = 0): string {
+  const rounded = fractionDigits > 0 ? value.toFixed(fractionDigits) : String(Math.round(value));
+  if (value > 0) return `+${rounded}`;
+  return rounded;
 }
 
 function formatTime(seconds: number): string {

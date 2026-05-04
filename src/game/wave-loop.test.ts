@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  bullets,
   counters,
   enemies,
   player,
@@ -8,6 +9,8 @@ import {
   state,
   world,
 } from "../state";
+import { acquireWeapon } from "./weapon-catalog";
+import type { EnemyEntity } from "../types";
 import {
   SPAWN_TELEGRAPH_BOSS_DURATION,
   SPAWN_ARENA_MARGIN,
@@ -132,5 +135,65 @@ describe("wave loop spawn telegraphs", () => {
     expect(spawnIndicators).toHaveLength(0);
     expect(enemies).toHaveLength(1);
     expect(state.enemiesAlive).toBe(1);
+  });
+});
+
+describe("multi-weapon firing", () => {
+  function injectDummyEnemy(): EnemyEntity {
+    const e: EnemyEntity = {
+      id: counters.nextEnemyId++,
+      kind: "scout",
+      score: 30,
+      radius: 9,
+      hp: 1_000_000,
+      maxHp: 1_000_000,
+      speed: 0,
+      damage: 0,
+      color: "#fff",
+      accent: "#fff",
+      sides: 3,
+      x: player.x + 60,
+      y: player.y,
+      age: 0,
+      hit: 0,
+      isBoss: false,
+      contactCooldown: 0,
+    };
+    enemies.push(e);
+    state.enemiesAlive += 1;
+    return e;
+  }
+
+  it("two weapons fire independently on their own timers", () => {
+    bullets.length = 0;
+    counters.nextBulletId = 1;
+    acquireWeapon(player, "minigun", 1); // fireRate ~7.5
+    expect(player.weapons.length).toBe(2);
+    injectDummyEnemy();
+
+    const initialId = counters.nextBulletId;
+    const elapsed = 2.0;
+    const dt = 1 / 60;
+    for (let t = 0; t < elapsed; t += dt) {
+      stepWave(dt);
+    }
+    const totalFired = counters.nextBulletId - initialId;
+    // Pulse T1 fireRate 1.6 → ~3 shots in 2s; minigun T1 fireRate 7.5 → ~15 shots.
+    expect(totalFired).toBeGreaterThanOrEqual(14);
+  });
+
+  it("solo pulse weapon fires far fewer bullets in 2s than pulse + minigun combo", () => {
+    bullets.length = 0;
+    counters.nextBulletId = 1;
+    injectDummyEnemy();
+    const startId = counters.nextBulletId;
+    const elapsed = 2.0;
+    const dt = 1 / 60;
+    for (let t = 0; t < elapsed; t += dt) {
+      stepWave(dt);
+    }
+    const soloFired = counters.nextBulletId - startId;
+    // Pulse alone at 1.6 shots/s: ~3 shots, very different from ~18 with minigun.
+    expect(soloFired).toBeLessThanOrEqual(8);
   });
 });

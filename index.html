@@ -52,15 +52,17 @@
         <span class="hud-label">Stats globales</span>
         <dl class="stats-grid">
           <div><dt>Coque</dt><dd id="statHull">100/100</dd></div>
-          <div><dt>Dégâts</dt><dd id="statDamage">24</dd></div>
-          <div><dt>Cadence</dt><dd id="statFireRate">3.0/s</dd></div>
-          <div><dt>Salve</dt><dd id="statVolley">1</dd></div>
+          <div><dt>Bonus dmg</dt><dd id="statDamage">+0</dd></div>
+          <div><dt>Bonus rate</dt><dd id="statFireRate">+0/s</dd></div>
+          <div><dt>Bonus salve</dt><dd id="statVolley">+0</dd></div>
           <div><dt>Vitesse</dt><dd id="statSpeed">145</dd></div>
-          <div><dt>Pierce</dt><dd id="statPierce">0</dd></div>
-          <div><dt>Crit</dt><dd id="statCrit">0%</dd></div>
+          <div><dt>Bonus pierce</dt><dd id="statPierce">+0</dd></div>
+          <div><dt>Bonus crit</dt><dd id="statCrit">+0%</dd></div>
           <div><dt>Calibre</dt><dd id="statCaliber">x1.00</dd></div>
-          <div><dt>Portée</dt><dd id="statRange">360</dd></div>
+          <div><dt>Bonus portée</dt><dd id="statRange">+0</dd></div>
         </dl>
+        <span class="hud-label">Loadout (max 6)</span>
+        <div class="weapon-loadout" id="weaponLoadout"></div>
       </aside>
 
       <section class="overlay active hangar-overlay" id="hangarOverlay" aria-labelledby="hangarTitle">
@@ -113,6 +115,17 @@
         </div>
       </section>
 
+      <section class="overlay" id="weaponPickerOverlay" aria-labelledby="weaponPickerTitle">
+        <div class="upgrade-modal weapon-picker-modal" role="dialog" aria-modal="true" aria-labelledby="weaponPickerTitle">
+          <header class="upgrade-header">
+            <p class="eyebrow">Choisis ton arme de départ</p>
+            <h2 id="weaponPickerTitle">Briefing d'équipement</h2>
+            <p class="upgrade-prompt">Une seule arme T1 pour commencer ta run.</p>
+          </header>
+          <div class="upgrade-grid weapon-picker-grid" id="weaponPickerGrid"></div>
+        </div>
+      </section>
+
       <section class="overlay" id="shopOverlay" aria-labelledby="shopTitle">
         <div class="upgrade-modal shop-modal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
           <header class="upgrade-header">
@@ -122,6 +135,7 @@
               Monnaie: <strong id="shopCurrency">0</strong> &middot;
               Carry restant: <strong id="shopCarry">0</strong>
             </p>
+            <div class="weapon-loadout shop-loadout" id="shopWeaponLoadout"></div>
           </header>
           <div class="upgrade-grid" id="shopGrid"></div>
           <div class="shop-actions">

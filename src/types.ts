@@ -6,7 +6,44 @@ export type EnemyKind = "scout" | "hunter" | "brute";
 
 export type CharacterId = "pilot";
 
-export type WeaponId = "pulse";
+export type WeaponArchetypeId =
+  | "pulse"
+  | "smg"
+  | "shotgun"
+  | "sniper"
+  | "minigun"
+  | "railgun";
+
+export type WeaponTier = 1 | 2 | 3 | 4;
+
+export interface WeaponTierStats {
+  damage: number;
+  fireRate: number;
+  projectileCount: number;
+  pierce: number;
+  bulletSpeed: number;
+  bulletLife: number;
+  range: number;
+  bulletRadius: number;
+  spread: number;
+  critChance: number;
+  cost: number;
+}
+
+export interface WeaponDef {
+  id: WeaponArchetypeId;
+  name: string;
+  icon: string;
+  description: string;
+  tiers: readonly [WeaponTierStats, WeaponTierStats, WeaponTierStats, WeaponTierStats];
+}
+
+export interface Weapon {
+  defId: WeaponArchetypeId;
+  tier: WeaponTier;
+  fireTimer: number;
+  aimAngle: number;
+}
 
 export interface World {
   width: number;
@@ -26,6 +63,11 @@ export interface Pointer {
   inside: boolean;
 }
 
+/**
+ * Player offensive stats are bonuses applied on top of each equipped weapon's
+ * tier stats. Additive bonuses default to 0; multiplicative bonuses
+ * (bulletSpeed, bulletLife, bulletRadius) default to 1.
+ */
 export interface Player {
   x: number;
   y: number;
@@ -45,8 +87,8 @@ export interface Player {
   bulletRadius: number;
   critChance: number;
   invuln: number;
-  fireTimer: number;
   aimAngle: number;
+  weapons: Weapon[];
 }
 
 export interface EnemyType {
@@ -223,7 +265,12 @@ export interface Upgrade {
   effects: readonly UpgradeEffect[];
 }
 
-export interface ShopOffer {
-  upgrade: Upgrade;
-  cost: number;
-}
+export type ShopOffer =
+  | { kind: "upgrade"; upgrade: Upgrade; cost: number }
+  | {
+      kind: "weapon";
+      defId: WeaponArchetypeId;
+      tier: WeaponTier;
+      cost: number;
+      action: "acquire" | "promote";
+    };
