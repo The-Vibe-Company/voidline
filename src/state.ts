@@ -7,6 +7,7 @@ import type {
   Particle,
   Player,
   Pointer,
+  SpawnIndicator,
   World,
 } from "./types";
 
@@ -58,9 +59,11 @@ export const bullets: Bullet[] = [];
 export const experienceOrbs: ExperienceOrb[] = [];
 export const particles: Particle[] = [];
 export const floaters: Floater[] = [];
+export const spawnIndicators: SpawnIndicator[] = [];
 
 export const counters = {
   nextEnemyId: 1,
+  nextSpawnIndicatorId: 1,
   nextBulletId: 1,
   nextExperienceId: 1,
   nextParticleId: 1,

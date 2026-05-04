@@ -8,10 +8,15 @@ import {
   particles,
   player,
   pointer,
+  spawnIndicators,
   state,
   world,
 } from "../state";
 import {
+  SPAWN_ARENA_MARGIN,
+  SPAWN_MIN_DISTANCE_FROM_PLAYER,
+  SPAWN_TELEGRAPH_BOSS_DURATION,
+  SPAWN_TELEGRAPH_DURATION,
   enemyDamageScale,
   enemyHpScale,
   enemySpeedScale,
@@ -22,7 +27,7 @@ import {
 } from "./balance";
 import { transitionToShop } from "./wave-flow";
 import { circleHit, screenToWorld } from "../utils";
-import type { EnemyEntity, EnemyKind } from "../types";
+import type { EnemyEntity, EnemyKind, SpawnIndicator } from "../types";
 
 const EDGE_PADDING = 18;
 
@@ -35,6 +40,7 @@ export function stepWave(dt: number): void {
 
   updatePlayer(cappedDt);
   updateSpawns(cappedDt);
+  updateSpawnIndicators(cappedDt);
   updateEnemies(cappedDt);
   updatePlayerFire(cappedDt);
   updateBullets(cappedDt);
@@ -47,11 +53,12 @@ export function stepWave(dt: number): void {
     return;
   }
 
-  if (state.waveTimer <= 0 && state.spawnsRemaining <= 0) {
-    if (enemies.length > 0) {
-      enemies.length = 0;
-      state.enemiesAlive = 0;
-    }
+  if (
+    state.waveTimer <= 0 &&
+    state.spawnsRemaining <= 0 &&
+    enemies.length === 0 &&
+    spawnIndicators.length === 0
+  ) {
     transitionToShop();
   }
 }
@@ -134,13 +141,44 @@ function pickEnemyKind(waveNumber: number, progress: number): EnemyKind {
   return "brute";
 }
 
-function spawnEnemy(kind: EnemyKind): void {
+export function spawnEnemy(kind: EnemyKind): void {
   const type = findEnemyType(kind);
+  const { x, y } = randomSpawnPoint();
+  spawnIndicators.push({
+    id: counters.nextSpawnIndicatorId++,
+    kind,
+    isBoss: false,
+    radius: type.radius,
+    color: type.color,
+    x,
+    y,
+    life: SPAWN_TELEGRAPH_DURATION,
+    maxLife: SPAWN_TELEGRAPH_DURATION,
+  });
+}
+
+export function spawnBoss(): void {
+  const base = findEnemyType("brute");
+  const { x, y } = randomSpawnPoint();
+  spawnIndicators.push({
+    id: counters.nextSpawnIndicatorId++,
+    kind: base.id,
+    isBoss: true,
+    radius: base.radius * bossBalance.radiusMultiplier,
+    color: "#ff5af0",
+    x,
+    y,
+    life: SPAWN_TELEGRAPH_BOSS_DURATION,
+    maxLife: SPAWN_TELEGRAPH_BOSS_DURATION,
+  });
+}
+
+function materializeEnemy(indicator: SpawnIndicator): void {
+  const type = findEnemyType(indicator.kind);
   const w = state.wave;
   const hpMul = enemyHpScale(w);
   const speedMul = enemySpeedScale(w);
   const damageMul = enemyDamageScale(w);
-  const { x, y } = randomSpawnPoint();
   const enemy: EnemyEntity = {
     id: counters.nextEnemyId++,
     kind: type.id,
@@ -153,8 +191,8 @@ function spawnEnemy(kind: EnemyKind): void {
     color: type.color,
     accent: type.accent,
     sides: type.sides,
-    x,
-    y,
+    x: indicator.x,
+    y: indicator.y,
     age: 0,
     hit: 0,
     isBoss: false,
@@ -164,13 +202,12 @@ function spawnEnemy(kind: EnemyKind): void {
   state.enemiesAlive = enemies.length;
 }
 
-function spawnBoss(): void {
+function materializeBoss(indicator: SpawnIndicator): void {
   const base = findEnemyType("brute");
   const w = state.wave;
   const hpMul = enemyHpScale(w) * bossBalance.hpMultiplier;
   const speedMul = enemySpeedScale(w) * bossBalance.speedMultiplier;
   const damageMul = enemyDamageScale(w) * bossBalance.damageMultiplier;
-  const { x, y } = randomSpawnPoint();
   const enemy: EnemyEntity = {
     id: counters.nextEnemyId++,
     kind: base.id,
@@ -180,11 +217,11 @@ function spawnBoss(): void {
     maxHp: base.hp * hpMul,
     speed: base.speed * speedMul,
     damage: base.damage * damageMul,
-    color: "#ff5af0",
+    color: indicator.color,
     accent: "#ffffff",
     sides: 8,
-    x,
-    y,
+    x: indicator.x,
+    y: indicator.y,
     age: 0,
     hit: 0,
     isBoss: true,
@@ -194,19 +231,37 @@ function spawnBoss(): void {
   state.enemiesAlive = enemies.length;
 }
 
-function randomSpawnPoint(): { x: number; y: number } {
-  const margin = 50;
-  const side = Math.floor(Math.random() * 4);
-  if (side === 0) {
-    return { x: Math.random() * world.arenaWidth, y: -margin };
+export function updateSpawnIndicators(dt: number): void {
+  for (let i = spawnIndicators.length - 1; i >= 0; i -= 1) {
+    const indicator = spawnIndicators[i]!;
+    indicator.life -= dt;
+    if (indicator.life > 0) continue;
+    if (indicator.isBoss) {
+      materializeBoss(indicator);
+    } else {
+      materializeEnemy(indicator);
+    }
+    spawnIndicators.splice(i, 1);
   }
-  if (side === 1) {
-    return { x: world.arenaWidth + margin, y: Math.random() * world.arenaHeight };
+}
+
+export function randomSpawnPoint(): { x: number; y: number } {
+  const minDistSq = SPAWN_MIN_DISTANCE_FROM_PLAYER * SPAWN_MIN_DISTANCE_FROM_PLAYER;
+  for (let attempt = 0; attempt < 12; attempt += 1) {
+    const x =
+      SPAWN_ARENA_MARGIN +
+      Math.random() * (world.arenaWidth - SPAWN_ARENA_MARGIN * 2);
+    const y =
+      SPAWN_ARENA_MARGIN +
+      Math.random() * (world.arenaHeight - SPAWN_ARENA_MARGIN * 2);
+    const dx = x - player.x;
+    const dy = y - player.y;
+    if (dx * dx + dy * dy >= minDistSq) return { x, y };
   }
-  if (side === 2) {
-    return { x: Math.random() * world.arenaWidth, y: world.arenaHeight + margin };
-  }
-  return { x: -margin, y: Math.random() * world.arenaHeight };
+  return {
+    x: player.x < world.arenaWidth / 2 ? world.arenaWidth - SPAWN_ARENA_MARGIN : SPAWN_ARENA_MARGIN,
+    y: player.y < world.arenaHeight / 2 ? world.arenaHeight - SPAWN_ARENA_MARGIN : SPAWN_ARENA_MARGIN,
+  };
 }
 
 function updateEnemies(dt: number): void {
@@ -493,6 +548,7 @@ function spawnFloater(x: number, y: number, text: string, color: string): void {
 
 export function clearRunEntities(): void {
   enemies.length = 0;
+  spawnIndicators.length = 0;
   bullets.length = 0;
   experienceOrbs.length = 0;
   particles.length = 0;
