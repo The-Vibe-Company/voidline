@@ -13,7 +13,8 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 use voidline_bot::{
-    choose_shop_action, next_meta_purchase, Champion, MetaLevels, ShopAction, Snapshot,
+    choose_shop_action, meta_upgrade_cost_at, next_meta_purchase, Champion, MetaLevels, ShopAction,
+    Snapshot,
 };
 
 use crate::host::Host;
@@ -274,7 +275,7 @@ fn run_campaign(seeds: Vec<u64>, target_kills: usize) -> Result<CampaignReport> 
         crystals += report.crystals_gained;
         while let Some(id) = next_meta_purchase(crystals, spent, &levels) {
             let current = levels.0.get(&id).copied().unwrap_or(0);
-            let cost = meta_cost(&id, current);
+            let cost = meta_upgrade_cost_at(&id, current);
             if cost > crystals {
                 break;
             }
@@ -309,7 +310,7 @@ fn parse_meta(raw: Option<String>) -> Result<MetaLevels> {
             let levels: BTreeMap<String, u32> =
                 serde_json::from_str(&raw).context("invalid --meta-levels JSON")?;
             for (id, level) in &levels {
-                if meta_cost(id, 0) == i64::MAX {
+                if meta_upgrade_cost_at(id, 0) == i64::MAX {
                     return Err(anyhow::anyhow!(
                         "unknown meta upgrade in --meta-levels: {id}"
                     ));
@@ -333,17 +334,6 @@ fn parse_seed_range(raw: &str) -> Result<Vec<u64>> {
         return Ok((start..end).collect());
     }
     Ok(vec![raw.parse().context("invalid seed")?])
-}
-
-fn meta_cost(id: &str, level: u32) -> i64 {
-    match id {
-        "meta:max-hp" => 30 + level as i64 * 25,
-        "meta:damage" => 30 + level as i64 * 30,
-        "meta:fire-rate" => 30 + level as i64 * 35,
-        "meta:speed" => 25 + level as i64 * 25,
-        "meta:crystal-yield" => 40 + level as i64 * 40,
-        _ => i64::MAX,
-    }
 }
 
 fn print_json<T: Serialize>(value: &T) -> Result<()> {

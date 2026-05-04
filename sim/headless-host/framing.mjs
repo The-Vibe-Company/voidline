@@ -3,11 +3,13 @@ export class FrameReader {
     this.stream = stream;
     this.buffer = Buffer.alloc(0);
     this.waiters = [];
+    this.ended = false;
     stream.on("data", (chunk) => {
       this.buffer = Buffer.concat([this.buffer, chunk]);
       this.drain();
     });
     stream.on("end", () => {
+      this.ended = true;
       for (const waiter of this.waiters.splice(0)) waiter(null);
     });
   }
@@ -15,6 +17,7 @@ export class FrameReader {
   next() {
     const frame = this.tryRead();
     if (frame) return Promise.resolve(frame);
+    if (this.ended) return Promise.resolve(null);
     return new Promise((resolve) => this.waiters.push(resolve));
   }
 

@@ -23,7 +23,7 @@ pub fn next_meta_purchase(crystals: i64, spent: i64, levels: &MetaLevels) -> Opt
     ];
     for (threshold, id, target_level) in ladder {
         if spent + crystals >= threshold && level(map, id) < target_level {
-            let cost = cost_at(id, level(map, id));
+            let cost = meta_upgrade_cost_at(id, level(map, id));
             if cost <= crystals && cost * 10 <= crystals * 6 {
                 return Some(id.to_string());
             }
@@ -36,7 +36,7 @@ pub fn next_meta_purchase(crystals: i64, spent: i64, levels: &MetaLevels) -> Opt
         if level(map, id) >= 5 {
             continue;
         }
-        let cost = cost_at(id, level(map, id));
+        let cost = meta_upgrade_cost_at(id, level(map, id));
         if cost <= crystals && cost * 10 <= crystals * 6 {
             return Some(id.to_string());
         }
@@ -48,7 +48,7 @@ fn level(map: &BTreeMap<String, u32>, id: &str) -> u32 {
     map.get(id).copied().unwrap_or(0)
 }
 
-fn cost_at(id: &str, level: u32) -> i64 {
+pub fn meta_upgrade_cost_at(id: &str, level: u32) -> i64 {
     match id {
         "meta:max-hp" => 30 + level as i64 * 25,
         "meta:damage" => 30 + level as i64 * 30,

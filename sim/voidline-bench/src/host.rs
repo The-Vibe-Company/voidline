@@ -5,8 +5,11 @@ use serde_json::{json, Value};
 use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::sync::{Mutex, OnceLock};
 
 use voidline_bot::{GameoverSummary, MetaLevels, ShopState, Snapshot};
+
+static HOST_INSTALL_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
 
 pub struct Host {
     child: Child,
@@ -116,6 +119,13 @@ fn host_dir() -> Result<PathBuf> {
 }
 
 fn ensure_host_dependencies(host_dir: &std::path::Path) -> Result<()> {
+    if host_dir.join("node_modules/.bin/tsx").exists() {
+        return Ok(());
+    }
+    let _guard = HOST_INSTALL_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("host install lock poisoned");
     if host_dir.join("node_modules/.bin/tsx").exists() {
         return Ok(());
     }

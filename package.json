@@ -12,8 +12,8 @@
     "test:watch": "vitest",
     "smoke": "npm run build && node scripts/browser-smoke.mjs",
     "sim:test": "cargo test --manifest-path sim/Cargo.toml",
-    "bench:run": "cargo run -q --manifest-path sim/Cargo.toml -p voidline-bench -- run",
-    "bench:campaign": "cargo run -q --manifest-path sim/Cargo.toml -p voidline-bench -- campaign"
+    "bench:run": "cargo run -q --release --manifest-path sim/Cargo.toml -p voidline-bench -- run",
+    "bench:campaign": "cargo run -q --release --manifest-path sim/Cargo.toml -p voidline-bench -- campaign"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
