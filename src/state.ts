@@ -1,4 +1,5 @@
 import type {
+  AttackTelegraph,
   Bullet,
   EnemyBullet,
   EnemyEntity,
@@ -63,6 +64,7 @@ export const experienceOrbs: ExperienceOrb[] = [];
 export const particles: Particle[] = [];
 export const floaters: Floater[] = [];
 export const spawnIndicators: SpawnIndicator[] = [];
+export const attackTelegraphs: AttackTelegraph[] = [];
 
 export const counters = {
   nextEnemyId: 1,
@@ -72,6 +74,7 @@ export const counters = {
   nextExperienceId: 1,
   nextParticleId: 1,
   nextFloaterId: 1,
+  nextAttackTelegraphId: 1,
 };
 
 export function createPlayerBaseState(): Player {
@@ -85,7 +88,9 @@ export function createPlayerBaseState(): Player {
     maxHp: 100,
     speed: 145,
     damage: 0,
+    damageMul: 1,
     fireRate: 0,
+    fireRateMul: 1,
     bulletSpeed: 1,
     bulletLife: 1,
     range: 0,

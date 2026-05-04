@@ -7,17 +7,17 @@ export const upgradeCatalog: readonly Upgrade[] = [
     id: "damage-up",
     name: "Calibre",
     icon: `${ICON_BASE}/damage-up.png`,
-    description: "+8 dégâts",
-    cost: 25,
-    effects: [{ stat: "damage", amount: 8 }],
+    description: "+15% dégâts",
+    cost: 30,
+    effects: [{ stat: "damageMul", amount: 0.15 }],
   },
   {
     id: "fire-rate-up",
     name: "Cadence",
     icon: `${ICON_BASE}/fire-rate-up.png`,
-    description: "+0.5 tir/s",
+    description: "+15% cadence",
     cost: 30,
-    effects: [{ stat: "fireRate", amount: 0.5 }],
+    effects: [{ stat: "fireRateMul", amount: 0.15 }],
   },
   {
     id: "speed-up",
@@ -34,28 +34,6 @@ export const upgradeCatalog: readonly Upgrade[] = [
     description: "+20 PV",
     cost: 35,
     effects: [{ stat: "maxHp", amount: 20 }],
-  },
-  {
-    id: "projectile-up",
-    name: "Salve",
-    icon: `${ICON_BASE}/projectile-up.png`,
-    description: "+1 projectile, −3 dégâts",
-    cost: 90,
-    effects: [
-      { stat: "projectileCount", amount: 1 },
-      { stat: "damage", amount: -3 },
-    ],
-  },
-  {
-    id: "pierce-up",
-    name: "Perforation",
-    icon: `${ICON_BASE}/pierce-up.png`,
-    description: "+1 pénétration, −2 dégâts",
-    cost: 60,
-    effects: [
-      { stat: "pierce", amount: 1 },
-      { stat: "damage", amount: -2 },
-    ],
   },
   {
     id: "bullet-radius-up",
@@ -97,8 +75,14 @@ export function applyUpgradeToPlayer(upgrade: Upgrade, target: Player): void {
       case "damage":
         target.damage += effect.amount;
         break;
+      case "damageMul":
+        target.damageMul += effect.amount;
+        break;
       case "fireRate":
         target.fireRate += effect.amount;
+        break;
+      case "fireRateMul":
+        target.fireRateMul += effect.amount;
         break;
       case "speed":
         target.speed += effect.amount;
@@ -137,7 +121,9 @@ export function findUpgrade(id: string): Upgrade {
 
 const STAT_LABELS: Record<UpgradeStat, string> = {
   damage: "Dégâts",
+  damageMul: "Dégâts",
   fireRate: "Cadence",
+  fireRateMul: "Cadence",
   speed: "Vitesse",
   maxHp: "Coque",
   projectileCount: "Salve",
@@ -164,8 +150,12 @@ export function statValue(player: Player, stat: UpgradeStat): number {
   switch (stat) {
     case "damage":
       return player.damage;
+    case "damageMul":
+      return player.damageMul;
     case "fireRate":
       return player.fireRate;
+    case "fireRateMul":
+      return player.fireRateMul;
     case "speed":
       return player.speed;
     case "maxHp":

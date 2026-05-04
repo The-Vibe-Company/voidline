@@ -2,7 +2,19 @@ export type GameMode = "menu" | "playing" | "shop" | "paused" | "gameover";
 
 export type ControlMode = "keyboard" | "trackpad";
 
-export type EnemyKind = "scout" | "hunter" | "brute";
+export type EnemyKind =
+  | "scout"
+  | "hunter"
+  | "brute"
+  | "sentinel"
+  | "stinger"
+  | "splitter";
+
+export type EnemyBehavior = "seeker" | "ranged" | "dasher" | "splitter";
+
+export type EnemyAttackState = "idle" | "windup" | "recovering";
+
+export type AttackTelegraphShape = "circle" | "line";
 
 export type CharacterId = "pilot";
 
@@ -78,7 +90,9 @@ export interface Player {
   maxHp: number;
   speed: number;
   damage: number;
+  damageMul: number;
   fireRate: number;
+  fireRateMul: number;
   bulletSpeed: number;
   bulletLife: number;
   range: number;
@@ -101,6 +115,15 @@ export interface EnemyType {
   color: string;
   accent: string;
   sides: number;
+  behavior: EnemyBehavior;
+  attackCooldown?: number;
+  attackRange?: number;
+  attackWindup?: number;
+  attackRecovery?: number;
+  projectileSpeed?: number;
+  projectileDamage?: number;
+  projectileLife?: number;
+  projectileColor?: string;
 }
 
 export interface EnemyEntity {
@@ -121,20 +144,17 @@ export interface EnemyEntity {
   hit: number;
   isBoss: boolean;
   contactCooldown: number;
+  behavior: EnemyBehavior;
+  attackTimer: number;
+  attackState: EnemyAttackState;
+  attackProgress: number;
+  attackTargetX: number;
+  attackTargetY: number;
+  attackVx: number;
+  attackVy: number;
   bossElapsed?: number;
   bossShotTimer?: number;
   bossSpawnTimer?: number;
-}
-
-export interface EnemyBullet {
-  id: number;
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  radius: number;
-  damage: number;
-  life: number;
 }
 
 export interface SpawnIndicator {
@@ -160,6 +180,31 @@ export interface Bullet {
   pierce: number;
   life: number;
   hitIds: Set<number>;
+}
+
+export interface EnemyBullet {
+  id: number;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  damage: number;
+  life: number;
+  color: string;
+}
+
+export interface AttackTelegraph {
+  id: number;
+  shape: AttackTelegraphShape;
+  x: number;
+  y: number;
+  radius: number;
+  angle: number;
+  length: number;
+  life: number;
+  maxLife: number;
+  color: string;
 }
 
 export interface ExperienceOrb {
@@ -255,7 +300,9 @@ export interface MetaUpgrade {
 
 export type UpgradeStat =
   | "fireRate"
+  | "fireRateMul"
   | "damage"
+  | "damageMul"
   | "speed"
   | "maxHp"
   | "projectileCount"

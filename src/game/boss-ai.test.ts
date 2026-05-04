@@ -123,6 +123,7 @@ describe("boss in-game AI", () => {
       radius: 6,
       damage: 7,
       life: 1,
+      color: "#ff5af0",
     });
 
     stepWave(0.016);

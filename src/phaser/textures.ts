@@ -6,12 +6,16 @@ export const textureKeys = {
   player: "voidline-player",
   bullet: "voidline-bullet",
   bulletCrit: "voidline-bullet-crit",
+  enemyBullet: "voidline-enemy-bullet",
   xp: "voidline-xp",
   particle: "voidline-particle",
   enemies: {
     scout: "voidline-enemy-scout",
     hunter: "voidline-enemy-hunter",
     brute: "voidline-enemy-brute",
+    sentinel: "voidline-enemy-sentinel",
+    stinger: "voidline-enemy-stinger",
+    splitter: "voidline-enemy-splitter",
   },
 } as const;
 
@@ -20,6 +24,7 @@ export function createGeneratedTextures(scene: Phaser.Scene): void {
   generatePlayer(graphics, scene, textureKeys.player);
   generateCircle(graphics, scene, textureKeys.bullet, 22, 0x39d9ff, 0xd9f6ff);
   generateCircle(graphics, scene, textureKeys.bulletCrit, 26, 0xff5af0, 0xffffff);
+  generateCircle(graphics, scene, textureKeys.enemyBullet, 24, 0xff5a69, 0xffd0d5);
   generateDiamond(graphics, scene, textureKeys.xp, 22, 0x72ffb1, 0xeaffd8);
   generateCircle(graphics, scene, textureKeys.particle, 10, 0xffffff, 0xffffff);
   for (const enemy of enemyTypes) {
@@ -96,7 +101,7 @@ function generateEnemy(
   graphics: Phaser.GameObjects.Graphics,
   scene: Phaser.Scene,
   key: string,
-  kind: "scout" | "hunter" | "brute",
+  kind: import("../types").EnemyKind,
 ): void {
   if (skipExisting(scene, key)) return;
   const enemy = enemyTypes.find((entry) => entry.id === kind)!;
@@ -111,9 +116,42 @@ function generateEnemy(
   } else if (kind === "hunter") {
     graphics.fillRect(10, 10, 36, 36);
     graphics.strokeRect(10, 10, 36, 36);
-  } else {
+  } else if (kind === "brute") {
     graphics.fillCircle(30, 30, 25);
     graphics.strokeCircle(30, 30, 25);
+  } else if (kind === "sentinel") {
+    drawRegularPolygon(graphics, 30, 30, 24, 5, -Math.PI / 2);
+    graphics.fillStyle(0x05060b, 1);
+    graphics.fillCircle(30, 30, 7);
+  } else if (kind === "stinger") {
+    drawRegularPolygon(graphics, 30, 30, 24, 4, -Math.PI / 4);
+    graphics.fillStyle(0x05060b, 1);
+    drawRegularPolygon(graphics, 30, 30, 9, 4, Math.PI / 4);
+  } else if (kind === "splitter") {
+    drawRegularPolygon(graphics, 30, 30, 25, 6, 0);
+    graphics.lineStyle(2, stroke, 1);
+    graphics.strokeCircle(30, 30, 12);
   }
   graphics.generateTexture(key, 60, 60);
+}
+
+function drawRegularPolygon(
+  graphics: Phaser.GameObjects.Graphics,
+  cx: number,
+  cy: number,
+  radius: number,
+  sides: number,
+  rotation: number,
+): void {
+  graphics.beginPath();
+  for (let i = 0; i < sides; i += 1) {
+    const angle = rotation + (i / sides) * Math.PI * 2;
+    const x = cx + Math.cos(angle) * radius;
+    const y = cy + Math.sin(angle) * radius;
+    if (i === 0) graphics.moveTo(x, y);
+    else graphics.lineTo(x, y);
+  }
+  graphics.closePath();
+  graphics.fillPath();
+  graphics.strokePath();
 }

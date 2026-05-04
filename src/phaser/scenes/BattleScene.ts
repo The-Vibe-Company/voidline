@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import {
+  attackTelegraphs,
   bullets,
   enemies,
   enemyBullets,
@@ -23,16 +24,21 @@ export class BattleScene extends Phaser.Scene {
     scout: new ImageRenderPool(this, textureKeys.enemies.scout, 20),
     hunter: new ImageRenderPool(this, textureKeys.enemies.hunter, 20),
     brute: new ImageRenderPool(this, textureKeys.enemies.brute, 20),
+    sentinel: new ImageRenderPool(this, textureKeys.enemies.sentinel, 20),
+    stinger: new ImageRenderPool(this, textureKeys.enemies.stinger, 20),
+    splitter: new ImageRenderPool(this, textureKeys.enemies.splitter, 20),
   };
   private readonly bulletPool = new ImageRenderPool(this, textureKeys.bullet, 30);
-  private readonly enemyBulletPool = new ImageRenderPool(this, textureKeys.bullet, 24);
+  private readonly enemyBulletPool = new ImageRenderPool(this, textureKeys.enemyBullet, 28);
   private readonly xpPool = new ImageRenderPool(this, textureKeys.xp, 15);
   private readonly spawnIndicatorPool = new ImageRenderPool(this, textureKeys.particle, 8);
+  private readonly attackTelegraphPool = new ImageRenderPool(this, textureKeys.particle, 9);
   private readonly particlePool = new ImageRenderPool(this, textureKeys.particle, 10);
   private readonly floaterPool = new TextRenderPool(this);
   private playerShip!: Phaser.GameObjects.Image;
   private background!: Phaser.GameObjects.Graphics;
   private worldGuides!: Phaser.GameObjects.Graphics;
+  private attackLines!: Phaser.GameObjects.Graphics;
   private renderFrame = 0;
   private hudTimer = 0;
   private lastMoveAngle = -Math.PI / 2;
@@ -47,6 +53,8 @@ export class BattleScene extends Phaser.Scene {
     this.background.setDepth(-100);
     this.worldGuides = this.add.graphics();
     this.worldGuides.setDepth(5);
+    this.attackLines = this.add.graphics();
+    this.attackLines.setDepth(9);
     this.playerShip = this.add.image(player.x, player.y, textureKeys.player);
     this.playerShip.setDepth(40);
     this.playerShip.setScale(0.42);
@@ -118,6 +126,7 @@ export class BattleScene extends Phaser.Scene {
     const frame = this.renderFrame;
     this.syncExperience(frame);
     this.syncSpawnIndicators(frame);
+    this.syncAttackTelegraphs(frame);
     this.syncBullets(frame);
     this.syncEnemyBullets(frame);
     this.syncEnemies(frame);
@@ -145,6 +154,50 @@ export class BattleScene extends Phaser.Scene {
     this.enemyPools.scout.sweep(frame);
     this.enemyPools.hunter.sweep(frame);
     this.enemyPools.brute.sweep(frame);
+    this.enemyPools.sentinel.sweep(frame);
+    this.enemyPools.stinger.sweep(frame);
+    this.enemyPools.splitter.sweep(frame);
+  }
+
+  private syncEnemyBullets(frame: number): void {
+    for (const bullet of enemyBullets) {
+      if (!this.inView(bullet.x, bullet.y, bullet.radius + 16)) continue;
+      const sprite = this.enemyBulletPool.sync(bullet.id, frame);
+      sprite.setPosition(bullet.x, bullet.y);
+      sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));
+      sprite.setScale(Math.max(0.5, bullet.radius / 6));
+      sprite.setAlpha(0.95);
+      sprite.setTint(colorToNumber(bullet.color));
+    }
+    this.enemyBulletPool.sweep(frame);
+  }
+
+  private syncAttackTelegraphs(frame: number): void {
+    this.attackLines.clear();
+    for (const telegraph of attackTelegraphs) {
+      const progress = clamp(1 - telegraph.life / telegraph.maxLife, 0, 1);
+      const colorNum = colorToNumber(telegraph.color);
+      if (telegraph.shape === "circle") {
+        if (!this.inView(telegraph.x, telegraph.y, telegraph.radius * 4)) continue;
+        const sprite = this.attackTelegraphPool.sync(telegraph.id, frame);
+        const radius = telegraph.radius * (2.4 - progress * 1.4);
+        const pulse = Math.sin(progress * Math.PI);
+        sprite.setPosition(telegraph.x, telegraph.y);
+        sprite.setScale(Math.max(0.45, (radius * 2) / 24));
+        sprite.setAlpha(clamp(0.32 + pulse * 0.36, 0.18, 0.74));
+        sprite.setTint(colorNum);
+      } else {
+        const ex = telegraph.x + Math.cos(telegraph.angle) * telegraph.length;
+        const ey = telegraph.y + Math.sin(telegraph.angle) * telegraph.length;
+        const alpha = clamp(0.18 + progress * 0.58, 0.18, 0.78);
+        this.attackLines.lineStyle(3 + progress * 2, colorNum, alpha);
+        this.attackLines.beginPath();
+        this.attackLines.moveTo(telegraph.x, telegraph.y);
+        this.attackLines.lineTo(ex, ey);
+        this.attackLines.strokePath();
+      }
+    }
+    this.attackTelegraphPool.sweep(frame);
   }
 
   private syncBullets(frame: number): void {
@@ -159,20 +212,6 @@ export class BattleScene extends Phaser.Scene {
       sprite.setTint(0xffffff);
     }
     this.bulletPool.sweep(frame);
-  }
-
-  private syncEnemyBullets(frame: number): void {
-    for (const bullet of enemyBullets) {
-      if (!this.inView(bullet.x, bullet.y, bullet.radius + 16)) continue;
-      const sprite = this.enemyBulletPool.sync(bullet.id, frame);
-      sprite.setTexture(textureKeys.bullet);
-      sprite.setPosition(bullet.x, bullet.y);
-      sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));
-      sprite.setScale(Math.max(0.55, bullet.radius / 4));
-      sprite.setAlpha(0.95);
-      sprite.setTint(0xff5a69);
-    }
-    this.enemyBulletPool.sweep(frame);
   }
 
   private syncExperience(frame: number): void {

@@ -1,4 +1,5 @@
 import {
+  attackTelegraphs,
   bullets,
   enemies,
   enemyBullets,
@@ -67,6 +68,7 @@ export function transitionToShop(): void {
   experienceOrbs.length = 0;
   enemies.length = 0;
   enemyBullets.length = 0;
+  attackTelegraphs.length = 0;
   spawnIndicators.length = 0;
   bullets.length = 0;
   particles.length = 0;
