@@ -1,0 +1,61 @@
+src/game/weapon-catalog.ts
+  9e6c1b3f477a5952 1-185
+src/game/input.ts
+  9e6c1b3f477a5952 2-8,38
+src/state.ts
+  9e6c1b3f477a5952 13,84-89,95
+src/types.ts
+  9e6c1b3f477a5952 9-46,66-70,91,268-276
+src/game/weapon-catalog.test.ts
+  9e6c1b3f477a5952 1-98
+src/game/wave-loop.test.ts
+  9e6c1b3f477a5952 3,12-13,140-199
+index.html
+  9e6c1b3f477a5952 55-57,59-60,62,64-65,118-128,138
+sim/headless-host/host.mjs
+  9e6c1b3f477a5952 24,84-123,125,140-145,171-187
+src/game/shop.test.ts
+  9e6c1b3f477a5952 3,11,13-14,20,55-167
+CLAUDE.md
+  9e6c1b3f477a5952 23,25-26,28-30,46
+src/game/wave-flow.ts
+  9e6c1b3f477a5952 13-14,16,26
+src/main.ts
+  9e6c1b3f477a5952 1-8,16-23
+src/game/balance.ts
+  9e6c1b3f477a5952 56-63
+src/game/upgrade-catalog.test.ts
+  9e6c1b3f477a5952 4,73,75-87
+src/render/hud.ts
+  9e6c1b3f477a5952 4,18-25,52-55,89-116,181,185-220,223,234-237,239,241,247-274,308-310,312-313,315-316,326-329
+src/game/wave-loop.ts
+  9e6c1b3f477a5952 30-34,324-329,332-351,353-360,364-369,372-374,379-381,383-384,567-569
+src/game/upgrade-catalog.ts
+  9e6c1b3f477a5952 98
+src/systems/run.ts
+  9e6c1b3f477a5952 7,11,14
+styles.css
+  9e6c1b3f477a5952 3442-3588
+src/game/shop.ts
+  9e6c1b3f477a5952 6-20,47-96,98,101-112,126-135,139,141-147
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "f68cdc5323441c96556f2040e7c25bfa4c6f1f20",
+  "prompts": {
+    "9e6c1b3f477a5952": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9fbb71b4-67a9-4e27-bbbb-72fa6bbcfcbb",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1138,
+      "total_deletions": 162,
+      "accepted_lines": 1100,
+      "overriden_lines": 0
+    }
+  }
+}
