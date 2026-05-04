@@ -244,12 +244,21 @@ function renderShop(): void {
   });
 }
 
-function renderWeaponLoadouts(): void {
-  renderWeaponLoadout(hud.weaponLoadout);
-  renderWeaponLoadout(hud.shopWeaponLoadout);
+function loadoutSignature(): string {
+  return player.weapons.map((w) => `${w.defId}:${w.tier}`).join("|");
 }
 
-function renderWeaponLoadout(target: HTMLElement): void {
+const lastLoadoutSig = new WeakMap<HTMLElement, string>();
+
+function renderWeaponLoadouts(force = false): void {
+  renderWeaponLoadout(hud.weaponLoadout, force);
+  renderWeaponLoadout(hud.shopWeaponLoadout, force);
+}
+
+function renderWeaponLoadout(target: HTMLElement, force = false): void {
+  const sig = loadoutSignature();
+  if (!force && lastLoadoutSig.get(target) === sig) return;
+  lastLoadoutSig.set(target, sig);
   target.innerHTML = "";
   for (let i = 0; i < MAX_WEAPONS; i += 1) {
     const weapon = player.weapons[i];
@@ -262,11 +271,9 @@ function renderWeaponLoadout(target: HTMLElement): void {
     }
     const def = findWeaponDef(weapon.defId);
     slot.className = "weapon-slot weapon-slot--filled";
-    slot.dataset.fallback = def.id.charAt(0).toUpperCase();
     slot.innerHTML = `
-      <img class="weapon-slot-img" src="${def.icon}" alt="" onerror="this.style.display='none'" />
+      <img class="weapon-slot-img" src="${def.icon}" alt="${def.name}" onerror="this.style.display='none'" />
       <span class="weapon-tier-badge weapon-tier-badge--${weapon.tier}">T${weapon.tier}</span>
-      <span class="weapon-slot-name">${def.name}</span>
     `;
     target.appendChild(slot);
   }
