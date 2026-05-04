@@ -79,7 +79,10 @@ export class BattleScene extends Phaser.Scene {
 
   private syncCamera(): void {
     this.cameras.main.setBounds(0, 0, world.arenaWidth, world.arenaHeight);
-    this.cameras.main.setScroll(world.cameraX, world.cameraY);
+    const shake = world.shake;
+    const ox = shake > 0 ? (Math.random() - 0.5) * shake * 14 : 0;
+    const oy = shake > 0 ? (Math.random() - 0.5) * shake * 14 : 0;
+    this.cameras.main.setScroll(world.cameraX + ox, world.cameraY + oy);
   }
 
   private drawBackground(): void {

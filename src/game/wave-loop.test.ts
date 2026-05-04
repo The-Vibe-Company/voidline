@@ -181,6 +181,14 @@ describe("wave loop spawn telegraphs", () => {
       hit: 0,
       isBoss: true,
       contactCooldown: 0,
+      behavior: "seeker",
+      attackTimer: 0,
+      attackState: "idle",
+      attackProgress: 0,
+      attackTargetX: 0,
+      attackTargetY: 0,
+      attackVx: 0,
+      attackVy: 0,
     });
     state.enemiesAlive += 1;
     state.waveTimer = 0;

@@ -48,7 +48,7 @@ export const upgradeCatalog: readonly Upgrade[] = [
     name: "Critique",
     icon: `${ICON_BASE}/crit-up.png`,
     description: "+10% crit (x2)",
-    cost: 45,
+    cost: 28,
     effects: [{ stat: "critChance", amount: 0.1 }],
   },
   {
