@@ -1,0 +1,16 @@
+[package]
+name = "voidline-bench"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+num_cpus = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+voidline-bot = { path = "../voidline-bot" }
+
+[lints]
+workspace = true

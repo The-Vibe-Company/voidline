@@ -15,7 +15,9 @@ Brotato-like spatial browser-first. Boucle :
 
 ## Architecture
 
-Stack : TypeScript 5.6 strict + Vite + Phaser 4 (WebGL) + Vitest. **100 % TypeScript** — pas de Rust, pas de WASM, pas de pipeline de balance offline.
+Stack jeu : TypeScript 5.6 strict + Vite + Phaser 4 (WebGL) + Vitest. Le gameplay runtime reste **100 % TypeScript**.
+
+Exception explicitement réautorisée par l'utilisateur : `/sim/` contient un champion Rust et un pipeline bench headless. Ce bench ne duplique pas le moteur : il pilote le moteur TS via `sim/headless-host` et un protocole stdio framé.
 
 Fichiers clés :
 - `src/types.ts` — types globaux (`GameState`, `Player`, `EnemyEntity`, etc.).
