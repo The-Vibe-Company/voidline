@@ -1,340 +1,128 @@
-import {
-  balance,
-  droneGain,
-  pierceGain,
-  projectileGain,
-  shieldGain,
-  shieldRegenGain,
-} from "./balance";
-import { runEffects, type EffectOp } from "./effect-dsl";
-import { STARTER_BUILD_TAGS, STARTER_TECHNOLOGY_IDS, hasUnlockedTags } from "./shop-catalog";
-import type { BuildTag, Player, Upgrade, WeaponId } from "../types";
+import type { Player, Upgrade } from "../types";
 
-function percent(value: number): string {
-  return `${Math.round(value * 100)}%`;
-}
-
-function factor(value: number): string {
-  return `x${value.toFixed(2)}`;
-}
-
-type UpgradeSpec = Omit<Upgrade, "apply"> & { effects: readonly EffectOp[] };
-
-function defineUpgrade(spec: UpgradeSpec): Upgrade {
-  return {
-    ...spec,
-    apply: (tier, target) => runEffects(spec.effects, tier.power, target),
-  };
-}
-
-export const upgradePool: Upgrade[] = [
-  defineUpgrade({
-    id: "twin-cannon",
-    kind: "technology",
-    icon: "II",
-    name: "Technologie salves",
-    description: "Elargit les tirs de l'arme active.",
-    tags: ["cannon"],
-    softCap: { stat: "projectileCount", max: balance.upgrade.caps.projectiles },
-    effects: [
-      {
-        type: "addCapped",
-        stat: "projectileCount",
-        amount: 1,
-        cap: "projectiles",
-        gainCurve: "stepped",
-      },
-      {
-        type: "scaleCurrentPct",
-        stat: "damage",
-        factor: balance.upgrade.effects.projectileDamageFactor,
-      },
-    ],
-    effect(tier) {
-      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""} par salve, degats actuels ${factor(
-        balance.upgrade.effects.projectileDamageFactor,
-      )}`;
-    },
-  }),
-  defineUpgrade({
-    id: "plasma-core",
-    kind: "technology",
-    icon: "Hz",
-    name: "Technologie cadence",
-    description: "Accorde le reacteur au rythme des canons.",
-    tags: ["cannon"],
-    effects: [
-      {
-        type: "addCappedPctBonus",
-        stat: "fireRate",
-        amount: balance.upgrade.effects.fireRate,
-        cap: "fireRateMul",
-      },
-    ],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.fireRate * tier.power)} cadence`;
-    },
-  }),
-  defineUpgrade({
-    id: "rail-slug",
-    kind: "technology",
+export const upgradeCatalog: readonly Upgrade[] = [
+  {
+    id: "damage-up",
+    name: "Calibre +",
     icon: "DMG",
-    name: "Technologie degats",
-    description: "Charge les impacts avec une masse cinetique.",
-    tags: ["cannon", "salvage"],
-    effects: [
-      {
-        type: "addCappedPctBonus",
-        stat: "damage",
-        amount: balance.upgrade.effects.damage,
-        cap: "damageMul",
-      },
-    ],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.damage * tier.power)} degats`;
-    },
-  }),
-  defineUpgrade({
-    id: "velocity-tuner",
-    kind: "technology",
-    icon: "VEL",
-    name: "Technologie velocite",
-    description: "Allonge la portee utile en accelerant les projectiles.",
-    tags: ["cannon", "salvage"],
-    effects: [
-      { type: "addPct", stat: "bulletSpeed", amount: balance.upgrade.effects.bulletSpeed },
-    ],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.bulletSpeed * tier.power)} vitesse`;
-    },
-  }),
-  defineUpgrade({
-    id: "ion-engine",
-    kind: "technology",
+    description: "+8 dégâts par tir.",
+    cost: 25,
+    effects: [{ stat: "damage", amount: 8 }],
+  },
+  {
+    id: "fire-rate-up",
+    name: "Cadence +",
+    icon: "Hz",
+    description: "+0.5 tir/s.",
+    cost: 30,
+    effects: [{ stat: "fireRate", amount: 0.5 }],
+  },
+  {
+    id: "speed-up",
+    name: "Moteur +",
     icon: "SPD",
-    name: "Technologie moteurs",
-    description: "Rend les corrections de trajectoire plus nerveuses.",
-    tags: ["salvage"],
-    effects: [{ type: "addPct", stat: "speed", amount: balance.upgrade.effects.speed }],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.speed * tier.power)} vitesse`;
-    },
-  }),
-  defineUpgrade({
-    id: "magnet-array",
-    kind: "technology",
-    icon: "MAG",
-    name: "Technologie aimant",
-    description: "Etend la portee d'attraction des fragments d'XP.",
-    tags: ["magnet"],
-    effects: [
-      { type: "addPct", stat: "pickupRadius", amount: balance.upgrade.effects.pickupRadius },
-    ],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.pickupRadius * tier.power)} portee de ramassage`;
-    },
-  }),
-  defineUpgrade({
-    id: "kinetic-shield",
-    kind: "technology",
-    icon: "SHD",
-    name: "Technologie defense",
-    description: "Ajoute une couche regenerante autour de la coque.",
-    tags: ["shield", "salvage"],
-    effects: [
-      {
-        type: "shieldGrant",
-        shield: balance.upgrade.effects.shield,
-        regen: balance.upgrade.effects.shieldRegen,
-        maxHpBonus: balance.upgrade.effects.maxHp,
-        healRatio: 0.65,
-      },
-    ],
-    effect(tier) {
-      return `+${shieldGain(tier)} bouclier, +${shieldRegenGain(tier).toFixed(1)}/s regen`;
-    },
-  }),
-  defineUpgrade({
-    id: "crit-array",
-    kind: "technology",
-    icon: "X2",
-    name: "Technologie critique",
-    description: "Calibre les tirs pour des coups doubles aleatoires.",
-    tags: ["crit"],
-    effects: [
-      {
-        type: "addCappedPct",
-        stat: "critChance",
-        amount: balance.upgrade.effects.critChance,
-        cap: "critChance",
-      },
-    ],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.critChance * tier.power)} chance critique (x2 degats)`;
-    },
-  }),
-  defineUpgrade({
-    id: "heavy-caliber",
-    kind: "technology",
-    icon: "CAL",
-    name: "Technologie calibre",
-    description: "Elargit les projectiles pour mieux toucher.",
-    tags: ["cannon"],
-    effects: [
-      { type: "addPct", stat: "bulletRadius", amount: balance.upgrade.effects.bulletRadius },
-    ],
-    effect(tier) {
-      return `+${percent(balance.upgrade.effects.bulletRadius * tier.power)} taille de projectile`;
-    },
-  }),
-  defineUpgrade({
-    id: "pulse-overdrive",
-    kind: "weapon",
-    weaponId: "pulse",
-    icon: "PUL",
-    name: "Pulse overdrive",
-    description: "Level-up du Pulse Rifle: pousse la cadence du canon.",
-    tags: ["cannon"],
-    effects: [{ type: "addPct", stat: "fireRate", amount: 0.2 }],
-    effect(tier) {
-      return `+${percent(0.2 * tier.power)} cadence`;
-    },
-  }),
-  defineUpgrade({
-    id: "pulse-armament",
-    kind: "weapon",
-    weaponId: "pulse",
-    icon: "PLD",
-    name: "Pulse armement",
-    description: "Level-up du Pulse Rifle: alourdit la charge des projectiles.",
-    tags: ["cannon"],
-    effects: [{ type: "addPct", stat: "damage", amount: 0.16 }],
-    effect(tier) {
-      return `+${percent(0.16 * tier.power)} degats`;
-    },
-  }),
-  defineUpgrade({
-    id: "scatter-loader",
-    kind: "weapon",
-    weaponId: "scatter",
-    icon: "SCT",
-    name: "Scatter loader",
-    description: "Level-up du Scatter: densifie la salve, malus de degats par projectile.",
-    tags: ["cannon", "crit"],
-    softCap: { stat: "projectileCount", max: balance.upgrade.caps.projectiles },
-    effects: [
-      {
-        type: "addCapped",
-        stat: "projectileCount",
-        amount: 1,
-        cap: "projectiles",
-        gainCurve: "stepped",
-      },
-      {
-        type: "scaleCurrentPct",
-        stat: "damage",
-        factor: balance.upgrade.effects.projectileDamageFactor,
-      },
-    ],
-    effect(tier) {
-      return `+${projectileGain(tier)} projectile${projectileGain(tier) > 1 ? "s" : ""}, degats actuels ${factor(
-        balance.upgrade.effects.projectileDamageFactor,
-      )}`;
-    },
-  }),
-  defineUpgrade({
-    id: "lance-capacitor",
-    kind: "weapon",
-    weaponId: "lance",
-    icon: "RLG",
-    name: "Lance capacitor",
-    description: "Level-up du Rail Lance: penetration accrue, malus de degats.",
-    tags: ["pierce", "cannon"],
-    softCap: { stat: "pierce", max: balance.upgrade.caps.pierce },
-    effects: [
-      { type: "addCapped", stat: "pierce", amount: 1, cap: "pierce", gainCurve: "stepped" },
-      {
-        type: "scaleCurrentPct",
-        stat: "damage",
-        factor: balance.upgrade.effects.pierceDamageFactor,
-      },
-    ],
-    effect(tier) {
-      return `+${pierceGain(tier)} penetration, degats actuels ${factor(
-        balance.upgrade.effects.pierceDamageFactor,
-      )}`;
-    },
-  }),
-  defineUpgrade({
-    id: "vital-frame",
-    kind: "technology",
+    description: "+25 vitesse de déplacement.",
+    cost: 25,
+    effects: [{ stat: "speed", amount: 25 }],
+  },
+  {
+    id: "max-hp-up",
+    name: "Coque +",
     icon: "HP",
-    name: "Technologie chassis",
-    description: "Renforce la coque pour absorber plus de degats.",
-    tags: ["salvage"],
-    effects: [{ type: "addMaxHp", amount: balance.upgrade.effects.maxHp }],
-    effect(tier) {
-      return `+${Math.round(balance.upgrade.effects.maxHp * tier.power)} PV max`;
-    },
-  }),
-  defineUpgrade({
-    id: "thermal-vampire",
-    kind: "technology",
-    icon: "VMP",
-    name: "Technologie hemo",
-    description: "Convertit une fraction des impacts en regen instantanee.",
-    tags: ["salvage"],
-    effects: [{ type: "addLifesteal", amount: balance.upgrade.effects.lifesteal }],
-    effect(tier) {
-      return `+${(balance.upgrade.effects.lifesteal * tier.power).toFixed(1)} vol de vie`;
-    },
-  }),
-  defineUpgrade({
-    id: "drone-uplink",
-    kind: "weapon",
-    weaponId: "drone",
-    icon: "DRN",
-    name: "Drone uplink",
-    description: "Level-up du Drone Core: ajoute des tourelles autonomes.",
-    tags: ["drone", "salvage"],
-    softCap: { stat: "drones", max: balance.upgrade.caps.drones },
-    effects: [
-      { type: "addCapped", stat: "drones", amount: 1, cap: "drones", gainCurve: "droneStepped" },
-    ],
-    effect(tier) {
-      return `+${droneGain(tier)} drone${droneGain(tier) > 1 ? "s" : ""} orbital${droneGain(tier) > 1 ? "s" : ""}`;
-    },
-  }),
+    description: "+20 PV max.",
+    cost: 35,
+    effects: [{ stat: "maxHp", amount: 20 }],
+  },
+  {
+    id: "projectile-up",
+    name: "Salve +",
+    icon: "II",
+    description: "+1 projectile par tir.",
+    cost: 90,
+    effects: [{ stat: "projectileCount", amount: 1 }],
+  },
+  {
+    id: "pierce-up",
+    name: "Pénétration +",
+    icon: "PRC",
+    description: "+1 pénétration par projectile.",
+    cost: 60,
+    effects: [{ stat: "pierce", amount: 1 }],
+  },
+  {
+    id: "bullet-radius-up",
+    name: "Calibre lourd",
+    icon: "CAL",
+    description: "+30% taille de projectile.",
+    cost: 40,
+    effects: [{ stat: "bulletRadius", amount: 0.3 }],
+  },
+  {
+    id: "crit-up",
+    name: "Critique +",
+    icon: "X2",
+    description: "+10% chance critique (x2 dégâts).",
+    cost: 45,
+    effects: [{ stat: "critChance", amount: 0.1 }],
+  },
+  {
+    id: "bullet-speed-up",
+    name: "Vélocité +",
+    icon: "VEL",
+    description: "+12% vitesse de projectile.",
+    cost: 20,
+    effects: [{ stat: "bulletSpeed", amount: 0.12 }],
+  },
+  {
+    id: "range-up",
+    name: "Portée +",
+    icon: "RNG",
+    description: "+60 portée d'auto-tir.",
+    cost: 25,
+    effects: [{ stat: "range", amount: 60 }],
+  },
 ];
 
-export function findUpgrade(id: string): Upgrade {
-  const upgrade = upgradePool.find((item) => item.id === id);
-  if (!upgrade) {
-    throw new Error(`Unknown upgrade: ${id}`);
+export function applyUpgradeToPlayer(upgrade: Upgrade, target: Player): void {
+  for (const effect of upgrade.effects) {
+    switch (effect.stat) {
+      case "damage":
+        target.damage += effect.amount;
+        break;
+      case "fireRate":
+        target.fireRate += effect.amount;
+        break;
+      case "speed":
+        target.speed += effect.amount;
+        break;
+      case "maxHp":
+        target.maxHp += effect.amount;
+        target.hp = Math.min(target.maxHp, target.hp + effect.amount);
+        break;
+      case "projectileCount":
+        target.projectileCount += effect.amount;
+        break;
+      case "pierce":
+        target.pierce += effect.amount;
+        break;
+      case "bulletRadius":
+        target.bulletRadius *= 1 + effect.amount;
+        break;
+      case "critChance":
+        target.critChance = Math.min(0.95, target.critChance + effect.amount);
+        break;
+      case "bulletSpeed":
+        target.bulletSpeed *= 1 + effect.amount;
+        break;
+      case "range":
+        target.range += effect.amount;
+        break;
+    }
   }
-  return upgrade;
 }
 
-export function availableUpgradesForPlayer(
-  target: Player,
-  selectedWeaponId: WeaponId = "pulse",
-  unlockedTechnologyIds: ReadonlySet<string> = new Set(STARTER_TECHNOLOGY_IDS),
-  source: Upgrade[] | undefined = upgradePool,
-  unlockedTags: ReadonlySet<BuildTag> = new Set(STARTER_BUILD_TAGS),
-): Upgrade[] {
-  return (source ?? upgradePool).filter((upgrade) => {
-    if (upgrade.kind === "technology" && !unlockedTechnologyIds.has(upgrade.id)) {
-      return false;
-    }
-    if (upgrade.kind === "weapon" && upgrade.weaponId !== selectedWeaponId) {
-      return false;
-    }
-    if (!hasUnlockedTags(upgrade.tags, unlockedTags)) {
-      return false;
-    }
-    if (upgrade.softCap && target[upgrade.softCap.stat] >= upgrade.softCap.max) {
-      return false;
-    }
-    return true;
-  });
+export function findUpgrade(id: string): Upgrade {
+  const upgrade = upgradeCatalog.find((entry) => entry.id === id);
+  if (!upgrade) throw new Error(`Unknown upgrade: ${id}`);
+  return upgrade;
 }

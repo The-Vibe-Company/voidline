@@ -1,19 +1,13 @@
 import * as Phaser from "phaser";
-import { balance } from "../game/balance";
+import { enemyTypes } from "../game/balance";
 import { colorToNumber } from "../utils";
 
 export const textureKeys = {
   player: "voidline-player",
   bullet: "voidline-bullet",
   bulletCrit: "voidline-bullet-crit",
-  droneBullet: "voidline-drone-bullet",
   xp: "voidline-xp",
   particle: "voidline-particle",
-  powerHeart: "voidline-power-heart",
-  powerMagnet: "voidline-power-magnet",
-  powerBomb: "voidline-power-bomb",
-  chest: "voidline-chest",
-  drone: "voidline-drone",
   enemies: {
     scout: "voidline-enemy-scout",
     hunter: "voidline-enemy-hunter",
@@ -23,23 +17,14 @@ export const textureKeys = {
 
 export function createGeneratedTextures(scene: Phaser.Scene): void {
   const graphics = scene.add.graphics();
-
   generatePlayer(graphics, scene, textureKeys.player);
   generateCircle(graphics, scene, textureKeys.bullet, 22, 0x39d9ff, 0xd9f6ff);
   generateCircle(graphics, scene, textureKeys.bulletCrit, 26, 0xff5af0, 0xffffff);
-  generateCircle(graphics, scene, textureKeys.droneBullet, 20, 0xffbf47, 0xfff0b8);
   generateDiamond(graphics, scene, textureKeys.xp, 22, 0x72ffb1, 0xeaffd8);
   generateCircle(graphics, scene, textureKeys.particle, 10, 0xffffff, 0xffffff);
-  generateCircle(graphics, scene, textureKeys.drone, 22, 0xffbf47, 0xfff0b8);
-  generateCircle(graphics, scene, textureKeys.powerHeart, 30, 0xff5a69, 0xffd0d5);
-  generateCircle(graphics, scene, textureKeys.powerMagnet, 30, 0x39d9ff, 0xd9f6ff);
-  generateCircle(graphics, scene, textureKeys.powerBomb, 30, 0xffbf47, 0xfff0b8);
-  generateChest(graphics, scene, textureKeys.chest);
-
-  for (const enemy of balance.enemies) {
+  for (const enemy of enemyTypes) {
     generateEnemy(graphics, scene, textureKeys.enemies[enemy.id], enemy.id);
   }
-
   graphics.destroy();
 }
 
@@ -114,7 +99,7 @@ function generateEnemy(
   kind: "scout" | "hunter" | "brute",
 ): void {
   if (skipExisting(scene, key)) return;
-  const enemy = balance.enemies.find((item) => item.id === kind)!;
+  const enemy = enemyTypes.find((entry) => entry.id === kind)!;
   const fill = colorToNumber(enemy.color);
   const stroke = colorToNumber(enemy.accent);
   graphics.clear();
@@ -131,23 +116,4 @@ function generateEnemy(
     graphics.strokeCircle(30, 30, 25);
   }
   graphics.generateTexture(key, 60, 60);
-}
-
-function generateChest(
-  graphics: Phaser.GameObjects.Graphics,
-  scene: Phaser.Scene,
-  key: string,
-): void {
-  if (skipExisting(scene, key)) return;
-  graphics.clear();
-  graphics.fillStyle(0x201107, 1);
-  graphics.lineStyle(3, 0xfff0b8, 1);
-  graphics.fillRect(5, 12, 38, 26);
-  graphics.strokeRect(5, 12, 38, 26);
-  graphics.fillStyle(0xffbf47, 1);
-  graphics.fillRect(8, 23, 32, 5);
-  graphics.fillRect(21, 12, 6, 26);
-  graphics.fillStyle(0xfff0b8, 1);
-  graphics.fillRect(19, 20, 10, 10);
-  graphics.generateTexture(key, 48, 48);
 }

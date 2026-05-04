@@ -1,27 +1,20 @@
 import * as Phaser from "phaser";
 import {
   bullets,
-  chests,
   enemies,
   experienceOrbs,
   floaters,
   particles,
-  perfStats,
   player,
   pointer,
-  powerupOrbs,
-  simulationPerfConfig,
   state,
   world,
 } from "../../state";
-import { stepSimulation } from "../../simulation/simulation";
-import { flushSimulationHud } from "../../render/hud";
-import { resetPerfFrame } from "../../state";
+import { update } from "../../systems/run";
+import { updateHud } from "../../render/hud";
 import { clamp, colorToNumber, screenToWorld } from "../../utils";
 import { ImageRenderPool, TextRenderPool } from "../pools";
 import { textureKeys } from "../textures";
-import { recordStressFrame } from "../../perf/stress-mode";
-import { pickupRadiusFor } from "../../entities/experience-pickup";
 
 export class BattleScene extends Phaser.Scene {
   private readonly enemyPools = {
@@ -31,16 +24,14 @@ export class BattleScene extends Phaser.Scene {
   };
   private readonly bulletPool = new ImageRenderPool(this, textureKeys.bullet, 30);
   private readonly xpPool = new ImageRenderPool(this, textureKeys.xp, 15);
-  private readonly powerupPool = new ImageRenderPool(this, textureKeys.powerHeart, 18);
-  private readonly chestPool = new ImageRenderPool(this, textureKeys.chest, 24);
   private readonly particlePool = new ImageRenderPool(this, textureKeys.particle, 10);
-  private readonly dronePool = new ImageRenderPool(this, textureKeys.drone, 34);
   private readonly floaterPool = new TextRenderPool(this);
   private playerShip!: Phaser.GameObjects.Image;
   private background!: Phaser.GameObjects.Graphics;
   private worldGuides!: Phaser.GameObjects.Graphics;
   private renderFrame = 0;
   private hudTimer = 0;
+  private lastMoveAngle = -Math.PI / 2;
 
   constructor() {
     super("BattleScene");
@@ -54,34 +45,24 @@ export class BattleScene extends Phaser.Scene {
     this.worldGuides.setDepth(5);
     this.playerShip = this.add.image(player.x, player.y, textureKeys.player);
     this.playerShip.setDepth(40);
+    this.playerShip.setScale(0.42);
     this.cameras.main.setBounds(0, 0, world.arenaWidth, world.arenaHeight);
   }
 
-  override update(time: number, delta: number): void {
-    const rawDt = delta / 1000;
-    resetPerfFrame();
-
-    const updateStart = performance.now();
-    stepSimulation(rawDt);
-    const updateEnd = performance.now();
-
+  override update(_time: number, delta: number): void {
+    const dt = delta / 1000;
+    update(dt);
     this.renderFrame += 1;
     this.syncCamera();
     this.drawBackground();
     this.drawWorldGuides();
     this.syncEntities();
-    const renderEnd = performance.now();
-
-    perfStats.updateMs = updateEnd - updateStart;
-    perfStats.renderMs = renderEnd - updateEnd;
-    perfStats.frameMs = renderEnd - updateStart;
 
     this.hudTimer += delta;
-    flushSimulationHud(this.hudTimer >= 120);
-    if (this.hudTimer >= 120) {
+    if (this.hudTimer >= 80) {
+      updateHud();
       this.hudTimer = 0;
     }
-    recordStressFrame(time);
   }
 
   private syncCamera(): void {
@@ -114,47 +95,17 @@ export class BattleScene extends Phaser.Scene {
 
   private drawWorldGuides(): void {
     this.worldGuides.clear();
-    this.worldGuides.lineStyle(2, 0xffbf47, 0.28);
-    this.worldGuides.strokeRect(0, 0, world.arenaWidth, world.arenaHeight);
-
-    const sector = 512;
-    const left = world.cameraX;
-    const top = world.cameraY;
-    const right = left + world.width;
-    const bottom = top + world.height;
-    this.worldGuides.lineStyle(1, 0x72ffb1, 0.08);
-    this.worldGuides.beginPath();
-    for (let x = Math.ceil(left / sector) * sector; x < right; x += sector) {
-      this.worldGuides.moveTo(x, top);
-      this.worldGuides.lineTo(x, bottom);
-    }
-    for (let y = Math.ceil(top / sector) * sector; y < bottom; y += sector) {
-      this.worldGuides.moveTo(left, y);
-      this.worldGuides.lineTo(right, y);
-    }
-    this.worldGuides.strokePath();
-
-    if (state.showPickupZones) {
-      const pickupRadius = pickupRadiusFor(player);
-      this.worldGuides.lineStyle(2, 0x72ffb1, 0.32);
-      this.worldGuides.strokeCircle(player.x, player.y, pickupRadius);
-    }
-
-    if (player.shield > 1) {
-      this.worldGuides.lineStyle(2, 0x72ffb1, 0.18 + player.shield / player.shieldMax * 0.2);
-      this.worldGuides.strokeCircle(player.x, player.y, player.radius + 15);
-    }
-
     if (state.mode === "playing" && state.controlMode === "trackpad" && pointer.inside) {
       const target = screenToWorld(pointer.x, pointer.y);
       const distance = Math.hypot(target.x - player.x, target.y - player.y);
-      if (distance > 18) {
-        this.worldGuides.lineStyle(1, 0x72ffb1, clamp(distance / 240, 0.16, 0.48));
+      if (distance > 16) {
+        const alpha = clamp(distance / 240, 0.16, 0.48);
+        this.worldGuides.lineStyle(1, 0x72ffb1, alpha);
         this.worldGuides.beginPath();
         this.worldGuides.moveTo(player.x, player.y);
         this.worldGuides.lineTo(target.x, target.y);
         this.worldGuides.strokePath();
-        this.worldGuides.strokeCircle(target.x, target.y, 12 + Math.sin(world.time * 8) * 2);
+        this.worldGuides.strokeCircle(target.x, target.y, 10 + Math.sin(world.time * 8) * 2);
       }
     }
   }
@@ -162,11 +113,8 @@ export class BattleScene extends Phaser.Scene {
   private syncEntities(): void {
     const frame = this.renderFrame;
     this.syncExperience(frame);
-    this.syncPowerups(frame);
-    this.syncChests(frame);
     this.syncBullets(frame);
     this.syncEnemies(frame);
-    this.syncDrones(frame);
     this.syncPlayer();
     this.syncParticles(frame);
     this.syncFloaters(frame);
@@ -174,11 +122,7 @@ export class BattleScene extends Phaser.Scene {
 
   private syncEnemies(frame: number): void {
     for (const enemy of enemies) {
-      if (!this.inView(enemy.x, enemy.y, enemy.radius + 8)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      perfStats.drawn += 1;
+      if (!this.inView(enemy.x, enemy.y, enemy.radius + 8)) continue;
       const sprite = this.enemyPools[enemy.kind].sync(enemy.id, frame);
       sprite.setPosition(enemy.x, enemy.y);
       sprite.setRotation(enemy.age * (enemy.kind === "brute" ? 0.7 : 1.6));
@@ -187,7 +131,7 @@ export class BattleScene extends Phaser.Scene {
       sprite.setTint(
         enemy.hit > 0
           ? colorToNumber(enemy.accent)
-          : enemy.role === "boss" || enemy.role === "mini-boss"
+          : enemy.isBoss
             ? colorToNumber(enemy.color)
             : 0xffffff,
       );
@@ -199,115 +143,45 @@ export class BattleScene extends Phaser.Scene {
 
   private syncBullets(frame: number): void {
     for (const bullet of bullets) {
-      if (!this.inView(bullet.x, bullet.y, bullet.radius + 16)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      perfStats.drawn += 1;
+      if (!this.inView(bullet.x, bullet.y, bullet.radius + 16)) continue;
       const sprite = this.bulletPool.sync(bullet.id, frame);
-      const key =
-        bullet.color === "#ff5af0"
-          ? textureKeys.bulletCrit
-          : bullet.color === "#ffbf47"
-            ? textureKeys.droneBullet
-            : textureKeys.bullet;
-      sprite.setTexture(key);
+      sprite.setTexture(textureKeys.bullet);
       sprite.setPosition(bullet.x, bullet.y);
       sprite.setRotation(Math.atan2(bullet.vy, bullet.vx));
       sprite.setScale(Math.max(0.45, bullet.radius / 5));
       sprite.setAlpha(0.95);
-      sprite.clearTint();
     }
     this.bulletPool.sweep(frame);
   }
 
   private syncExperience(frame: number): void {
-    let visibleXp = 0;
     for (const orb of experienceOrbs) {
-      if (visibleXp >= simulationPerfConfig.budgets.maxVisibleXp) {
-        perfStats.culled += 1;
-        continue;
-      }
-      if (!this.inView(orb.x, orb.y, orb.radius + 6)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      visibleXp += 1;
-      perfStats.drawn += 1;
+      if (!this.inView(orb.x, orb.y, orb.radius + 6)) continue;
       const sprite = this.xpPool.sync(orb.id, frame);
       sprite.setPosition(orb.x, orb.y);
       sprite.setRotation(world.time * 1.4 + orb.age);
       sprite.setScale((orb.radius * 2) / 22);
-      sprite.setAlpha(orb.magnetized ? 0.9 : 0.76);
+      sprite.setAlpha(0.85);
     }
     this.xpPool.sweep(frame);
   }
 
-  private syncPowerups(frame: number): void {
-    for (const orb of powerupOrbs) {
-      if (!this.inView(orb.x, orb.y, orb.radius + 10)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      perfStats.drawn += 1;
-      const sprite = this.powerupPool.sync(orb.id, frame);
-      const key =
-        orb.kind === "heart"
-          ? textureKeys.powerHeart
-          : orb.kind === "magnet"
-            ? textureKeys.powerMagnet
-            : textureKeys.powerBomb;
-      sprite.setTexture(key);
-      sprite.setPosition(orb.x, orb.y);
-      sprite.setRotation(orb.age * 2.2);
-      sprite.setScale(1 + Math.sin(orb.age * 7) * 0.08);
-      sprite.setAlpha(Math.min(1, orb.life));
-    }
-    this.powerupPool.sweep(frame);
-  }
-
-  private syncChests(frame: number): void {
-    for (const chest of chests) {
-      if (!this.inView(chest.x, chest.y, chest.radius + 14)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      perfStats.drawn += 1;
-      const sprite = this.chestPool.sync(chest.id, frame);
-      sprite.setPosition(chest.x, chest.y);
-      sprite.setRotation(Math.sin(chest.age * 1.8) * 0.08);
-      sprite.setScale((chest.radius * 2) / 42);
-      sprite.setAlpha(0.96);
-      sprite.clearTint();
-    }
-    this.chestPool.sweep(frame);
-  }
-
   private syncParticles(frame: number): void {
     for (const particle of particles) {
-      if (!this.inView(particle.x, particle.y, particle.size + 8)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      perfStats.drawn += 1;
+      if (!this.inView(particle.x, particle.y, particle.size + 8)) continue;
       const sprite = this.particlePool.sync(particle.id, frame);
       const alpha = clamp(particle.life / particle.maxLife, 0, 1);
       sprite.setPosition(particle.x, particle.y);
       sprite.setScale(Math.max(0.25, (particle.size * alpha) / 4));
       sprite.setAlpha(alpha);
       sprite.setTint(colorToNumber(particle.color));
-      sprite.setDepth(particle.behind ? 8 : 36);
     }
     this.particlePool.sweep(frame);
   }
 
   private syncFloaters(frame: number): void {
     for (const floater of floaters) {
-      if (!this.inView(floater.x, floater.y, 80)) {
-        perfStats.culled += 1;
-        continue;
-      }
-      perfStats.drawn += 1;
+      if (!this.inView(floater.x, floater.y, 80)) continue;
       const text = this.floaterPool.sync(floater.id, frame);
       const alpha = clamp(floater.life / floater.maxLife, 0, 1);
       text.setText(floater.text);
@@ -318,22 +192,12 @@ export class BattleScene extends Phaser.Scene {
     this.floaterPool.sweep(frame);
   }
 
-  private syncDrones(frame: number): void {
-    for (let i = 0; i < player.drones; i += 1) {
-      const angle = world.time * 1.9 + (Math.PI * 2 * i) / player.drones;
-      const x = player.x + Math.cos(angle) * 48;
-      const y = player.y + Math.sin(angle) * 48;
-      const sprite = this.dronePool.sync(i + 1, frame);
-      sprite.setPosition(x, y);
-      sprite.setRotation(-angle);
-      sprite.setAlpha(0.9);
-    }
-    this.dronePool.sweep(frame);
-  }
-
   private syncPlayer(): void {
     this.playerShip.setPosition(player.x, player.y);
-    this.playerShip.setRotation(player.aimAngle + Math.PI / 2);
+    if (player.vx !== 0 || player.vy !== 0) {
+      this.lastMoveAngle = Math.atan2(player.vy, player.vx);
+    }
+    this.playerShip.setRotation(this.lastMoveAngle + Math.PI / 2);
     this.playerShip.setAlpha(player.invuln > 0 && Math.sin(world.time * 42) > 0 ? 0.56 : 1);
   }
 

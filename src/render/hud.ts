@@ -1,377 +1,227 @@
-import { enemies, ownedRelics, ownedUpgrades, player, state } from "../state";
+import { player, state } from "../state";
 import { clamp } from "../utils";
-import { applyUpgrade, pickUpgrades } from "../systems/upgrades";
-import { applyRelicChoice, pickRelicChoices, unlockRelicsForBossStage } from "../systems/relics";
-import { upgradeTiers } from "../game/balance";
-import { bossBalance } from "../game/roguelike";
-import type {
-  BuildTag,
-  ControlMode,
-  RelicChoice,
-  SynergyDefinition,
-} from "../types";
-import { consumeSimulationEvents } from "../simulation/events";
 import {
-  activeSynergiesForLoadout,
-  BUILD_TAG_META,
-  buildTagCountsFromLoadout,
-  synergyHintsForTags,
-  type SynergyHint,
-} from "../systems/synergies";
+  currentRerollCost,
+  currentShopOffers,
+  tryBuyOffer,
+  tryRerollShop,
+} from "../game/shop";
+import { advanceFromShop } from "../game/wave-flow";
+import { accountProgress } from "../systems/account";
 import {
-  accountProgress,
-  awardRunAccountProgress,
-  currentLevelUpChoiceCount,
-} from "../systems/account";
-import { renderCockpit, showHangarTitle } from "./hangar";
+  canPurchaseLevel,
+  metaUpgradeCatalog,
+  metaUpgradeLevel,
+} from "../game/meta-upgrade-catalog";
+import { purchaseMetaUpgrade } from "../systems/account";
+import type { ControlMode } from "../types";
 
 const hud = {
-  pressure: document.querySelector<HTMLElement>("#pressureValue")!,
-  kills: document.querySelector<HTMLElement>("#killsValue")!,
-  target: document.querySelector<HTMLElement>("#targetValue")!,
-  level: document.querySelector<HTMLElement>("#levelValue")!,
-  xp: document.querySelector<HTMLElement>("#xpValue")!,
-  xpBar: document.querySelector<HTMLElement>("#xpBar")!,
-  score: document.querySelector<HTMLElement>("#scoreValue")!,
-  health: document.querySelector<HTMLElement>("#healthBar")!,
-  bossPanel: document.querySelector<HTMLElement>("#bossPanel")!,
-  bossName: document.querySelector<HTMLElement>("#bossName")!,
-  bossBar: document.querySelector<HTMLElement>("#bossBar")!,
+  wave: query<HTMLElement>("#waveValue"),
+  waveTimer: query<HTMLElement>("#waveTimerValue"),
+  currency: query<HTMLElement>("#currencyValue"),
+  carry: query<HTMLElement>("#carryValue"),
+  score: query<HTMLElement>("#scoreValue"),
+  health: query<HTMLElement>("#healthBar"),
   stats: {
-    level: document.querySelector<HTMLElement>("#statLevel")!,
-    xp: document.querySelector<HTMLElement>("#statXp")!,
-    hull: document.querySelector<HTMLElement>("#statHull")!,
-    damage: document.querySelector<HTMLElement>("#statDamage")!,
-    fireRate: document.querySelector<HTMLElement>("#statFireRate")!,
-    volley: document.querySelector<HTMLElement>("#statVolley")!,
-    speed: document.querySelector<HTMLElement>("#statSpeed")!,
-    pierce: document.querySelector<HTMLElement>("#statPierce")!,
-    drones: document.querySelector<HTMLElement>("#statDrones")!,
-    shield: document.querySelector<HTMLElement>("#statShield")!,
-    crit: document.querySelector<HTMLElement>("#statCrit")!,
-    lifesteal: document.querySelector<HTMLElement>("#statLifesteal")!,
-    magnet: document.querySelector<HTMLElement>("#statMagnet")!,
-    caliber: document.querySelector<HTMLElement>("#statCaliber")!,
+    hull: query<HTMLElement>("#statHull"),
+    damage: query<HTMLElement>("#statDamage"),
+    fireRate: query<HTMLElement>("#statFireRate"),
+    volley: query<HTMLElement>("#statVolley"),
+    speed: query<HTMLElement>("#statSpeed"),
+    pierce: query<HTMLElement>("#statPierce"),
+    crit: query<HTMLElement>("#statCrit"),
+    caliber: query<HTMLElement>("#statCaliber"),
+    range: query<HTMLElement>("#statRange"),
   },
-  loadout: document.querySelector<HTMLElement>("#loadout")!,
-  itemHeart: document.querySelector<HTMLElement>("#itemHeart")!,
-  itemMagnet: document.querySelector<HTMLElement>("#itemMagnet")!,
-  itemBomb: document.querySelector<HTMLElement>("#itemBomb")!,
-  itemHeartCell: document.querySelector<HTMLElement>(".item-cell[data-kind='heart']")!,
-  itemMagnetCell: document.querySelector<HTMLElement>(".item-cell[data-kind='magnet']")!,
-  itemBombCell: document.querySelector<HTMLElement>(".item-cell[data-kind='bomb']")!,
-  hangarOverlay: document.querySelector<HTMLElement>("#hangarOverlay")!,
-  settingsOverlay: document.querySelector<HTMLElement>("#settingsOverlay")!,
-  upgradeOverlay: document.querySelector<HTMLElement>("#upgradeOverlay")!,
-  chestOverlay: document.querySelector<HTMLElement>("#chestOverlay")!,
-  pauseOverlay: document.querySelector<HTMLElement>("#pauseOverlay")!,
-  gameOverOverlay: document.querySelector<HTMLElement>("#gameOverOverlay")!,
-  upgradeTitle: document.querySelector<HTMLElement>("#upgradeTitle")!,
-  upgradeStep: document.querySelector<HTMLElement>("#upgradeStep")!,
-  upgradeGrid: document.querySelector<HTMLElement>("#upgradeGrid")!,
-  chestGrid: document.querySelector<HTMLElement>("#chestGrid")!,
-  controlButtons: [
-    ...document.querySelectorAll<HTMLButtonElement>("[data-control-mode]"),
-  ],
-  finalScore: document.querySelector<HTMLElement>("#finalScore")!,
-  finalStage: document.querySelector<HTMLElement>("#finalStage")!,
-  pickupZonesToggle: document.querySelector<HTMLInputElement>("#togglePickupZones")!,
-  runRecapGrid: document.querySelector<HTMLElement>("#runRecapGrid")!,
-  runRewardBreakdown: document.querySelector<HTMLElement>("#runRewardBreakdown")!,
-  runRecapBadges: document.querySelector<HTMLElement>("#runRecapBadges")!,
+  hangarOverlay: query<HTMLElement>("#hangarOverlay"),
+  shopOverlay: query<HTMLElement>("#shopOverlay"),
+  shopGrid: query<HTMLElement>("#shopGrid"),
+  shopCurrency: query<HTMLElement>("#shopCurrency"),
+  shopCarry: query<HTMLElement>("#shopCarry"),
+  shopRerollButton: query<HTMLButtonElement>("#shopRerollButton"),
+  shopNextButton: query<HTMLButtonElement>("#shopNextButton"),
+  pauseOverlay: query<HTMLElement>("#pauseOverlay"),
+  gameOverOverlay: query<HTMLElement>("#gameOverOverlay"),
+  finalWave: query<HTMLElement>("#finalWave"),
+  finalScore: query<HTMLElement>("#finalScore"),
+  runRecapGrid: query<HTMLElement>("#runRecapGrid"),
+  hangarMeta: query<HTMLElement>("#hangarMeta"),
+  recordWave: query<HTMLElement>("#recordWave"),
+  recordScore: query<HTMLElement>("#recordScore"),
+  recordTime: query<HTMLElement>("#recordTime"),
+  recordsSummary: queryOptional<HTMLElement>("[data-records-summary]"),
+  accountCrystals: queryOptional<HTMLElement>("[data-account-crystals]"),
 };
 
-const PICKUP_ZONES_KEY = "voidline:showPickupZones";
-
-function loadPickupZonesPref(): boolean {
-  try {
-    return localStorage.getItem(PICKUP_ZONES_KEY) === "1";
-  } catch {
-    return false;
-  }
+function query<T extends HTMLElement>(selector: string): T {
+  const el = document.querySelector<T>(selector);
+  if (!el) throw new Error(`Missing required element: ${selector}`);
+  return el;
 }
 
-function savePickupZonesPref(value: boolean): void {
-  try {
-    localStorage.setItem(PICKUP_ZONES_KEY, value ? "1" : "0");
-  } catch {
-    // localStorage unavailable (private mode, sandbox) — keep the in-memory toggle
-  }
+function queryOptional<T extends HTMLElement>(selector: string): T | null {
+  return document.querySelector<T>(selector);
 }
 
-export function initPickupZonesToggle(): void {
-  const initial = loadPickupZonesPref();
-  state.showPickupZones = initial;
-  hud.pickupZonesToggle.checked = initial;
-  hud.pickupZonesToggle.addEventListener("change", () => {
-    state.showPickupZones = hud.pickupZonesToggle.checked;
-    savePickupZonesPref(state.showPickupZones);
-  });
-}
-
-let modalReturnFocus: HTMLElement | null = null;
-let upgradeRunTotal = 0;
-
-const TIER_RANK_LOOKUP = new Map<string, number>(
-  upgradeTiers.map((tier, idx) => [tier.id, idx + 1] as const),
-);
-
-function tierRank(tierId: string): number {
-  return TIER_RANK_LOOKUP.get(tierId) ?? 1;
-}
-
-function renderBuildTags(tags: readonly BuildTag[]): string {
-  if (tags.length === 0) return "";
-  return `<span class="build-tags" aria-hidden="true">${tags
-    .map((tag) => {
-      const meta = BUILD_TAG_META[tag];
-      return `<span class="build-tag" style="--tag-color: ${meta.color}">${meta.label}</span>`;
-    })
-    .join("")}</span>`;
-}
-
-function renderSynergyBadges(synergies: readonly SynergyDefinition[]): string {
-  if (synergies.length === 0) return "";
-  return `<span class="synergy-tags" aria-hidden="true">${synergies
-    .map(
-      (synergy) =>
-        `<span class="synergy-badge" style="--tag-color: ${synergy.color}">${synergy.name}</span>`,
-    )
-    .join("")}</span>`;
-}
-
-function renderSynergyHints(hints: readonly SynergyHint[]): string {
-  if (hints.length === 0) return "";
-  return `<span class="synergy-hints" aria-hidden="true">${hints
-    .map(
-      (hint) =>
-        `<span class="synergy-hint" data-state="${hint.state}" style="--tag-color: ${hint.color}">${synergyHintText(hint)}</span>`,
-    )
-    .join("")}</span>`;
-}
-
-function renderOwnedBadge(count: number): string {
-  return count > 0 ? `<span class="owned-badge" aria-hidden="true">x${count}</span>` : "";
-}
-
-function synergyHintText(hint: SynergyHint): string {
-  switch (hint.state) {
-    case "complete":
-      return `Complete ${hint.name}`;
-    case "advance":
-      return `Avance ${hint.name}`;
-    case "active":
-      return `Active ${hint.name}`;
-  }
-}
-
-function buildInfoText(
-  tags: readonly BuildTag[],
-  synergies: readonly SynergyDefinition[],
-  hints: readonly SynergyHint[],
-): string {
-  const segments: string[] = [];
-  if (tags.length > 0) {
-    segments.push(`Tags de build: ${tags.map((tag) => BUILD_TAG_META[tag].label).join(", ")}`);
-  }
-  if (synergies.length > 0) {
-    segments.push(`Synergies actives: ${synergies.map((synergy) => synergy.name).join(", ")}`);
-  }
-  if (hints.length > 0) {
-    segments.push(`Pistes de synergie: ${hints.map(synergyHintText).join(", ")}`);
-  }
-  return segments.join(". ");
-}
-
-function activeSynergiesForTags(tags: readonly BuildTag[]): SynergyDefinition[] {
-  const active = activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values());
-  return active.filter((synergy) =>
-    (Object.keys(synergy.requiredTags) as BuildTag[]).some((tag) => tags.includes(tag)),
-  );
-}
-
-function ownedUpgradeCount(upgradeId: string): number {
-  let count = 0;
-  for (const owned of ownedUpgrades.values()) {
-    if (owned.upgrade.id === upgradeId) count += owned.count;
-  }
-  return count;
-}
-
-function ownedRelicCount(relicId: string): number {
-  return ownedRelics.get(relicId)?.count ?? 0;
-}
-
-function cipherFor(upgradeId: string, tierShort: string, index: number): string {
-  const head = upgradeId.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase().padEnd(3, "X");
-  let hash = 0;
-  for (let i = 0; i < upgradeId.length; i++) {
-    hash = (hash * 31 + upgradeId.charCodeAt(i)) >>> 0;
-  }
-  const seed = (hash + index * 113) & 0xffff;
-  return `${head}-${tierShort}-${seed.toString(16).toUpperCase().padStart(4, "0")}`;
-}
-
-export function getControlButtons(): HTMLButtonElement[] {
-  return hud.controlButtons;
-}
-
-export function getUpgradeGrid(): HTMLElement {
-  return hud.upgradeGrid;
-}
-
-type OverlayId =
-  | "hangarOverlay"
-  | "settingsOverlay"
-  | "upgradeOverlay"
-  | "chestOverlay"
-  | "pauseOverlay"
-  | "gameOverOverlay";
-
-export function showHangar(): void {
-  state.mode = "menu";
-  hud.hangarOverlay.classList.add("active");
-  hud.hangarOverlay.removeAttribute("aria-hidden");
-  hud.settingsOverlay.classList.remove("active");
-  hud.settingsOverlay.setAttribute("aria-hidden", "true");
-  hud.gameOverOverlay.classList.remove("active");
-  hud.upgradeOverlay.classList.remove("active");
-  hud.chestOverlay.classList.remove("active");
-  hud.pauseOverlay.classList.remove("active");
-  renderCockpit();
-  showHangarTitle();
-  setOverlayFocusScope("hangarOverlay");
-}
-
-export function showSettings(): void {
-  hud.settingsOverlay.classList.add("active");
-  hud.settingsOverlay.removeAttribute("aria-hidden");
-  setOverlayFocusScope("settingsOverlay");
-  requestAnimationFrame(() =>
-    hud.settingsOverlay
-      .querySelector<HTMLButtonElement>("button:not([disabled])")
-      ?.focus(),
-  );
-}
-
-export function closeSettings(): void {
-  hud.settingsOverlay.classList.remove("active");
-  hud.settingsOverlay.setAttribute("aria-hidden", "true");
-  if (hud.hangarOverlay.classList.contains("active")) {
-    setOverlayFocusScope("hangarOverlay");
-    document.querySelector<HTMLButtonElement>("#settingsButton")?.focus();
-  } else {
-    setOverlayFocusScope();
-  }
-}
-
-export function initOverlayFocusScope(): void {
-  const active = document.querySelector<HTMLElement>(".overlay.active");
-  setOverlayFocusScope(active?.id as OverlayId | undefined);
+export function setControlMode(mode: ControlMode): void {
+  state.controlMode = mode;
+  document.body.dataset.controlMode = mode;
 }
 
 export function hideOverlays(): void {
   hud.hangarOverlay.classList.remove("active");
-  hud.settingsOverlay.classList.remove("active");
-  hud.upgradeOverlay.classList.remove("active");
-  hud.chestOverlay.classList.remove("active");
+  hud.shopOverlay.classList.remove("active");
   hud.pauseOverlay.classList.remove("active");
   hud.gameOverOverlay.classList.remove("active");
-  setOverlayFocusScope();
 }
 
-export function setOverlayFocusScope(activeOverlay?: OverlayId): void {
-  for (const element of document.querySelectorAll<HTMLElement>(
-    ".game-shell > *",
-  )) {
-    const active = activeOverlay !== undefined && element.id !== activeOverlay;
-    element.toggleAttribute("inert", active);
-    if (active) {
-      element.setAttribute("aria-hidden", "true");
-    } else {
-      element.removeAttribute("aria-hidden");
-    }
+export function showHangar(): void {
+  state.mode = "menu";
+  state.runElapsedSeconds = 0;
+  hideOverlays();
+  hud.hangarOverlay.classList.add("active");
+  renderHangar();
+  requestAnimationFrame(() =>
+    document.querySelector<HTMLButtonElement>("#startButton")?.focus(),
+  );
+}
+
+export function pauseGame(): void {
+  if (state.mode !== "playing") return;
+  state.mode = "paused";
+  hud.pauseOverlay.classList.add("active");
+}
+
+export function resumeGame(): void {
+  if (state.mode !== "paused") return;
+  state.mode = "playing";
+  hud.pauseOverlay.classList.remove("active");
+}
+
+export function showShop(): void {
+  hideOverlays();
+  hud.shopOverlay.classList.add("active");
+  renderShop();
+}
+
+export function showGameOver(): void {
+  hud.gameOverOverlay.classList.add("active");
+  hud.finalWave.textContent = String(state.highestWaveReached);
+  hud.finalScore.textContent = String(state.score);
+  hud.runRecapGrid.innerHTML = "";
+  const reward = accountProgress.lastRunReward;
+  const items = [
+    { label: "Wave", value: String(state.highestWaveReached) },
+    { label: "Temps", value: formatTime(state.runElapsedSeconds) },
+    { label: "Score", value: String(state.score) },
+    { label: "Cristaux", value: `+${reward?.crystalsGained ?? 0}` },
+  ];
+  for (const item of items) {
+    const article = document.createElement("article");
+    article.className = "recap-stat";
+    article.innerHTML = `<span>${item.label}</span><strong>${item.value}</strong>`;
+    hud.runRecapGrid.appendChild(article);
   }
 }
 
-function rememberFocusBeforeModal(activeOverlay: HTMLElement): void {
-  const active = document.activeElement;
-  if (
-    modalReturnFocus === null &&
-    active instanceof HTMLElement &&
-    !activeOverlay.contains(active)
-  ) {
-    modalReturnFocus = active;
+function updateShopHeader(): void {
+  hud.shopCurrency.textContent = String(state.runCurrency);
+  hud.shopCarry.textContent = String(state.pendingCarry);
+  hud.shopRerollButton.textContent = `Reroll (${currentRerollCost()})`;
+  hud.shopRerollButton.disabled = state.runCurrency < currentRerollCost();
+}
+
+function refreshShopAffordability(): void {
+  const cards = hud.shopGrid.querySelectorAll<HTMLButtonElement>(".shop-card");
+  const offers = currentShopOffers();
+  cards.forEach((card, idx) => {
+    const offer = offers[idx];
+    if (!offer) return;
+    card.disabled = state.runCurrency < offer.cost;
+  });
+}
+
+function renderShop(): void {
+  updateShopHeader();
+  hud.shopGrid.innerHTML = "";
+  const offers = currentShopOffers();
+  if (offers.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "shop-empty";
+    empty.textContent = "Plus rien à acheter — passe à la suite.";
+    hud.shopGrid.appendChild(empty);
+  }
+  offers.forEach((offer, index) => {
+    const card = document.createElement("button");
+    card.className = "upgrade-card shop-card";
+    card.type = "button";
+    const canBuy = state.runCurrency >= offer.cost;
+    card.disabled = !canBuy;
+    card.dataset.offerIndex = String(index);
+    card.innerHTML = `
+      <span class="upgrade-stamp" aria-hidden="true">
+        <span class="upgrade-stamp-glyph">${offer.upgrade.icon}</span>
+      </span>
+      <span class="upgrade-copy">
+        <h3>${offer.upgrade.name}</h3>
+        <p>${offer.upgrade.description}</p>
+      </span>
+      <strong class="upgrade-effect">${offer.cost} XP</strong>
+    `;
+    card.addEventListener("click", () => onBuyOffer(index));
+    hud.shopGrid.appendChild(card);
+  });
+}
+
+function onBuyOffer(index: number): void {
+  if (tryBuyOffer(index)) {
+    renderShop();
+    updateHud();
   }
 }
 
-function restoreFocusAfterModal(): void {
-  const target = modalReturnFocus;
-  modalReturnFocus = null;
-  if (target?.isConnected && target.getClientRects().length > 0) {
-    target.focus({ preventScroll: true });
+function onReroll(): void {
+  if (tryRerollShop()) {
+    renderShop();
+    updateHud();
   }
 }
 
-export function updateLoadout(): void {
-  hud.loadout.innerHTML = "";
-  for (const owned of ownedUpgrades.values()) {
-    const { upgrade, tier, count } = owned;
-    const chip = document.createElement("span");
-    chip.className = "loadout-chip";
-    chip.dataset.tier = tier.id;
-    chip.style.setProperty("--tier-color", tier.color);
-    chip.innerHTML = `<span class="loadout-main">${upgrade.icon} ${tier.short} x${count}</span>${renderBuildTags(upgrade.tags)}`;
-    hud.loadout.appendChild(chip);
-  }
-  for (const owned of ownedRelics.values()) {
-    const { relic, count } = owned;
-    const chip = document.createElement("span");
-    chip.className = "loadout-chip relic-chip";
-    chip.style.setProperty("--tier-color", relic.color);
-    chip.innerHTML = `<span class="loadout-main">${relic.icon} R x${count}</span>${renderBuildTags(relic.tags)}`;
-    hud.loadout.appendChild(chip);
-  }
-  for (const synergy of activeSynergiesForLoadout(ownedUpgrades.values(), ownedRelics.values())) {
-    const chip = document.createElement("span");
-    chip.className = "loadout-chip synergy-chip";
-    chip.style.setProperty("--tier-color", synergy.color);
-    chip.textContent = synergy.name;
-    hud.loadout.appendChild(chip);
-  }
+function onNextWave(): void {
+  hideOverlays();
+  advanceFromShop();
+  updateHud();
 }
 
-function updateItemBar(): void {
-  hud.itemHeart.textContent = String(state.heartsCarried);
-  hud.itemMagnet.textContent = String(state.magnetsCarried);
-  hud.itemBomb.textContent = String(state.bombsCarried);
-  hud.itemHeartCell.dataset.zero = state.heartsCarried === 0 ? "true" : "false";
-  hud.itemMagnetCell.dataset.zero = state.magnetsCarried === 0 ? "true" : "false";
-  hud.itemBombCell.dataset.zero = state.bombsCarried === 0 ? "true" : "false";
-}
-
-function updateStats(): void {
-  hud.stats.level.textContent = String(state.level);
-  hud.stats.xp.textContent = `${Math.floor(state.xp)}/${state.xpTarget}`;
+export function updateHud(): void {
+  hud.wave.textContent = String(state.wave);
+  hud.waveTimer.textContent = formatTime(state.waveTimer);
+  hud.currency.textContent = String(state.runCurrency);
+  hud.carry.textContent = String(state.pendingCarry);
+  hud.score.textContent = String(state.score);
+  const hpPct = clamp(player.hp / Math.max(1, player.maxHp), 0, 1);
+  hud.health.style.width = `${hpPct * 100}%`;
+  hud.health.style.background =
+    hpPct > 0.4
+      ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
+      : "linear-gradient(90deg, #ff5a69, #ffbf47)";
   hud.stats.hull.textContent = `${Math.max(0, Math.ceil(player.hp))}/${Math.round(player.maxHp)}`;
   hud.stats.damage.textContent = String(Math.round(player.damage));
   hud.stats.fireRate.textContent = `${player.fireRate.toFixed(1)}/s`;
   hud.stats.volley.textContent = String(player.projectileCount);
   hud.stats.speed.textContent = String(Math.round(player.speed));
   hud.stats.pierce.textContent = String(player.pierce);
-  hud.stats.drones.textContent = String(player.drones);
-  hud.stats.shield.textContent =
-    player.shieldMax > 0
-      ? `${Math.max(0, Math.ceil(player.shield))}/${Math.round(player.shieldMax)}`
-      : "0";
   hud.stats.crit.textContent = `${Math.round(player.critChance * 100)}%`;
-  hud.stats.lifesteal.textContent = player.lifesteal.toFixed(1);
-  hud.stats.magnet.textContent = `x${player.pickupRadius.toFixed(2)}`;
   hud.stats.caliber.textContent = `x${player.bulletRadius.toFixed(2)}`;
-}
-
-function formatNumber(value: number): string {
-  return Math.floor(value).toLocaleString("fr-FR");
+  hud.stats.range.textContent = String(Math.round(player.range));
+  if (hud.accountCrystals) {
+    hud.accountCrystals.textContent = String(accountProgress.crystals);
+  }
+  if (state.mode === "shop") {
+    updateShopHeader();
+    refreshShopAffordability();
+  }
 }
 
 function formatTime(seconds: number): string {
@@ -381,448 +231,54 @@ function formatTime(seconds: number): string {
   return `${minutes}:${String(rest).padStart(2, "0")}`;
 }
 
-export function updateChallengePanels(): void {
-  // Challenges removed from the simplified hangar. Stub kept so existing call sites compile.
-}
-
-export function updateHangarPanels(): void {
-  renderCockpit();
-}
-
-function renderRunRecap(): void {
-  const reward = accountProgress.lastRunReward;
-  const bossCount = state.runBossStages.length;
-  const breakdown = reward?.breakdown;
-  hud.runRecapGrid.innerHTML = "";
-  hud.runRewardBreakdown.innerHTML = "";
-
-  const stats = [
-    { label: "Score", value: formatNumber(state.score) },
-    { label: "Temps", value: formatTime(state.runElapsedSeconds) },
-    { label: "Niveau atteint", value: String(state.highestStageReached) },
-    { label: "Niveau run", value: String(state.level) },
-    { label: "Boss", value: String(bossCount) },
-    { label: "Cristaux", value: `+${formatNumber(reward?.crystalsGained ?? 0)}` },
-  ];
-
-  for (const stat of stats) {
-    const item = document.createElement("article");
-    item.className = "recap-stat";
-    item.innerHTML = `<span>${stat.label}</span><strong>${stat.value}</strong>`;
-    hud.runRecapGrid.appendChild(item);
+export function renderHangar(): void {
+  if (hud.accountCrystals) {
+    hud.accountCrystals.textContent = String(accountProgress.crystals);
+  }
+  hud.recordWave.textContent = String(accountProgress.records.bestWave);
+  hud.recordScore.textContent = String(accountProgress.records.bestScore);
+  hud.recordTime.textContent = formatTime(accountProgress.records.bestTimeSeconds);
+  if (hud.recordsSummary) {
+    hud.recordsSummary.textContent = `Records: wave ${accountProgress.records.bestWave} · ${formatTime(accountProgress.records.bestTimeSeconds)}`;
   }
 
-  const badges: string[] = [];
-  if ((reward?.newRecords.length ?? 0) > 0) badges.push("Record battu");
-  if (reward?.newlyUnlockedStartStage) badges.push(`Depart N${reward.newlyUnlockedStartStage}`);
-  if (bossCount > 0) badges.push("Boss vaincu");
-  hud.runRecapBadges.textContent = badges.length > 0 ? badges.join(" - ") : "Run terminee";
-
-  const rows = [
-    ["Temps survecu", breakdown?.durationCrystals ?? 0],
-    ["Niveau atteint", breakdown?.stageCrystals ?? 0],
-    ["Boss detruits", breakdown?.bossCrystals ?? 0],
-    ["Score", breakdown?.scoreCrystals ?? 0],
-    ["Records", breakdown?.recordCrystals ?? 0],
-    ["Depart avance", breakdown?.startStageBonusCrystals ?? 0],
-  ] as const;
-
-  for (const [label, value] of rows.filter(([, value]) => value > 0)) {
-    const row = document.createElement("div");
-    row.className = "breakdown-row";
-    row.innerHTML = `<span>${label}</span><strong>+${formatNumber(value)} C</strong>`;
-    hud.runRewardBreakdown.appendChild(row);
-  }
-
-  if (!hud.runRewardBreakdown.childElementCount) {
-    const row = document.createElement("div");
-    row.className = "breakdown-row";
-    row.innerHTML = "<span>Progression</span><strong>Aucun gain</strong>";
-    hud.runRewardBreakdown.appendChild(row);
-  }
-}
-
-export function updateHud(): void {
-  const stageRemaining = Math.max(0, bossBalance.stageDurationSeconds - state.stageElapsedSeconds);
-  hud.pressure.textContent = state.stageBossActive
-    ? `N${state.stage} BOSS`
-    : `N${state.stage} ${formatTime(stageRemaining)}`;
-  hud.kills.textContent = String(state.phaseKills);
-  hud.target.textContent = String(state.enemyPressureTarget);
-  hud.level.textContent = String(state.level);
-  hud.xp.textContent = `${Math.floor(state.xp)}/${state.xpTarget} XP`;
-  hud.xpBar.style.width = `${clamp(state.xp / state.xpTarget, 0, 1) * 100}%`;
-  hud.score.textContent = Math.floor(state.score).toLocaleString("fr-FR");
-  const hpPct = clamp(player.hp / player.maxHp, 0, 1);
-  hud.health.style.width = `${hpPct * 100}%`;
-  hud.health.style.background =
-    hpPct > 0.38
-      ? "linear-gradient(90deg, #72ffb1, #39d9ff)"
-      : "linear-gradient(90deg, #ff5a69, #ffbf47)";
-  const boss = enemies.find((enemy) => enemy.role === "boss");
-  hud.bossPanel.dataset.active = boss ? "true" : "false";
-  if (boss) {
-    hud.bossName.textContent = `Boss niveau ${state.stage}`;
-    hud.bossBar.style.width = `${clamp(boss.hp / boss.maxHp, 0, 1) * 100}%`;
-  } else {
-    hud.bossBar.style.width = "0%";
-  }
-  updateStats();
-  updateItemBar();
-}
-
-export function flushSimulationHud(force = false): void {
-  const events = consumeSimulationEvents();
-  if (events.gameOver) {
-    showGameOver();
-    return;
-  }
-  if (events.loadout) {
-    updateLoadout();
-  }
-  if (events.upgrade && state.pendingUpgrades > 0 && state.mode === "playing") {
-    showUpgrade();
-    return;
-  }
-  if (events.chest && state.pendingChests > 0 && state.mode === "playing") {
-    showChest();
-    return;
-  }
-  if (force || events.hud) {
-    updateHud();
-  }
-}
-
-export function showUpgrade(): void {
-  if (state.mode !== "upgrade") {
-    rememberFocusBeforeModal(hud.upgradeOverlay);
-    upgradeRunTotal = Math.max(1, state.pendingUpgrades);
-  }
-  state.mode = "upgrade";
-  state.pendingUpgrades = Math.max(1, state.pendingUpgrades);
-  if (state.pendingUpgrades > upgradeRunTotal) {
-    upgradeRunTotal = state.pendingUpgrades;
-  }
-  const currentPick = Math.max(1, upgradeRunTotal - state.pendingUpgrades + 1);
-
-  hud.upgradeTitle.textContent = `Niveau ${state.level} atteint`;
-  hud.upgradeStep.textContent =
-    upgradeRunTotal > 1 ? `${currentPick} / ${upgradeRunTotal}` : "";
-  hud.upgradeStep.dataset.active = upgradeRunTotal > 1 ? "true" : "false";
-
-  hud.upgradeGrid.innerHTML = "";
-
-  const choices = pickUpgrades(currentLevelUpChoiceCount());
-  const buildTagCounts = buildTagCountsFromLoadout(ownedUpgrades.values(), ownedRelics.values());
-  for (const [index, choice] of choices.entries()) {
-    const { upgrade, tier } = choice;
-    const choiceId = `upgrade-choice-${index + 1}`;
-    const tierId = `${choiceId}-tier`;
-    const titleId = `${choiceId}-title`;
-    const descriptionId = `${choiceId}-description`;
-    const effectId = `${choiceId}-effect`;
-    const buildInfoId = `${choiceId}-build-info`;
-    const activeSynergies = activeSynergiesForTags(upgrade.tags);
-    const synergyHints = synergyHintsForTags(upgrade.tags, buildTagCounts);
-    const ownedCount = ownedUpgradeCount(upgrade.id);
-    const rank = tierRank(tier.id);
-    const cipher = cipherFor(upgrade.id, tier.short, index);
+  hud.hangarMeta.innerHTML = "";
+  for (const upgrade of metaUpgradeCatalog) {
+    const level = metaUpgradeLevel(accountProgress, upgrade.id);
+    const atMax = level >= upgrade.maxLevel;
+    const nextCost = atMax ? null : upgrade.costAt(level);
+    const purchase = canPurchaseLevel(accountProgress, upgrade.id);
     const card = document.createElement("button");
-    card.className = "upgrade-card";
     card.type = "button";
-    card.dataset.choiceIndex = String(index + 1);
-    card.dataset.tier = tier.id;
-    card.dataset.tierRank = String(rank);
-    card.setAttribute("aria-labelledby", `${choiceId} ${titleId} ${tierId}`);
-    card.setAttribute("aria-describedby", `${descriptionId} ${effectId} ${buildInfoId}`);
-    card.style.setProperty("--tier-color", tier.color);
-    card.style.setProperty("--tier-glow", tier.glow);
-    card.style.setProperty("--card-delay", `${index * 70}ms`);
-
-    const chevrons = Array.from({ length: 4 }, (_, i) => {
-      const filled = i < rank ? " is-filled" : "";
-      return `<span class="tier-chevron${filled}" aria-hidden="true"></span>`;
-    }).join("");
-
+    card.className = "meta-card";
+    card.disabled = !purchase.ok;
+    const stateLabel = atMax ? "MAX" : `${nextCost} ◆`;
     card.innerHTML = `
-      <span class="sr-only" id="${choiceId}">Choix ${index + 1}</span>
-      <span class="lock-tick lt-tl" aria-hidden="true"></span>
-      <span class="lock-tick lt-tr" aria-hidden="true"></span>
-      <span class="lock-tick lt-bl" aria-hidden="true"></span>
-      <span class="lock-tick lt-br" aria-hidden="true"></span>
-      <span class="cipher-strip" aria-hidden="true">
-        <span class="cipher-dot"></span>
-        <span class="cipher-code">${cipher}</span>
-        <span class="choice-key">${index + 1}</span>
+      <span class="meta-card-head">
+        <strong>${upgrade.name}</strong>
+        <span>L${level}/${upgrade.maxLevel}</span>
       </span>
-      <span class="tier-row" id="${tierId}" aria-label="Niveau ${tier.short} sur T4 - ${tier.name}">
-        <span class="tier-chevrons" aria-hidden="true">${chevrons}</span>
-        <span class="tier-name" aria-hidden="true">${tier.name}</span>
-      </span>
-      <span class="choice-meta-row">
-        ${renderBuildTags(upgrade.tags)}
-        ${renderOwnedBadge(ownedCount)}
-      </span>
-      ${renderSynergyBadges(activeSynergies)}
-      ${renderSynergyHints(synergyHints)}
-      <span class="sr-only" id="${buildInfoId}">${buildInfoText(upgrade.tags, activeSynergies, synergyHints)}</span>
-      <span class="upgrade-stamp" aria-hidden="true">
-        <span class="upgrade-stamp-rivet"></span>
-        <span class="upgrade-stamp-glyph">${upgrade.icon}</span>
-      </span>
-      <span class="upgrade-copy">
-        <h3 id="${titleId}">${upgrade.name}</h3>
-        <p id="${descriptionId}">${upgrade.description}</p>
-      </span>
-      <strong class="upgrade-effect" id="${effectId}">
-        <span class="upgrade-effect-arrow" aria-hidden="true">&#9656;</span>
-        <span class="upgrade-effect-text">${upgrade.effect(tier)}</span>
-      </strong>
+      <p>${upgrade.description}</p>
+      <span class="meta-card-cost">${stateLabel}</span>
     `;
-    card.addEventListener("click", () => onUpgradeChoice(choice));
-    hud.upgradeGrid.appendChild(card);
-  }
-
-  hud.upgradeOverlay.classList.add("active");
-  setOverlayFocusScope("upgradeOverlay");
-  updateLoadout();
-  requestAnimationFrame(() =>
-    hud.upgradeGrid.querySelector<HTMLButtonElement>("button")?.focus(),
-  );
-}
-
-function onUpgradeChoice(choice: Parameters<typeof applyUpgrade>[0]): void {
-  applyUpgrade(choice);
-  updateLoadout();
-  if (state.pendingUpgrades > 0) {
-    showUpgrade();
-    return;
-  }
-
-  upgradeRunTotal = 0;
-  hud.upgradeStep.textContent = "";
-  hud.upgradeStep.dataset.active = "false";
-  hideOverlays();
-  if (state.pendingChests > 0) {
-    showChest();
-    return;
-  }
-
-  state.mode = "playing";
-  updateHud();
-  restoreFocusAfterModal();
-}
-
-export function showChest(): void {
-  if (state.mode !== "chest") {
-    rememberFocusBeforeModal(hud.chestOverlay);
-  }
-  state.mode = "chest";
-  hud.chestGrid.innerHTML = "";
-
-  const choices = pickRelicChoices(3);
-  const buildTagCounts = buildTagCountsFromLoadout(ownedUpgrades.values(), ownedRelics.values());
-  for (const [index, choice] of choices.entries()) {
-    const { relic } = choice;
-    const choiceId = `relic-choice-${index + 1}`;
-    const titleId = `${choiceId}-title`;
-    const descriptionId = `${choiceId}-description`;
-    const effectId = `${choiceId}-effect`;
-    const buildInfoId = `${choiceId}-build-info`;
-    const activeSynergies = activeSynergiesForTags(relic.tags);
-    const synergyHints = synergyHintsForTags(relic.tags, buildTagCounts);
-    const ownedCount = ownedRelicCount(relic.id);
-    const cipher = cipherFor(relic.id, "R", index);
-    const card = document.createElement("button");
-    card.className = "upgrade-card relic-card";
-    card.type = "button";
-    card.dataset.choiceIndex = String(index + 1);
-    card.dataset.tier = "relic";
-    card.dataset.tierRank = "2";
-    card.setAttribute("aria-labelledby", `${choiceId} ${titleId}`);
-    card.setAttribute("aria-describedby", `${descriptionId} ${effectId} ${buildInfoId}`);
-    card.style.setProperty("--tier-color", relic.color);
-    card.style.setProperty("--tier-glow", "rgba(255, 191, 71, 0.24)");
-    card.style.setProperty("--card-delay", `${index * 70}ms`);
-
-    card.innerHTML = `
-      <span class="sr-only" id="${choiceId}">Relique ${index + 1}</span>
-      <span class="lock-tick lt-tl" aria-hidden="true"></span>
-      <span class="lock-tick lt-tr" aria-hidden="true"></span>
-      <span class="lock-tick lt-bl" aria-hidden="true"></span>
-      <span class="lock-tick lt-br" aria-hidden="true"></span>
-      <span class="cipher-strip" aria-hidden="true">
-        <span class="cipher-dot"></span>
-        <span class="cipher-code">${cipher}</span>
-        <span class="choice-key">${index + 1}</span>
-      </span>
-      <span class="tier-row" aria-hidden="true">
-        <span class="tier-chevrons">
-          <span class="tier-chevron is-filled"></span>
-          <span class="tier-chevron is-filled"></span>
-          <span class="tier-chevron"></span>
-          <span class="tier-chevron"></span>
-        </span>
-        <span class="tier-name">Relique de run</span>
-      </span>
-      <span class="choice-meta-row">
-        ${renderBuildTags(relic.tags)}
-        ${renderOwnedBadge(ownedCount)}
-      </span>
-      ${renderSynergyBadges(activeSynergies)}
-      ${renderSynergyHints(synergyHints)}
-      <span class="sr-only" id="${buildInfoId}">${buildInfoText(relic.tags, activeSynergies, synergyHints)}</span>
-      <span class="upgrade-stamp" aria-hidden="true">
-        <span class="upgrade-stamp-rivet"></span>
-        <span class="upgrade-stamp-glyph">${relic.icon}</span>
-      </span>
-      <span class="upgrade-copy">
-        <h3 id="${titleId}">${relic.name}</h3>
-        <p id="${descriptionId}">${relic.description}</p>
-      </span>
-      <strong class="upgrade-effect" id="${effectId}">
-        <span class="upgrade-effect-arrow" aria-hidden="true">&#9656;</span>
-        <span class="upgrade-effect-text">${relic.effect}</span>
-      </strong>
-    `;
-    card.addEventListener("click", () => onRelicChoice(choice));
-    hud.chestGrid.appendChild(card);
-  }
-
-  hud.chestOverlay.classList.add("active");
-  setOverlayFocusScope("chestOverlay");
-  updateLoadout();
-  requestAnimationFrame(() =>
-    hud.chestGrid.querySelector<HTMLButtonElement>("button")?.focus(),
-  );
-}
-
-function onRelicChoice(choice: RelicChoice): void {
-  applyRelicChoice(choice);
-  updateLoadout();
-  if (state.pendingChests > 0) {
-    showChest();
-    return;
-  }
-
-  hideOverlays();
-  if (state.pendingUpgrades > 0) {
-    showUpgrade();
-    return;
-  }
-
-  state.mode = "playing";
-  updateHud();
-  restoreFocusAfterModal();
-}
-
-export function showGameOver(): void {
-  state.mode = "gameover";
-  if (!state.runRewardClaimed) {
-    state.runRewardClaimed = true;
-    awardRunAccountProgress({
-      stage: state.highestStageReached,
-      startStage: state.startStage,
-      elapsedSeconds: state.runElapsedSeconds,
-      runLevel: state.level,
-      score: state.score,
-      bossStages: state.runBossStages,
+    card.addEventListener("click", () => {
+      const result = purchaseMetaUpgrade(upgrade.id);
+      if (result.ok) renderHangar();
     });
-    for (const stage of state.runBossStages) {
-      unlockRelicsForBossStage(stage);
-    }
-  }
-  hud.finalScore.textContent = Math.floor(state.score).toLocaleString("fr-FR");
-  hud.finalStage.textContent = String(state.highestStageReached);
-  renderRunRecap();
-  updateChallengePanels();
-  updateHangarPanels();
-  hud.gameOverOverlay.classList.add("active");
-  setOverlayFocusScope("gameOverOverlay");
-  requestAnimationFrame(() =>
-    document.querySelector<HTMLButtonElement>("#restartButton")?.focus(),
-  );
-}
-
-export function pauseGame(): void {
-  if (state.mode !== "playing") return;
-  state.mode = "paused";
-  player.vx = 0;
-  player.vy = 0;
-  hud.pauseOverlay.classList.add("active");
-  setOverlayFocusScope("pauseOverlay");
-  requestAnimationFrame(() =>
-    document.querySelector<HTMLButtonElement>("#resumeButton")?.focus(),
-  );
-}
-
-export function resumeGame(): void {
-  if (state.mode !== "paused") return;
-  state.mode = "playing";
-  hud.pauseOverlay.classList.remove("active");
-  setOverlayFocusScope();
-}
-
-export function bindMenuNavigation(): void {
-  document
-    .querySelector<HTMLButtonElement>("#settingsButton")
-    ?.addEventListener("click", showSettings);
-  document
-    .querySelector<HTMLButtonElement>("#settingsBackButton")
-    ?.addEventListener("click", closeSettings);
-  renderCockpit();
-}
-
-export function setControlMode(mode: ControlMode): void {
-  state.controlMode = mode;
-  document.body.dataset.controlMode = mode;
-  for (const button of hud.controlButtons) {
-    const active = button.dataset.controlMode === mode;
-    button.classList.toggle("active", active);
-    button.setAttribute("aria-pressed", String(active));
+    hud.hangarMeta.appendChild(card);
   }
 }
 
-export function selectUpgradeByIndex(index: number): boolean {
-  if (state.mode !== "upgrade") return false;
-  const card = hud.upgradeGrid.querySelector<HTMLButtonElement>(
-    `[data-choice-index="${index}"]`,
-  );
-  if (!card) return false;
-  card.click();
-  return true;
-}
-
-export function selectRelicByIndex(index: number): boolean {
-  if (state.mode !== "chest") return false;
-  const card = hud.chestGrid.querySelector<HTMLButtonElement>(
-    `[data-choice-index="${index}"]`,
-  );
-  if (!card) return false;
-  card.click();
-  return true;
-}
-
-export function moveUpgradeFocus(direction: number): void {
-  const cards = [...hud.upgradeGrid.querySelectorAll<HTMLButtonElement>(".upgrade-card")];
-  if (!cards.length) return;
-
-  const currentIndex = Math.max(
-    0,
-    cards.indexOf(document.activeElement as HTMLButtonElement),
-  );
-  const nextIndex = (currentIndex + direction + cards.length) % cards.length;
-  cards[nextIndex]?.focus();
-}
-
-export function moveRelicFocus(direction: number): void {
-  const cards = [...hud.chestGrid.querySelectorAll<HTMLButtonElement>(".upgrade-card")];
-  if (!cards.length) return;
-
-  const currentIndex = Math.max(
-    0,
-    cards.indexOf(document.activeElement as HTMLButtonElement),
-  );
-  const nextIndex = (currentIndex + direction + cards.length) % cards.length;
-  cards[nextIndex]?.focus();
+export function bindHudEvents(onStart: () => void, onRestart: () => void, onResetProgress: () => void): void {
+  document.querySelector<HTMLButtonElement>("#startButton")?.addEventListener("click", onStart);
+  document.querySelector<HTMLButtonElement>("#restartButton")?.addEventListener("click", onRestart);
+  document.querySelector<HTMLButtonElement>("#resumeButton")?.addEventListener("click", resumeGame);
+  document
+    .querySelector<HTMLButtonElement>("#resetProgressButton")
+    ?.addEventListener("click", () => {
+      if (!window.confirm("Réinitialiser la progression ?")) return;
+      onResetProgress();
+    });
+  hud.shopRerollButton.addEventListener("click", onReroll);
+  hud.shopNextButton.addEventListener("click", onNextWave);
 }

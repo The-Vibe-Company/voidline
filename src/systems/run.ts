@@ -1,13 +1,40 @@
-import { resetSimulation, stepSimulation } from "../simulation/simulation";
-import { hideOverlays, updateHud, updateLoadout } from "../render/hud";
+import { state } from "../state";
+import { startRun } from "../game/wave-flow";
+import { awardRunCrystals } from "./account";
+import { hideOverlays, showGameOver, showHangar, showShop, updateHud } from "../render/hud";
+import { stepWave } from "../game/wave-loop";
+import { resetShopState } from "../game/shop";
 
-export function resetGame(): void {
-  resetSimulation();
+let runRewardClaimed = false;
+
+export function beginRun(): void {
+  runRewardClaimed = false;
+  resetShopState();
+  startRun();
   hideOverlays();
-  updateLoadout();
   updateHud();
 }
 
 export function update(dt: number): void {
-  stepSimulation(dt);
+  if (state.mode !== "playing") return;
+  stepWave(dt);
+  const next = state.mode as string;
+  if (next === "shop") {
+    showShop();
+  } else if (next === "gameover") {
+    onGameOver();
+  }
 }
+
+function onGameOver(): void {
+  if (runRewardClaimed) return;
+  runRewardClaimed = true;
+  awardRunCrystals({
+    wave: state.highestWaveReached,
+    elapsedSeconds: state.runElapsedSeconds,
+    score: state.score,
+  });
+  showGameOver();
+}
+
+export { showHangar };
