@@ -151,17 +151,35 @@ export function findCard(id: string): CardDef {
   return card;
 }
 
+const ALWAYS_ON_CARD_IDS: readonly string[] = ["weapon-promote", "weapon-mutation"];
+export const DAILY_POOL_SIZE_OPTIONAL = 7;
+
+export function rollDailyCardPool(rng: RngHandle): readonly CardDef[] {
+  const alwaysOn = cardCatalog.filter((c) => ALWAYS_ON_CARD_IDS.includes(c.id));
+  const optional = cardCatalog.filter((c) => !ALWAYS_ON_CARD_IDS.includes(c.id));
+  const shuffled = optional.slice();
+  for (let i = shuffled.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(rng.next() * (i + 1));
+    const tmp = shuffled[i]!;
+    shuffled[i] = shuffled[j]!;
+    shuffled[j] = tmp;
+  }
+  const picked = shuffled.slice(0, Math.min(DAILY_POOL_SIZE_OPTIONAL, shuffled.length));
+  return [...alwaysOn, ...picked];
+}
+
 export function rollCards(
   rng: RngHandle,
   player: Player,
   picksTaken: number,
   count: 2 | 3,
+  pool: readonly CardDef[] = cardCatalog,
 ): readonly CardOffer[] {
-  const pool = cardCatalog.filter((card) => isCardEligible(card, player.activeWeapon, picksTaken));
+  const eligible = pool.filter((card) => isCardEligible(card, player.activeWeapon, picksTaken));
   const offers: CardOffer[] = [];
   const taken = new Set<string>();
   for (let i = 0; i < count; i += 1) {
-    const remaining = pool.filter((card) => !taken.has(card.id));
+    const remaining = eligible.filter((card) => !taken.has(card.id));
     if (remaining.length === 0) break;
     const picked = weightedPick(rng, remaining);
     taken.add(picked.id);

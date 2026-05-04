@@ -24,15 +24,27 @@ import { makeStarterWeapon, weaponCatalog } from "./weapon-catalog";
 import {
   applyCardOfferToPlayer,
   rollCards,
+  rollDailyCardPool,
 } from "./card-catalog";
-import { createRng, getDailySeedString, hashSeedString, type RngHandle } from "./daily-seed";
-import type { CardOffer, WeaponArchetypeId } from "../types";
+import {
+  createRng,
+  getCachedSeed,
+  getDailySeedString,
+  hashSeedString,
+  type RngHandle,
+} from "./daily-seed";
+import type { CardDef, CardOffer, WeaponArchetypeId } from "../types";
 
 let activeRng: RngHandle = createRng(1);
 let pendingOffers: readonly CardOffer[] | null = null;
+let dailyCardPool: readonly CardDef[] = [];
 
 export function getActiveRng(): RngHandle {
   return activeRng;
+}
+
+export function getDailyCardPool(): readonly CardDef[] {
+  return dailyCardPool;
 }
 
 export function getPendingOffers(): readonly CardOffer[] | null {
@@ -57,9 +69,12 @@ export function dailyStarterWeapon(date: Date = new Date()): WeaponArchetypeId {
 }
 
 export function startRun(starterWeaponId?: WeaponArchetypeId): void {
-  const seed = getDailySeedString();
-  state.dailySeed = seed;
-  activeRng = createRng(hashSeedString(seed));
+  const cached = getCachedSeed();
+  const seedDate = cached?.date ?? getDailySeedString();
+  const seedValue = cached?.seed ?? hashSeedString(seedDate);
+  state.dailySeed = seedDate;
+  activeRng = createRng(seedValue);
+  dailyCardPool = rollDailyCardPool(activeRng);
   const resolvedStarter = starterWeaponId ?? dailyStarterWeapon();
 
   state.mode = "playing";
@@ -103,7 +118,7 @@ export function transitionToCardPick(): void {
   clearStageEntities();
   const chance = thirdCardChance();
   const cardCount: 2 | 3 = activeRng.next() < chance ? 3 : 2;
-  pendingOffers = rollCards(activeRng, player, state.picksTaken, cardCount);
+  pendingOffers = rollCards(activeRng, player, state.picksTaken, cardCount, dailyCardPool);
   state.rngState = activeRng.state();
   state.mode = "card-pick";
 }

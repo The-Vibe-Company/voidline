@@ -8,3 +8,6 @@ coverage/
 .claude/
 /sim/target/
 /sim/headless-host/node_modules/
+.env
+.env.local
+.env.*.local

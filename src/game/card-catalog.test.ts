@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { cardCatalog, applyCardToPlayer, findCard, rollCards, rollTwoCards } from "./card-catalog";
+import {
+  cardCatalog,
+  applyCardToPlayer,
+  findCard,
+  rollCards,
+  rollDailyCardPool,
+  rollTwoCards,
+  DAILY_POOL_SIZE_OPTIONAL,
+} from "./card-catalog";
 import { createRng } from "./daily-seed";
 import { createPlayerBaseState } from "../state";
 import { mutationsFor } from "./mutation-catalog";
@@ -84,5 +92,46 @@ describe("applyCardToPlayer", () => {
     const player = createPlayerBaseState();
     applyCardToPlayer(findCard("lifesteal"), player, createRng(1));
     expect(player.lifesteal).toBeGreaterThan(0);
+  });
+});
+
+describe("rollDailyCardPool", () => {
+  it("is stable for a given seed and includes always-on cards", () => {
+    const a = rollDailyCardPool(createRng(2026_05_04));
+    const b = rollDailyCardPool(createRng(2026_05_04));
+    expect(a.map((c) => c.id)).toEqual(b.map((c) => c.id));
+    const ids = new Set(a.map((c) => c.id));
+    expect(ids.has("weapon-promote")).toBe(true);
+    expect(ids.has("weapon-mutation")).toBe(true);
+    expect(a).toHaveLength(2 + DAILY_POOL_SIZE_OPTIONAL);
+  });
+
+  it("varies with the seed", () => {
+    const a = rollDailyCardPool(createRng(1));
+    const b = rollDailyCardPool(createRng(2));
+    const aIds = a.map((c) => c.id).sort();
+    const bIds = b.map((c) => c.id).sort();
+    expect(aIds).not.toEqual(bIds);
+  });
+
+  it("rollCards never offers cards outside the provided pool", () => {
+    const rng = createRng(42);
+    const player = createPlayerBaseState();
+    const restricted = cardCatalog
+      .filter((c) => c.id === "damage-up" || c.id === "speed-up" || c.id === "weapon-promote")
+      .slice();
+    const offers = rollCards(rng, player, 0, 2, restricted);
+    const allowed = new Set(restricted.map((c) => c.id));
+    for (const offer of offers) {
+      expect(allowed.has(offer.card.id)).toBe(true);
+    }
+  });
+});
+
+describe("boss archetype determinism via wave-flow", () => {
+  it("same seed produces same daily card pool ids order", () => {
+    const a = rollDailyCardPool(createRng(123));
+    const b = rollDailyCardPool(createRng(123));
+    expect(a.map((c) => c.id)).toEqual(b.map((c) => c.id));
   });
 });

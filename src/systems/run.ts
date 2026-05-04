@@ -5,6 +5,9 @@ import { hideOverlays, showCardPick, showGameOver, showHangar, updateHud } from 
 import { stepWave } from "../game/wave-loop";
 import { tickWorldFx } from "../game/hitstop";
 import { submitEntry } from "../render/leaderboard";
+import { getCachedSeed } from "../game/daily-seed";
+import { postScore } from "./api";
+import { getOrCreatePlayerId } from "./identity";
 import type { WeaponArchetypeId } from "../types";
 
 let runRewardClaimed = false;
@@ -53,7 +56,22 @@ function onGameOver(): void {
     date: new Date().toISOString(),
     seed: state.dailySeed,
   });
+  uploadScoreOnline(reachedWave);
   showGameOver();
+}
+
+function uploadScoreOnline(reachedWave: number): void {
+  const cached = getCachedSeed();
+  if (!cached || cached.source !== "server") return;
+  postScore({
+    player_id: getOrCreatePlayerId(),
+    seed_date: cached.date,
+    score: Math.max(0, Math.floor(state.score)),
+    mini_wave: reachedWave,
+    run_seconds: Math.max(0, state.runElapsedSeconds),
+    boss_defeated: state.bossDefeated,
+    starter_weapon: state.starterWeaponId,
+  }).catch(() => {});
 }
 
 export { showHangar };

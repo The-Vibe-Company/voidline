@@ -50,6 +50,8 @@ import {
 import { triggerHitstop, triggerKillCam, HITSTOP_KILL, HITSTOP_BOSS_KILL } from "./hitstop";
 import type {
   AttackTelegraphShape,
+  BossFirePattern,
+  BossMovePattern,
   EnemyEntity,
   EnemyKind,
   EnemyType,
@@ -57,6 +59,15 @@ import type {
   SpawnIndicator,
   Weapon,
 } from "../types";
+
+const BOSS_FIRE_PATTERNS: readonly BossFirePattern[] = ["aimed", "spread", "sweep"];
+const BOSS_MOVE_PATTERNS: readonly BossMovePattern[] = ["chase", "orbit", "dashPulse"];
+const BOSS_SWEEP_FREQ = 2.0;
+const BOSS_SWEEP_AMP = 0.6;
+const BOSS_SPREAD_MULT = 1.8;
+const BOSS_ORBIT_RADIUS = 180;
+const BOSS_DASHPULSE_PERIOD = 2.0;
+const BOSS_DASHPULSE_DASH_DURATION = 0.6;
 
 const EDGE_PADDING = 18;
 
@@ -304,6 +315,8 @@ function materializeBoss(indicator: SpawnIndicator): void {
     bossElapsed: 0,
     bossShotTimer: bossAttacks.shotWarmup,
     bossSpawnTimer: bossAttacks.spawnWarmup,
+    bossFirePattern: pickBossFirePattern(),
+    bossMovePattern: pickBossMovePattern(),
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
@@ -352,7 +365,7 @@ function updateEnemies(dt: number): void {
     enemy.hit = Math.max(0, enemy.hit - dt);
     enemy.contactCooldown = Math.max(0, enemy.contactCooldown - dt);
     if (enemy.isBoss) {
-      moveTowardPlayer(enemy, dt);
+      updateBossMovement(enemy, dt);
       updateBossAI(enemy, dt);
     } else if (enemy.behavior === "ranged") {
       updateRangedEnemy(enemy, dt);
@@ -526,6 +539,38 @@ function updateDasherEnemy(enemy: EnemyEntity, dt: number): void {
   moveTowardPlayer(enemy, dt, dist > range ? 1 : 0.45);
 }
 
+function updateBossMovement(boss: EnemyEntity, dt: number): void {
+  const pattern = boss.bossMovePattern ?? "chase";
+  if (pattern === "chase") {
+    moveTowardPlayer(boss, dt);
+    return;
+  }
+  if (pattern === "orbit") {
+    const dx = player.x - boss.x;
+    const dy = player.y - boss.y;
+    const dist = Math.hypot(dx, dy) || 0.0001;
+    // Tangential (perpendicular) component for the orbit.
+    const tx = -dy / dist;
+    const ty = dx / dist;
+    // Radial pull/push toward the target orbit radius.
+    const radialErr = dist - BOSS_ORBIT_RADIUS;
+    const rx = (dx / dist) * Math.sign(radialErr);
+    const ry = (dy / dist) * Math.sign(radialErr);
+    const radialWeight = Math.min(1, Math.abs(radialErr) / 60);
+    const tangentialWeight = 1 - radialWeight * 0.6;
+    const speed = boss.speed;
+    boss.x += (tx * tangentialWeight + rx * radialWeight) * speed * dt;
+    boss.y += (ty * tangentialWeight + ry * radialWeight) * speed * dt;
+    return;
+  }
+  if (pattern === "dashPulse") {
+    const phase = (boss.bossElapsed ?? 0) % BOSS_DASHPULSE_PERIOD;
+    const dashing = phase < BOSS_DASHPULSE_DASH_DURATION;
+    const speedScale = dashing ? 1.6 : 0.25;
+    moveTowardPlayer(boss, dt, speedScale);
+  }
+}
+
 function updateBossAI(boss: EnemyEntity, dt: number): void {
   const elapsed = (boss.bossElapsed ?? 0) + dt;
   boss.bossElapsed = elapsed;
@@ -543,11 +588,29 @@ function updateBossAI(boss: EnemyEntity, dt: number): void {
   }
 }
 
+function pickBossFirePattern(): BossFirePattern {
+  const rng = getActiveRng();
+  const idx = Math.floor(rng.next() * BOSS_FIRE_PATTERNS.length);
+  return BOSS_FIRE_PATTERNS[Math.min(BOSS_FIRE_PATTERNS.length - 1, idx)]!;
+}
+
+function pickBossMovePattern(): BossMovePattern {
+  const rng = getActiveRng();
+  const idx = Math.floor(rng.next() * BOSS_MOVE_PATTERNS.length);
+  return BOSS_MOVE_PATTERNS[Math.min(BOSS_MOVE_PATTERNS.length - 1, idx)]!;
+}
+
 function fireBossSalvo(boss: EnemyEntity): void {
   const elapsed = boss.bossElapsed ?? 0;
   const count = bossShotProjectiles(elapsed);
-  const baseAngle = Math.atan2(player.y - boss.y, player.x - boss.x);
-  const totalSpread = (count - 1) * bossAttacks.shotSpread;
+  const aimed = Math.atan2(player.y - boss.y, player.x - boss.x);
+  const pattern = boss.bossFirePattern ?? "aimed";
+  const baseAngle =
+    pattern === "sweep"
+      ? aimed + Math.sin(elapsed * BOSS_SWEEP_FREQ) * BOSS_SWEEP_AMP
+      : aimed;
+  const spreadMul = pattern === "spread" ? BOSS_SPREAD_MULT : pattern === "sweep" ? 1.2 : 1;
+  const totalSpread = (count - 1) * bossAttacks.shotSpread * spreadMul;
   for (let i = 0; i < count; i += 1) {
     const t = count === 1 ? 0 : i / (count - 1) - 0.5;
     const angle = baseAngle + t * totalSpread;
@@ -752,7 +815,7 @@ function fireSalvo(weapon: Weapon, eff: EffectiveWeaponStats): void {
   for (let i = 0; i < count; i += 1) {
     const t = count === 1 ? 0 : i / (count - 1) - 0.5;
     const angle = baseAngle + t * totalSpread;
-    const isCrit = getActiveRng().next() < eff.critChance;
+    const isCrit = Math.random() < eff.critChance;
     const damage = isCrit ? eff.damage * 2 : eff.damage;
     bullets.push({
       id: counters.nextBulletId++,
@@ -799,7 +862,7 @@ function updateBullets(dt: number): void {
       }
       const burstCount = enemy.isBoss ? 6 : 3;
       for (let p = 0; p < burstCount; p += 1) {
-        const a = getActiveRng().next() * Math.PI * 2;
+        const a = Math.random() * Math.PI * 2;
         particles.push({
           id: counters.nextParticleId++,
           x: enemy.x,
@@ -911,8 +974,8 @@ function dropExperience(enemy: EnemyEntity): void {
   const totalValue = expectedXpValue(enemy.kind, enemy.isBoss);
   const perOrb = Math.max(1, Math.round(totalValue / shards));
   for (let i = 0; i < shards; i += 1) {
-    const angle = getActiveRng().next() * Math.PI * 2;
-    const speed = 60 + getActiveRng().next() * 60;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 60 + Math.random() * 60;
     experienceOrbs.push({
       id: counters.nextExperienceId++,
       x: enemy.x,
@@ -929,17 +992,17 @@ function dropExperience(enemy: EnemyEntity): void {
 function spawnDeathBurst(enemy: EnemyEntity): void {
   const count = enemy.isBoss ? 60 : 20;
   for (let i = 0; i < count; i += 1) {
-    const angle = getActiveRng().next() * Math.PI * 2;
-    const speed = 100 + getActiveRng().next() * 280;
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 100 + Math.random() * 280;
     particles.push({
       id: counters.nextParticleId++,
       x: enemy.x,
       y: enemy.y,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      size: 2 + getActiveRng().next() * 5,
+      size: 2 + Math.random() * 5,
       color: enemy.color,
-      life: 0.55 + getActiveRng().next() * 0.5,
+      life: 0.55 + Math.random() * 0.5,
       maxLife: 1.05,
     });
   }
@@ -980,8 +1043,8 @@ function collectOrb(orb: ExperienceOrb): void {
       id: counters.nextParticleId++,
       x: orb.x,
       y: orb.y,
-      vx: (getActiveRng().next() - 0.5) * 100,
-      vy: -60 - getActiveRng().next() * 50,
+      vx: (Math.random() - 0.5) * 100,
+      vy: -60 - Math.random() * 50,
       size: 2.2,
       color: "#72ffb1",
       life: 0.36,

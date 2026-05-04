@@ -1,7 +1,7 @@
 {
   "scripts": {
     "setup": "npm install",
-    "run": "npm run dev -- --port ${CONDUCTOR_PORT:-4173} --strictPort",
+    "run": "node scripts/dev-conductor.mjs",
     "archive": "true"
   },
   "runScriptMode": "nonconcurrent"

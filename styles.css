@@ -4584,6 +4584,223 @@ h2 {
   color: #93a3b8;
 }
 
+.hangar-alias-block {
+  background: rgba(10, 16, 26, 0.55);
+  border: 1px solid rgba(57, 217, 255, 0.18);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.hangar-alias-block .eyebrow {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #72ffb1;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+.hangar-alias-display {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.hangar-alias-value {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 16px;
+  color: #ffffff;
+}
+.hangar-alias-edit,
+.hangar-alias-add {
+  background: rgba(57, 217, 255, 0.1);
+  border: 1px solid rgba(57, 217, 255, 0.45);
+  color: #e7eef9;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.hangar-alias-edit:hover,
+.hangar-alias-add:hover {
+  border-color: #72ffb1;
+}
+.hangar-alias-edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.hangar-alias-edit-row input {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 8px 10px;
+  background: rgba(20, 28, 44, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  color: #ffffff;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 14px;
+}
+.hangar-alias-edit-row input:focus {
+  outline: none;
+  border-color: #72ffb1;
+}
+.hangar-alias-edit-row button {
+  background: rgba(114, 255, 177, 0.12);
+  border: 1px solid rgba(114, 255, 177, 0.45);
+  color: #e7eef9;
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.hangar-alias-edit-row button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hangar-alias-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #ff7a8a;
+}
+.hangar-seed-source {
+  font-size: 10px;
+  letter-spacing: 1px;
+  color: #93a3b8;
+  margin-left: 4px;
+}
+.hangar-seed-toggle {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px dashed rgba(57, 217, 255, 0.4);
+  color: #93a3b8;
+  font-family: inherit;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.hangar-seed-toggle:hover {
+  color: #ffffff;
+  border-color: #72ffb1;
+}
+.pool-modal {
+  border: 1px solid rgba(57, 217, 255, 0.4);
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(15, 22, 36, 0.98), rgba(8, 12, 20, 0.98));
+  color: #e7eef9;
+  padding: 0;
+  max-width: 520px;
+  width: calc(100vw - 40px);
+  max-height: calc(100vh - 80px);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.04) inset;
+  overflow: hidden;
+}
+.pool-modal::backdrop {
+  background: rgba(2, 6, 12, 0.72);
+  backdrop-filter: blur(4px);
+}
+.pool-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 18px 22px 12px;
+  border-bottom: 1px solid rgba(57, 217, 255, 0.18);
+}
+.pool-modal-header .eyebrow {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #72ffb1;
+  text-transform: uppercase;
+  margin: 0 0 4px;
+}
+.pool-modal-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-family: "Share Tech Mono", monospace;
+  color: #ffffff;
+}
+.pool-modal-close {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #e7eef9;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.pool-modal-close:hover {
+  border-color: #72ffb1;
+  color: #72ffb1;
+}
+.pool-modal-list {
+  list-style: none;
+  margin: 0;
+  padding: 14px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.pool-modal-list li {
+  padding: 10px 12px;
+  background: rgba(20, 28, 44, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+}
+.pool-modal-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+.pool-modal-line strong {
+  color: #ffffff;
+  font-size: 14px;
+}
+.pool-modal-desc {
+  margin: 0;
+  font-size: 12px;
+  color: #93a3b8;
+  line-height: 1.4;
+}
+.hangar-pool-rarity {
+  justify-self: end;
+  font-size: 9px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  align-self: start;
+}
+.hangar-pool-rarity-common {
+  background: rgba(147, 163, 184, 0.18);
+  color: #c8d4e3;
+}
+.hangar-pool-rarity-rare {
+  background: rgba(57, 217, 255, 0.18);
+  color: #39d9ff;
+}
+.hangar-pool-rarity-mutation {
+  background: rgba(255, 90, 240, 0.2);
+  color: #ff9aff;
+}
+.hangar-pool-desc {
+  grid-column: 1 / -1;
+  color: #93a3b8;
+  font-size: 11px;
+}
+
 /* HUD only visible while playing or paused */
 .hud[data-hud-mode="hidden"] {
   display: none !important;

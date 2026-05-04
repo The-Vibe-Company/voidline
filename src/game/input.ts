@@ -10,6 +10,16 @@ import { beginRun } from "../systems/run";
 
 export function bindInput(): void {
   window.addEventListener("keydown", (event) => {
+    const active = document.activeElement as HTMLElement | null;
+    const isTextField =
+      !!active &&
+      (active.matches("input, textarea, select, [contenteditable=''], [contenteditable='true']"));
+    // Let text fields receive their keys normally — gameplay shortcuts pause while typing.
+    if (isTextField) {
+      if (event.code === "Escape") active.blur();
+      return;
+    }
+
     const movementCodes = [
       "ArrowUp",
       "ArrowRight",
@@ -33,8 +43,7 @@ export function bindInput(): void {
 
     if (movement || action || pause || card1 || card2 || card3) event.preventDefault();
 
-    const active = document.activeElement as HTMLElement | null;
-    if (action && active?.matches("button, [role='button'], input, select, textarea, a[href]")) {
+    if (action && active?.matches("button, [role='button'], a[href]")) {
       active.click();
       return;
     }

@@ -491,3 +491,63 @@ describe("boss aggression salvos", () => {
     expect(enemyBullets.length).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe("seed scope", () => {
+  function snapshotBossArchetype(): { fire: string | undefined; move: string | undefined } {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const boss = enemies[0]!;
+    return { fire: boss.bossFirePattern, move: boss.bossMovePattern };
+  }
+
+  it("same seed produces the same boss archetype", () => {
+    startRun("pulse");
+    clearRunEntities();
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const first = enemies[0]!;
+    const fire1 = first.bossFirePattern;
+    const move1 = first.bossMovePattern;
+
+    // Re-run with the same starter (seed is daily, same day → same RNG stream)
+    startRun("pulse");
+    clearRunEntities();
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const second = enemies[0]!;
+    expect(second.bossFirePattern).toBe(fire1);
+    expect(second.bossMovePattern).toBe(move1);
+    expect(typeof fire1).toBe("string");
+    expect(typeof move1).toBe("string");
+    void snapshotBossArchetype;
+  });
+
+  it("Math.random does not feed the seeded RNG (visual independence)", () => {
+    // Stub Math.random to a fixed sequence. Boss archetype must remain stable
+    // because it draws from the seeded RNG, not Math.random.
+    const original = Math.random;
+    Math.random = () => 0.123456;
+    startRun("pulse");
+    clearRunEntities();
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const a = enemies[0]!;
+    const fireA = a.bossFirePattern;
+    const moveA = a.bossMovePattern;
+
+    Math.random = () => 0.987654;
+    startRun("pulse");
+    clearRunEntities();
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const b = enemies[0]!;
+    Math.random = original;
+    expect(b.bossFirePattern).toBe(fireA);
+    expect(b.bossMovePattern).toBe(moveA);
+  });
+});
