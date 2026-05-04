@@ -4810,3 +4810,24 @@ h2 {
     transform: translateY(0) scale(1);
   }
 }
+
+/* Card preview tag (Promotion / Mutation) */
+.card-pick-tag {
+  margin: 8px 0 0;
+  padding: 3px 8px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #93a3b8;
+  border: 1px solid rgba(156, 230, 255, 0.18);
+  border-radius: 4px;
+  align-self: flex-start;
+}
+.card-pick-card.rarity-mutation .card-pick-tag {
+  color: #ff5af0;
+  border-color: rgba(255, 90, 240, 0.4);
+}
+.card-pick-card.rarity-rare .card-pick-tag {
+  color: #ffbf47;
+  border-color: rgba(255, 191, 71, 0.4);
+}

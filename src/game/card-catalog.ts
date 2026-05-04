@@ -3,10 +3,19 @@ import type {
   CardEffect,
   CardOffer,
   CardStat,
+  MutationPreview,
   Player,
+  PromotionPreview,
   Weapon,
+  WeaponTierStats,
 } from "../types";
-import { canPromoteWeapon, applyMutation, promoteWeapon } from "./weapon-catalog";
+import {
+  canPromoteWeapon,
+  applyMutation,
+  findWeaponDef,
+  promoteWeapon,
+  weaponBaseStats,
+} from "./weapon-catalog";
 import { mutationsFor } from "./mutation-catalog";
 import type { RngHandle } from "./daily-seed";
 
@@ -156,9 +165,55 @@ export function rollCards(
     if (remaining.length === 0) break;
     const picked = weightedPick(rng, remaining);
     taken.add(picked.id);
-    offers.push({ card: picked });
+    offers.push(buildOffer(picked, player.activeWeapon, rng));
   }
   return offers;
+}
+
+function buildOffer(card: CardDef, weapon: Weapon, rng: RngHandle): CardOffer {
+  if (card.id === "weapon-mutation") {
+    const candidates = mutationsFor(weapon.defId);
+    if (candidates.length > 0) {
+      const mutation = rng.pick(candidates);
+      const def = findWeaponDef(weapon.defId);
+      const preview: MutationPreview = {
+        weaponName: def.name,
+        mutationId: mutation.id,
+        mutationName: mutation.name,
+        description: mutation.description,
+      };
+      return { card, mutationPreview: preview };
+    }
+  }
+  if (card.id === "weapon-promote" && canPromoteWeapon(weapon)) {
+    const def = findWeaponDef(weapon.defId);
+    const fromStats = weaponBaseStats(weapon);
+    const toIdx = Math.min(3, weapon.tier);
+    const toStats = def.tiers[toIdx]!;
+    const preview: PromotionPreview = {
+      weaponName: def.name,
+      fromTier: weapon.tier,
+      toTier: weapon.tier + 1,
+      deltas: tierDeltas(fromStats, toStats),
+    };
+    return { card, promotionPreview: preview };
+  }
+  return { card };
+}
+
+function tierDeltas(from: WeaponTierStats, to: WeaponTierStats): readonly string[] {
+  const out: string[] = [];
+  if (to.damage !== from.damage) out.push(`DMG ${from.damage}→${to.damage}`);
+  if (to.fireRate !== from.fireRate) out.push(`${from.fireRate.toFixed(1)}/s→${to.fireRate.toFixed(1)}/s`);
+  if (to.projectileCount !== from.projectileCount) {
+    out.push(`${from.projectileCount}→${to.projectileCount} proj`);
+  }
+  if (to.pierce !== from.pierce) out.push(`pierce ${from.pierce}→${to.pierce}`);
+  if (to.critChance !== from.critChance) {
+    out.push(`crit ${Math.round(from.critChance * 100)}%→${Math.round(to.critChance * 100)}%`);
+  }
+  if (to.range !== from.range) out.push(`portée ${from.range}→${to.range}`);
+  return out;
 }
 
 /** @deprecated kept for tests — prefer rollCards */
@@ -190,19 +245,30 @@ function weightedPick(rng: RngHandle, pool: readonly CardDef[]): CardDef {
   return pool[pool.length - 1]!;
 }
 
-export function applyCardToPlayer(card: CardDef, player: Player, rng: RngHandle): void {
+export function applyCardOfferToPlayer(offer: CardOffer, player: Player, rng: RngHandle): void {
+  const card = offer.card;
   for (const effect of card.effects) {
     applyEffect(effect, player);
   }
   if (card.id === "weapon-promote") {
     promoteWeapon(player.activeWeapon);
-  } else if (card.id === "weapon-mutation") {
+    return;
+  }
+  if (card.id === "weapon-mutation") {
+    if (offer.mutationPreview) {
+      applyMutation(player.activeWeapon, offer.mutationPreview.mutationId);
+      return;
+    }
     const mutations = mutationsFor(player.activeWeapon.defId);
     if (mutations.length > 0 && player.activeWeapon.mutationId === null) {
       const mutation = rng.pick(mutations);
       applyMutation(player.activeWeapon, mutation.id);
     }
   }
+}
+
+export function applyCardToPlayer(card: CardDef, player: Player, rng: RngHandle): void {
+  applyCardOfferToPlayer({ card }, player, rng);
 }
 
 function applyEffect(effect: CardEffect, target: Player): void {

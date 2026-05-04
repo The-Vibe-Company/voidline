@@ -22,7 +22,7 @@ import {
 import { clearRunEntities } from "./wave-loop";
 import { makeStarterWeapon, weaponCatalog } from "./weapon-catalog";
 import {
-  applyCardToPlayer,
+  applyCardOfferToPlayer,
   rollCards,
 } from "./card-catalog";
 import { createRng, getDailySeedString, hashSeedString, type RngHandle } from "./daily-seed";
@@ -69,6 +69,10 @@ export function startRun(starterWeaponId?: WeaponArchetypeId): void {
   state.xpCollected = 0;
   state.xpDropped = 0;
   state.bossDefeated = false;
+  state.bossFightStartedAt = 0;
+  state.bossKillElapsed = 0;
+  state.bossSpeedBonus = 0;
+  state.bossHpBonus = 0;
   state.picksTaken = 0;
   state.runElapsedSeconds = 0;
   state.runStartedAt = Date.now();
@@ -107,7 +111,7 @@ export function applyCardAndAdvance(cardIndex: number): void {
   if (!pendingOffers) return;
   const offer = pendingOffers[cardIndex];
   if (!offer) return;
-  applyCardToPlayer(offer.card, player, activeRng);
+  applyCardOfferToPlayer(offer, player, activeRng);
   state.picksTaken += 1;
   state.rngState = activeRng.state();
   pendingOffers = null;

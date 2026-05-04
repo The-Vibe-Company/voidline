@@ -346,6 +346,76 @@ describe("enemy bullets and damage", () => {
   });
 });
 
+describe("boss fight unlimited time + regen + bonuses", () => {
+  it("does not tick down the wave timer while boss is alive", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const before = state.waveTimer;
+
+    for (let i = 0; i < 100; i += 1) stepWave(0.05);
+
+    expect(state.waveTimer).toBe(before);
+  });
+
+  it("regenerates 1% of boss max HP per second during the fight", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const boss = enemies[0]!;
+    boss.x = -9999;
+    boss.y = -9999;
+    boss.speed = 0;
+    boss.hp = boss.maxHp * 0.5;
+    const start = boss.hp;
+
+    // Step 2 simulated seconds at 50ms/frame.
+    for (let i = 0; i < 40; i += 1) stepWave(0.05);
+
+    expect(boss.hp).toBeGreaterThan(start);
+    expect(boss.hp - start).toBeGreaterThanOrEqual(boss.maxHp * 0.01);
+  });
+
+  it("awards a speed bonus + HP bonus when the boss dies", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    state.score = 100;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const boss = enemies[0]!;
+    boss.x = player.x;
+    boss.y = player.y;
+    boss.hp = 1;
+    bullets.push({
+      id: 7777,
+      x: boss.x,
+      y: boss.y,
+      vx: 0,
+      vy: 0,
+      radius: 14,
+      damage: 1000,
+      pierce: 0,
+      life: 0.5,
+      hitIds: new Set<number>(),
+    });
+
+    stepWave(0.02);
+
+    expect(state.bossDefeated).toBe(true);
+    expect(state.bossSpeedBonus).toBeGreaterThan(0);
+    expect(state.bossHpBonus).toBeGreaterThan(0);
+    expect(state.score).toBeGreaterThan(100 + state.bossSpeedBonus + state.bossHpBonus - 1);
+  });
+});
+
 describe("boss-kill victory window", () => {
   it("clamps the boss-wave timer to <= 1.5s the moment the boss dies", () => {
     state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;

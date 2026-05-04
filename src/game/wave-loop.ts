@@ -65,7 +65,10 @@ export function stepWave(dt: number): void {
   const cappedDt = Math.min(0.05, Math.max(0, dt));
   world.time += cappedDt;
   state.runElapsedSeconds += cappedDt;
-  state.waveTimer = Math.max(0, state.waveTimer - cappedDt);
+  // Boss mini-wave runs unlimited time: only non-boss waves count down.
+  if (!isBossMiniWave(state.miniWaveIndex)) {
+    state.waveTimer = Math.max(0, state.waveTimer - cappedDt);
+  }
 
   updatePlayer(cappedDt);
   updateSpawns(cappedDt);
@@ -84,22 +87,14 @@ export function stepWave(dt: number): void {
     return;
   }
 
-  if (state.waveTimer <= 0) {
-    if (isBossMiniWave(state.miniWaveIndex)) {
-      const bossPending =
-        enemies.some((e) => e.isBoss) || spawnIndicators.some((s) => s.isBoss);
-      if (!bossPending) {
-        // Boss wave ended without any boss alive: count as victory only if boss was killed.
-        if (state.bossDefeated) {
-          finishRunWithVictory();
-        } else {
-          // No boss yet at timer end on boss wave — keep the run going by extending until boss dies.
-          // (Boss is forced to spawn well before the end, so this shouldn't fire in practice.)
-        }
-      }
-    } else {
-      transitionToCardPick();
+  if (isBossMiniWave(state.miniWaveIndex)) {
+    if (state.bossDefeated) {
+      // After boss kill we already clamped waveTimer to <= 1.5s for the kill-cam.
+      state.waveTimer = Math.max(0, state.waveTimer - cappedDt);
+      if (state.waveTimer <= 0) finishRunWithVictory();
     }
+  } else if (state.waveTimer <= 0) {
+    transitionToCardPick();
   }
 }
 
@@ -311,6 +306,7 @@ function materializeBoss(indicator: SpawnIndicator): void {
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
+  state.bossFightStartedAt = state.runElapsedSeconds;
 }
 
 export function updateSpawnIndicators(dt: number): void {
@@ -531,6 +527,8 @@ function updateDasherEnemy(enemy: EnemyEntity, dt: number): void {
 function updateBossAI(boss: EnemyEntity, dt: number): void {
   const elapsed = (boss.bossElapsed ?? 0) + dt;
   boss.bossElapsed = elapsed;
+  // Persistent regen so the player can't stall: 1% maxHp per second.
+  boss.hp = Math.min(boss.maxHp, boss.hp + boss.maxHp * bossBalance.regenPerSecond * dt);
   boss.bossShotTimer = (boss.bossShotTimer ?? bossAttacks.shotWarmup) - dt;
   if (boss.bossShotTimer <= 0) {
     fireBossSalvo(boss);
@@ -836,13 +834,21 @@ function killEnemy(index: number, enemy: EnemyEntity): void {
   dropExperience(enemy);
   if (enemy.isBoss) {
     state.bossDefeated = true;
+    const fightDuration = Math.max(0, state.runElapsedSeconds - state.bossFightStartedAt);
+    state.bossKillElapsed = fightDuration;
+    state.bossSpeedBonus = Math.max(
+      0,
+      Math.round(bossBalance.speedBonusBase - fightDuration * bossBalance.speedBonusPerSecond),
+    );
+    const hpRatio = Math.max(0, Math.min(1, player.hp / Math.max(1, player.maxHp)));
+    state.bossHpBonus = Math.round(bossBalance.hpBonusMax * hpRatio);
+    state.score += state.bossSpeedBonus + state.bossHpBonus;
     triggerKillCam();
     triggerHitstop(HITSTOP_BOSS_KILL);
     world.shake = Math.min(1.0, world.shake + 0.6);
     if (isBossMiniWave(state.miniWaveIndex)) {
-      // End the run once the kill-cam has played out instead of waiting for the
-      // full mini-wave timer.
-      state.waveTimer = Math.min(state.waveTimer, 1.5);
+      // End the run once the kill-cam has played out.
+      state.waveTimer = 1.5;
     }
   } else {
     triggerHitstop(HITSTOP_KILL);

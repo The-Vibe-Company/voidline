@@ -9,7 +9,7 @@ import { dailyStarterWeapon } from "../game/wave-flow";
 import { getDailySeedString } from "../game/daily-seed";
 import { accountProgress } from "../systems/account";
 import { getDailyLeaderboard } from "./leaderboard";
-import { MINI_WAVE_COUNT } from "../game/balance";
+import { BOSS_MINI_WAVE_INDEX, MINI_WAVE_COUNT } from "../game/balance";
 import type {
   CardOffer,
   ControlMode,
@@ -106,12 +106,20 @@ export function showGameOver(): void {
     const recap = state.bossDefeated
       ? "Boss vaincu — clear complet"
       : `Mini-vague ${state.miniWaveIndex + 1}/${MINI_WAVE_COUNT}`;
-    const items = [
+    const items: { label: string; value: string }[] = [
       { label: "Résultat", value: recap },
       { label: "Temps", value: formatTime(state.runElapsedSeconds) },
       { label: "Score", value: String(state.score) },
       { label: "Kills", value: String(state.kills) },
     ];
+    if (state.bossDefeated) {
+      items.push({
+        label: "Boss tué en",
+        value: formatTime(Math.round(state.bossKillElapsed)),
+      });
+      items.push({ label: "Bonus rapidité", value: `+${state.bossSpeedBonus}` });
+      items.push({ label: "Bonus PV", value: `+${state.bossHpBonus}` });
+    }
     for (const item of items) {
       const article = document.createElement("article");
       article.className = "recap-stat";
@@ -207,11 +215,30 @@ function buildCardElement(offer: CardOffer, index: number): HTMLElement {
   card.type = "button";
   card.className = `card-pick-card rarity-${offer.card.rarity}`;
   card.dataset.cardIndex = String(index);
+  const rarityLabel = offer.card.rarity === "mutation"
+    ? "MUTATION"
+    : offer.card.rarity === "rare"
+      ? "RARE"
+      : "COMMUN";
+  let title = offer.card.name;
+  let description = offer.card.description;
+  let extra = "";
+  if (offer.mutationPreview) {
+    title = `${offer.mutationPreview.weaponName} → ${offer.mutationPreview.mutationName}`;
+    description = offer.mutationPreview.description;
+    extra = `<p class="card-pick-tag">Évolution finale · remplace l'arme</p>`;
+  } else if (offer.promotionPreview) {
+    const p = offer.promotionPreview;
+    title = `${p.weaponName} T${p.fromTier} → T${p.toTier}`;
+    description = p.deltas.length > 0 ? p.deltas.join(" · ") : offer.card.description;
+    extra = `<p class="card-pick-tag">Promotion d'arme</p>`;
+  }
   card.innerHTML = `
-    <span class="card-pick-rarity">${offer.card.rarity === "mutation" ? "MUTATION" : offer.card.rarity === "rare" ? "RARE" : "COMMUN"}</span>
+    <span class="card-pick-rarity">${rarityLabel}</span>
     <span class="card-pick-key">${index + 1}</span>
-    <h3 class="card-pick-name">${offer.card.name}</h3>
-    <p class="card-pick-desc">${offer.card.description}</p>
+    <h3 class="card-pick-name">${title}</h3>
+    <p class="card-pick-desc">${description}</p>
+    ${extra}
   `;
   card.addEventListener("click", () => onPickCard(index));
   return card;
@@ -245,7 +272,12 @@ export function updateHud(): void {
     hud.wave.textContent = `${state.miniWaveIndex + 1}/${MINI_WAVE_COUNT}`;
   }
   if (hud.waveTimer) {
-    hud.waveTimer.textContent = formatTime(state.waveTimer);
+    if (state.miniWaveIndex === BOSS_MINI_WAVE_INDEX && state.mode === "playing" && !state.bossDefeated) {
+      const fight = Math.max(0, state.runElapsedSeconds - state.bossFightStartedAt);
+      hud.waveTimer.textContent = `BOSS ${formatTime(fight)}`;
+    } else {
+      hud.waveTimer.textContent = formatTime(state.waveTimer);
+    }
   }
   if (hud.health) {
     const hpPct = clamp(player.hp / Math.max(1, player.maxHp), 0, 1);

@@ -266,6 +266,10 @@ export interface GameState {
   xpCollected: number;
   xpDropped: number;
   bossDefeated: boolean;
+  bossFightStartedAt: number;
+  bossKillElapsed: number;
+  bossSpeedBonus: number;
+  bossHpBonus: number;
   runStartedAt: number;
   runElapsedSeconds: number;
   dailySeed: string;
@@ -321,8 +325,24 @@ export interface CardDef {
   effects: readonly CardEffect[];
 }
 
+export interface MutationPreview {
+  weaponName: string;
+  mutationId: string;
+  mutationName: string;
+  description: string;
+}
+
+export interface PromotionPreview {
+  weaponName: string;
+  fromTier: number;
+  toTier: number;
+  deltas: readonly string[];
+}
+
 export interface CardOffer {
   card: CardDef;
+  mutationPreview?: MutationPreview;
+  promotionPreview?: PromotionPreview;
 }
 
 export interface AccountRecords {

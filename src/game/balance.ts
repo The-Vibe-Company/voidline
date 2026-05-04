@@ -60,6 +60,14 @@ export const boss = {
   damageMultiplier: 1.7,
   radiusMultiplier: 2.4,
   scoreMultiplier: 12,
+  /** Boss regenerates this fraction of its max HP per second during the fight. */
+  regenPerSecond: 0.01,
+  /** Score awarded for killing the boss instantly; decays with fight duration. */
+  speedBonusBase: 5000,
+  /** Score lost per second of boss fight. Bonus floored at 0. */
+  speedBonusPerSecond: 50,
+  /** Max score awarded for finishing the boss with full HP. */
+  hpBonusMax: 2000,
 };
 
 export const bossAttacks = {
