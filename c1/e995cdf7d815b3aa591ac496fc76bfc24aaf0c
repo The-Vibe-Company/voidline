@@ -1,0 +1,45 @@
+src/game/card-catalog.ts
+  64185d3d68206b91 154-170,176,178,182
+src/main.ts
+  64185d3d68206b91 13-15,32-40
+src/render/hud.ts
+  64185d3d68206b91 9-15,18-19,329-336,339-345,349,352,355-363,367-388,391-573
+styles.css
+  64185d3d68206b91 4587-4803
+src/game/card-catalog.test.ts
+  64185d3d68206b91 2-10,97-137
+src/game/wave-loop.test.ts
+  64185d3d68206b91 494-553
+src/game/input.ts
+  64185d3d68206b91 13-22,46
+src/systems/run.ts
+  64185d3d68206b91 8-10,59,63-74
+src/game/wave-loop.ts
+  64185d3d68206b91 53-54,63-71,318-319,368,542-573,591-602,606-613,818,865,977-978,995-996,1003,1005,1046-1047
+src/types.ts
+  64185d3d68206b91 168-169,172-173
+src/game/daily-seed.ts
+  64185d3d68206b91 8-75
+src/game/wave-flow.ts
+  64185d3d68206b91 27,29-36,40,46-49,72-77,121
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "c1e995cdf7d815b3aa591ac496fc76bfc24aaf0c",
+  "prompts": {
+    "64185d3d68206b91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07fea4a7-4877-487f-b138-a736675a0cda",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 1469,
+      "total_deletions": 146,
+      "accepted_lines": 1377,
+      "overriden_lines": 0
+    }
+  }
+}

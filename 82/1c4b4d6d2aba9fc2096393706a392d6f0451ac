@@ -1,0 +1,41 @@
+scripts/db-init.mjs
+  64185d3d68206b91 1-59
+api/_db.ts
+  64185d3d68206b91 1-35
+api/players.ts
+  64185d3d68206b91 1-56
+.env.example
+  64185d3d68206b91 1
+api/scores.ts
+  64185d3d68206b91 1-96
+.gitignore
+  64185d3d68206b91 11-13
+api/tsconfig.json
+  64185d3d68206b91 1-11
+api/seed.ts
+  64185d3d68206b91 1-41
+api/leaderboard.ts
+  64185d3d68206b91 1-38
+package.json
+  64185d3d68206b91 8,21,28
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "821c4b4d6d2aba9fc2096393706a392d6f0451ac",
+  "prompts": {
+    "64185d3d68206b91": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "07fea4a7-4877-487f-b138-a736675a0cda",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 0,
+      "total_deletions": 0,
+      "accepted_lines": 581,
+      "overriden_lines": 0
+    }
+  }
+}
