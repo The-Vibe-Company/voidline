@@ -4278,3 +4278,556 @@ h2 {
   .stat-chip { padding: 3px 8px; font-size: 0.72rem; }
   .stat-chip span { font-size: 0.6rem; }
 }
+
+/* ============================================================ */
+/* Voidline 90s — pivot styles                                   */
+/* ============================================================ */
+
+/* Hide deprecated HUD chrome (replaced by minimal in-game HUD)  */
+.stats-panel,
+.hud-panel:has(#currencyValue),
+.hud-panel:has(#carryValue),
+.hud-panel:has(#scoreValue) {
+  display: none !important;
+}
+
+/* In-game HUD — minimal */
+.hud {
+  pointer-events: none;
+  gap: 12px;
+  align-items: stretch;
+}
+.hud-panel:has(#waveTimerValue) {
+  flex: 0 0 auto;
+}
+#waveTimerValue {
+  font-size: 36px;
+  letter-spacing: 1px;
+}
+#waveValue {
+  font-size: 22px;
+}
+
+/* Card-pick modal */
+.card-pick-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: linear-gradient(180deg, #0a0e16 0%, #060810 100%);
+  border: 1px solid rgba(57, 217, 255, 0.4);
+  padding: 32px 36px;
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(57, 217, 255, 0.15) inset;
+  max-width: 720px;
+  width: 90vw;
+}
+.card-pick-head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.card-pick-head .eyebrow {
+  font-size: 11px;
+  letter-spacing: 4px;
+  color: #72ffb1;
+  text-transform: uppercase;
+  margin: 0;
+}
+.card-pick-head h2 {
+  font-size: 28px;
+  margin: 0;
+  color: #ffffff;
+}
+.card-pick-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #93a3b8;
+  letter-spacing: 1px;
+}
+.card-pick-hint kbd {
+  background: rgba(57, 217, 255, 0.18);
+  border: 1px solid rgba(57, 217, 255, 0.5);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: "Share Tech Mono", monospace;
+  margin: 0 2px;
+}
+.card-pick-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.card-pick-card {
+  position: relative;
+  cursor: pointer;
+  text-align: left;
+  padding: 24px 22px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(15, 22, 36, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  color: #e7eef9;
+  font-family: inherit;
+  transition: transform 120ms ease, border-color 120ms ease, box-shadow 120ms ease;
+}
+.card-pick-card:hover,
+.card-pick-card:focus-visible {
+  transform: translateY(-4px);
+  border-color: #39d9ff;
+  box-shadow: 0 8px 30px rgba(57, 217, 255, 0.25);
+  outline: none;
+}
+.card-pick-card.rarity-rare {
+  border-color: rgba(255, 191, 71, 0.4);
+}
+.card-pick-card.rarity-rare:hover {
+  border-color: #ffbf47;
+  box-shadow: 0 8px 30px rgba(255, 191, 71, 0.25);
+}
+.card-pick-card.rarity-mutation {
+  border-color: rgba(255, 90, 240, 0.55);
+  background: linear-gradient(180deg, rgba(28, 10, 36, 0.92), rgba(15, 22, 36, 0.85));
+}
+.card-pick-card.rarity-mutation:hover {
+  border-color: #ff5af0;
+  box-shadow: 0 8px 30px rgba(255, 90, 240, 0.4);
+}
+.card-pick-rarity {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #93a3b8;
+  text-transform: uppercase;
+}
+.card-pick-card.rarity-rare .card-pick-rarity {
+  color: #ffbf47;
+}
+.card-pick-card.rarity-mutation .card-pick-rarity {
+  color: #ff5af0;
+}
+.card-pick-key {
+  position: absolute;
+  top: 16px;
+  right: 18px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 22px;
+  color: rgba(255, 255, 255, 0.4);
+}
+.card-pick-name {
+  margin: 0;
+  font-size: 22px;
+  color: #ffffff;
+}
+.card-pick-desc {
+  margin: 0;
+  font-size: 14px;
+  color: #c9d3e3;
+  line-height: 1.4;
+}
+.card-pick-foot {
+  text-align: center;
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: #647186;
+  text-transform: uppercase;
+}
+
+/* Hangar — daily seed, starter grid, leaderboard */
+.hangar-seed-block,
+.hangar-starter-block,
+.hangar-leaderboard-block,
+.hangar-unlock-block {
+  background: rgba(10, 16, 26, 0.55);
+  border: 1px solid rgba(57, 217, 255, 0.18);
+  border-radius: 12px;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+.hangar-seed-block .eyebrow,
+.hangar-starter-block .eyebrow,
+.hangar-leaderboard-block .eyebrow,
+.hangar-unlock-block .eyebrow {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #72ffb1;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+}
+.hangar-seed-value {
+  display: block;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 22px;
+  color: #ffffff;
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.hangar-seed-hint {
+  margin: 0;
+  font-size: 12px;
+  color: #93a3b8;
+}
+.hangar-starter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+@media (max-width: 720px) {
+  .hangar-starter-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+.hangar-starter-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 14px 10px;
+  background: rgba(20, 28, 44, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  cursor: pointer;
+  font-family: inherit;
+  color: #e7eef9;
+  transition: transform 120ms ease, border-color 120ms ease;
+}
+.hangar-starter-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: #72ffb1;
+}
+.hangar-starter-card.is-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.hangar-starter-card .starter-card-icon img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+.hangar-starter-card strong {
+  font-size: 14px;
+  color: #ffffff;
+}
+.hangar-starter-card small {
+  font-size: 10px;
+  color: #93a3b8;
+  text-align: center;
+  line-height: 1.3;
+}
+.starter-card-cta {
+  margin-top: 4px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #72ffb1;
+  text-transform: uppercase;
+}
+.hangar-starter-card.is-locked .starter-card-cta {
+  color: #647186;
+}
+.hangar-unlock-button {
+  width: 100%;
+  padding: 12px 16px;
+  background: linear-gradient(90deg, rgba(57, 217, 255, 0.2), rgba(114, 255, 177, 0.2));
+  border: 1px solid rgba(57, 217, 255, 0.5);
+  border-radius: 8px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 120ms ease, border-color 120ms ease;
+}
+.hangar-unlock-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.hangar-unlock-button:hover:not(:disabled) {
+  border-color: #72ffb1;
+}
+.hangar-leaderboard-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.hangar-leaderboard-list li {
+  display: grid;
+  grid-template-columns: 36px 80px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 10px;
+  background: rgba(20, 28, 44, 0.6);
+  border-radius: 6px;
+  font-size: 12px;
+}
+.lb-rank {
+  font-family: "Share Tech Mono", monospace;
+  color: #72ffb1;
+  font-weight: bold;
+}
+.lb-score {
+  font-family: "Share Tech Mono", monospace;
+  color: #ffffff;
+  font-size: 14px;
+}
+.lb-meta {
+  color: #93a3b8;
+  font-size: 11px;
+}
+.hangar-leaderboard-empty {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #93a3b8;
+}
+
+/* HUD only visible while playing or paused */
+.hud[data-hud-mode="hidden"] {
+  display: none !important;
+}
+
+/* Discrete shortcut JOUER button at top of hangar */
+.hangar-start-shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 18px;
+  margin: 12px 0 18px;
+  background: linear-gradient(90deg, rgba(57, 217, 255, 0.18), rgba(114, 255, 177, 0.12));
+  border: 1px solid rgba(57, 217, 255, 0.5);
+  border-radius: 999px;
+  color: #ffffff;
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+.hangar-start-shortcut .label {
+  font-weight: 600;
+}
+.hangar-start-shortcut .sub {
+  font-size: 11px;
+  color: #93a3b8;
+  display: block;
+}
+.hangar-start-shortcut .key {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-family: "Share Tech Mono", monospace;
+  font-size: 11px;
+}
+.hangar-start-shortcut:hover {
+  border-color: #72ffb1;
+}
+
+/* ============================================================ */
+/* Voidline 90s — arena cleanup                                  */
+/* ============================================================ */
+
+/* Reset offset created by the deprecated stats sidebar */
+.game-shell {
+  --hud-left: 0 !important;
+  --hud-top: 76px !important;
+  --hud-right: 0 !important;
+  --hud-bottom: 0 !important;
+}
+
+/* Full-bleed arena, discrete border */
+.game-area {
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Centered minimal HUD */
+.hud[data-hud-mode="visible"] {
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  top: 14px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: auto;
+  max-width: 90vw;
+}
+.hud[data-hud-mode="visible"] .hud-panel {
+  min-width: 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(9, 15, 25, 0.92), rgba(6, 10, 16, 0.78));
+  border: 1px solid rgba(57, 217, 255, 0.25);
+}
+.hud[data-hud-mode="visible"] #waveValue {
+  font-size: 18px;
+  letter-spacing: 1px;
+}
+.hud[data-hud-mode="visible"] #waveTimerValue {
+  font-size: 28px;
+  letter-spacing: 2px;
+  color: #ffffff;
+}
+.hud[data-hud-mode="visible"] .hud-panel:has(#healthBar) {
+  min-width: 220px;
+}
+.hud[data-hud-mode="visible"] .meter {
+  margin-top: 6px;
+  height: 10px;
+}
+.hud[data-hud-mode="visible"] .boss-panel[data-active="false"] {
+  display: none;
+}
+
+/* 3-card layout when bonus card unlocked */
+.card-pick-modal.cards-3 .card-pick-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.card-pick-bonus {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 4px 12px;
+  background: linear-gradient(90deg, rgba(114, 255, 177, 0.18), rgba(57, 217, 255, 0.18));
+  border: 1px solid rgba(114, 255, 177, 0.5);
+  border-radius: 999px;
+  color: #72ffb1;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.card-pick-xpmeter {
+  display: block;
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #647186;
+  letter-spacing: 1px;
+}
+
+/* Card-pick rolling phase */
+.card-pick-roll {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin: 16px 0 4px;
+  min-height: 90px;
+}
+.card-pick-roll-label {
+  font-size: 10px;
+  letter-spacing: 3px;
+  color: #93a3b8;
+  text-transform: uppercase;
+}
+.card-pick-roll-bar {
+  width: 320px;
+  max-width: 70vw;
+  height: 10px;
+  background: rgba(15, 22, 36, 0.85);
+  border: 1px solid rgba(57, 217, 255, 0.35);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.card-pick-roll-fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #72ffb1, #39d9ff);
+  box-shadow: 0 0 14px rgba(57, 217, 255, 0.55);
+  border-radius: inherit;
+  animation: cardPickFill 1100ms cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+@keyframes cardPickFill {
+  from { width: 0; }
+  to { width: var(--xp-pct, 0%); }
+}
+.card-pick-roll-stat {
+  font-family: "Share Tech Mono", monospace;
+  font-size: 13px;
+  color: #ffffff;
+  letter-spacing: 1px;
+}
+.card-pick-roll-stat strong {
+  color: #72ffb1;
+}
+.card-pick-roll-spinner {
+  display: block;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(57, 217, 255, 0.25);
+  border-top-color: #39d9ff;
+  animation: cardPickSpin 700ms linear infinite;
+  opacity: 1;
+  transition: opacity 200ms ease;
+}
+@keyframes cardPickSpin {
+  to { transform: rotate(360deg); }
+}
+.card-pick-roll-result {
+  font-size: 13px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+.card-pick-modal.is-revealed .card-pick-roll-spinner {
+  opacity: 0;
+  pointer-events: none;
+}
+.card-pick-modal.is-revealed .card-pick-roll-result {
+  opacity: 1;
+  transform: translateY(0);
+}
+.card-pick-roll-result.is-bonus {
+  color: #72ffb1;
+  text-shadow: 0 0 16px rgba(114, 255, 177, 0.55);
+}
+.card-pick-roll-result.is-standard {
+  color: #647186;
+  text-transform: none;
+  letter-spacing: 0.5px;
+  font-size: 12px;
+}
+
+/* Card reveal slide-in */
+.card-pick-modal.is-revealed .card-pick-card {
+  animation: cardPickReveal 320ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  animation-delay: var(--card-delay, 0ms);
+}
+@keyframes cardPickReveal {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Card preview tag (Promotion / Mutation) */
+.card-pick-tag {
+  margin: 8px 0 0;
+  padding: 3px 8px;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #93a3b8;
+  border: 1px solid rgba(156, 230, 255, 0.18);
+  border-radius: 4px;
+  align-self: flex-start;
+}
+.card-pick-card.rarity-mutation .card-pick-tag {
+  color: #ff5af0;
+  border-color: rgba(255, 90, 240, 0.4);
+}
+.card-pick-card.rarity-rare .card-pick-tag {
+  color: #ffbf47;
+  border-color: rgba(255, 191, 71, 0.4);
+}

@@ -1,10 +1,10 @@
 import { canvas, keys, pointer, state } from "../state";
 import {
   pauseGame,
+  pickCardByIndex,
   resumeGame,
   setControlMode,
   showHangar,
-  showWeaponPicker,
 } from "../render/hud";
 import { beginRun } from "../systems/run";
 
@@ -25,8 +25,13 @@ export function bindInput(): void {
     const movement = movementCodes.includes(event.code);
     const action = event.code === "Enter" || event.code === "Space";
     const pause = event.code === "Escape" || event.code === "KeyP";
+    const noModifier = !event.ctrlKey && !event.metaKey && !event.altKey;
+    const inCardPick = state.mode === "card-pick";
+    const card1 = inCardPick && noModifier && (event.code === "Digit1" || event.code === "Numpad1");
+    const card2 = inCardPick && noModifier && (event.code === "Digit2" || event.code === "Numpad2");
+    const card3 = inCardPick && noModifier && (event.code === "Digit3" || event.code === "Numpad3");
 
-    if (movement || action || pause) event.preventDefault();
+    if (movement || action || pause || card1 || card2 || card3) event.preventDefault();
 
     const active = document.activeElement as HTMLElement | null;
     if (action && active?.matches("button, [role='button'], input, select, textarea, a[href]")) {
@@ -35,12 +40,30 @@ export function bindInput(): void {
     }
 
     if (state.mode === "menu" && action) {
-      showWeaponPicker((defId) => beginRun(defId));
+      beginRun();
       return;
     }
     if (state.mode === "gameover" && action) {
+      beginRun();
+      return;
+    }
+    if (state.mode === "gameover" && event.code === "KeyH") {
       showHangar();
       return;
+    }
+    if (state.mode === "card-pick") {
+      if (card1) {
+        pickCardByIndex(0);
+        return;
+      }
+      if (card2) {
+        pickCardByIndex(1);
+        return;
+      }
+      if (card3) {
+        pickCardByIndex(2);
+        return;
+      }
     }
     if (state.mode === "paused" && (action || pause)) {
       resumeGame();

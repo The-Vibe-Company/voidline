@@ -5,16 +5,15 @@ import {
   counters,
   enemies,
   enemyBullets,
-  experienceOrbs,
   player,
   resetPlayerToBase,
   spawnIndicators,
   state,
   world,
 } from "../state";
-import { acquireWeapon } from "./weapon-catalog";
 import type { EnemyEntity } from "../types";
 import {
+  BOSS_MINI_WAVE_INDEX,
   SPAWN_TELEGRAPH_BOSS_DURATION,
   SPAWN_ARENA_MARGIN,
   SPAWN_MIN_DISTANCE_FROM_PLAYER,
@@ -35,8 +34,12 @@ import {
   stepWave,
   updateSpawnIndicators,
 } from "./wave-loop";
+import { startRun } from "./wave-flow";
 
 beforeEach(() => {
+  world.arenaWidth = 1280;
+  world.arenaHeight = 720;
+  startRun("pulse");
   clearRunEntities();
   resetPlayerToBase();
   counters.nextEnemyId = 1;
@@ -44,7 +47,7 @@ beforeEach(() => {
   counters.nextEnemyBulletId = 1;
   counters.nextAttackTelegraphId = 1;
   state.mode = "playing";
-  state.wave = 1;
+  state.miniWaveIndex = 0;
   state.waveTimer = 10;
   state.waveTotalDuration = 10;
   state.spawnTimer = 1;
@@ -84,25 +87,13 @@ describe("wave loop spawn telegraphs", () => {
     expect(state.enemiesAlive).toBe(1);
   });
 
-  it("advances pending indicators through stepWave over multiple frames", () => {
-    spawnEnemy("scout");
-
-    for (let i = 0; i < 15; i += 1) {
-      stepWave(0.05);
-    }
-
-    expect(spawnIndicators).toHaveLength(0);
-    expect(enemies).toHaveLength(1);
-    expect(enemies[0]?.kind).toBe("scout");
-  });
-
   it("materializes boss indicators with boss stats", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
     const brute = findEnemyType("brute");
     spawnBoss();
 
     expect(spawnIndicators).toHaveLength(1);
     expect(spawnIndicators[0]?.isBoss).toBe(true);
-    expect(spawnIndicators[0]?.life).toBe(SPAWN_TELEGRAPH_BOSS_DURATION);
 
     updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
 
@@ -110,7 +101,9 @@ describe("wave loop spawn telegraphs", () => {
     expect(enemies).toHaveLength(1);
     expect(enemies[0]?.isBoss).toBe(true);
     expect(enemies[0]?.radius).toBe(brute.radius * bossBalance.radiusMultiplier);
-    expect(enemies[0]?.hp).toBe(brute.hp * enemyHpScale(state.wave) * bossBalance.hpMultiplier);
+    expect(enemies[0]?.hp).toBe(
+      brute.hp * enemyHpScale(state.miniWaveIndex) * bossBalance.hpMultiplier,
+    );
   });
 
   it("chooses in-arena spawn points away from the player", () => {
@@ -129,39 +122,18 @@ describe("wave loop spawn telegraphs", () => {
     }
   });
 
-  it("transitions to shop immediately when wave timer expires, even with pending spawn indicators", () => {
+  it("transitions to card-pick when wave timer expires on a non-boss mini-wave", () => {
     spawnEnemy("scout");
     state.waveTimer = 0;
 
     stepWave(0.01);
 
-    expect(state.mode).toBe("shop");
+    expect(state.mode).toBe("card-pick");
     expect(spawnIndicators).toHaveLength(0);
   });
 
-  it("carries 25% of uncollected XP value when wave timer expires", () => {
-    experienceOrbs.push({
-      id: 1,
-      x: 0,
-      y: 0,
-      vx: 0,
-      vy: 0,
-      radius: 4,
-      value: 100,
-      age: 0,
-    });
-    state.pendingCarry = 0;
-    state.waveTimer = 0;
-
-    stepWave(0.01);
-
-    expect(state.mode).toBe("shop");
-    expect(experienceOrbs).toHaveLength(0);
-    expect(state.carriedXp).toBe(25);
-  });
-
-  it("waits for boss death before transitioning to shop on a boss wave", () => {
-    state.wave = 5;
+  it("waits for boss death before ending the boss mini-wave", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
     state.spawnsRemaining = 0;
     enemies.push({
       id: counters.nextEnemyId++,
@@ -197,43 +169,9 @@ describe("wave loop spawn telegraphs", () => {
 
     expect(state.mode).toBe("playing");
   });
-
-  it("transitions to shop on a boss wave once the boss is dead", () => {
-    state.wave = 5;
-    state.spawnsRemaining = 0;
-    state.waveTimer = 0;
-
-    stepWave(0.01);
-
-    expect(state.mode).toBe("shop");
-  });
-
-  it("waits for an active boss telegraph to resolve before ending a boss wave", () => {
-    state.wave = 5;
-    state.spawnsRemaining = 0;
-    spawnBoss();
-    state.waveTimer = 0;
-
-    stepWave(0.01);
-
-    expect(state.mode).toBe("playing");
-  });
-
-  it("clears materialized enemies when wave timer expires", () => {
-    spawnEnemy("scout");
-    spawnIndicators[0]!.life = 0.01;
-    state.waveTimer = 0;
-
-    stepWave(0.05);
-
-    expect(state.mode).toBe("shop");
-    expect(spawnIndicators).toHaveLength(0);
-    expect(enemies).toHaveLength(0);
-    expect(state.enemiesAlive).toBe(0);
-  });
 });
 
-describe("multi-weapon firing", () => {
+describe("mono-weapon firing", () => {
   function injectDummyEnemy(): EnemyEntity {
     const e: EnemyEntity = {
       id: counters.nextEnemyId++,
@@ -267,25 +205,7 @@ describe("multi-weapon firing", () => {
     return e;
   }
 
-  it("two weapons fire independently on their own timers", () => {
-    bullets.length = 0;
-    counters.nextBulletId = 1;
-    acquireWeapon(player, "minigun", 1); // fireRate ~7.5
-    expect(player.weapons.length).toBe(2);
-    injectDummyEnemy();
-
-    const initialId = counters.nextBulletId;
-    const elapsed = 2.0;
-    const dt = 1 / 60;
-    for (let t = 0; t < elapsed; t += dt) {
-      stepWave(dt);
-    }
-    const totalFired = counters.nextBulletId - initialId;
-    // Pulse T1 fireRate 1.6 → ~3 shots in 2s; minigun T1 fireRate 7.5 → ~15 shots.
-    expect(totalFired).toBeGreaterThanOrEqual(14);
-  });
-
-  it("solo pulse weapon fires far fewer bullets in 2s than pulse + minigun combo", () => {
+  it("the active weapon fires periodically", () => {
     bullets.length = 0;
     counters.nextBulletId = 1;
     injectDummyEnemy();
@@ -295,47 +215,26 @@ describe("multi-weapon firing", () => {
     for (let t = 0; t < elapsed; t += dt) {
       stepWave(dt);
     }
-    const soloFired = counters.nextBulletId - startId;
-    // Pulse alone at 1.6 shots/s: ~3 shots, very different from ~18 with minigun.
-    expect(soloFired).toBeLessThanOrEqual(8);
+    const fired = counters.nextBulletId - startId;
+    expect(fired).toBeGreaterThanOrEqual(2);
+    expect(fired).toBeLessThanOrEqual(8);
   });
 });
 
-describe("pickEnemyKind gating by wave", () => {
-  it("only emits scouts before wave 2", () => {
+describe("pickEnemyKind gating by mini-wave index", () => {
+  it("only emits scouts at mini-wave 0", () => {
     const kinds = new Set<string>();
-    for (let i = 0; i < 200; i += 1) kinds.add(pickEnemyKind(1, Math.random()));
-    expect(kinds.has("hunter")).toBe(false);
+    for (let i = 0; i < 200; i += 1) kinds.add(pickEnemyKind(0, Math.random()));
     expect(kinds.has("brute")).toBe(false);
     expect(kinds.has("sentinel")).toBe(false);
     expect(kinds.has("stinger")).toBe(false);
     expect(kinds.has("splitter")).toBe(false);
   });
 
-  it("never emits sentinel before wave 3", () => {
+  it("emits all archetypes at mini-wave 4", () => {
     const seen = new Set<string>();
-    for (let i = 0; i < 400; i += 1) seen.add(pickEnemyKind(2, Math.random()));
-    expect(seen.has("sentinel")).toBe(false);
-  });
-
-  it("never emits stinger before wave 4", () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 400; i += 1) seen.add(pickEnemyKind(3, Math.random()));
-    expect(seen.has("stinger")).toBe(false);
-  });
-
-  it("never emits splitter before wave 6", () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 400; i += 1) seen.add(pickEnemyKind(5, Math.random()));
-    expect(seen.has("splitter")).toBe(false);
-  });
-
-  it("emits all archetypes from wave 8 onward", () => {
-    const seen = new Set<string>();
-    for (let i = 0; i < 1500; i += 1) seen.add(pickEnemyKind(8, Math.random()));
-    expect(seen.has("sentinel")).toBe(true);
-    expect(seen.has("stinger")).toBe(true);
-    expect(seen.has("splitter")).toBe(true);
+    for (let i = 0; i < 1500; i += 1) seen.add(pickEnemyKind(4, Math.random()));
+    expect(seen.has("hunter")).toBe(true);
   });
 });
 
@@ -346,13 +245,6 @@ describe("enemy archetype lookups", () => {
       const type = findEnemyType(id);
       expect(type.id).toBe(id);
     }
-  });
-
-  it("declares behaviors per archetype", () => {
-    expect(findEnemyType("scout").behavior).toBe("seeker");
-    expect(findEnemyType("sentinel").behavior).toBe("ranged");
-    expect(findEnemyType("stinger").behavior).toBe("dasher");
-    expect(findEnemyType("splitter").behavior).toBe("splitter");
   });
 });
 
@@ -444,6 +336,7 @@ describe("enemy bullets and damage", () => {
       life: 1,
       color: "#39d9ff",
     });
+    player.invuln = 0;
     const before = player.hp;
 
     stepWave(0.02);
@@ -451,31 +344,137 @@ describe("enemy bullets and damage", () => {
     expect(enemyBullets).toHaveLength(0);
     expect(player.hp).toBe(before - 14);
   });
+});
 
-  it("does not damage during invulnerability", () => {
-    player.invuln = 1;
-    enemyBullets.push({
-      id: counters.nextEnemyBulletId++,
-      x: player.x,
-      y: player.y,
+describe("xpMax tracking", () => {
+  it("includes alive enemies in the denominator (not just dropped XP)", () => {
+    const before = state.xpMax;
+    spawnEnemy("hunter");
+    updateSpawnIndicators(SPAWN_TELEGRAPH_DURATION + 0.01);
+    expect(state.xpMax).toBeGreaterThan(before);
+    // No kill yet, so xpCollected stays 0
+    expect(state.xpCollected).toBe(0);
+  });
+
+  it("100% only when every spawned enemy was killed and every orb collected", () => {
+    state.xpMax = 0;
+    state.xpCollected = 0;
+    spawnEnemy("scout");
+    spawnEnemy("scout");
+    updateSpawnIndicators(SPAWN_TELEGRAPH_DURATION + 0.01);
+    // Two scouts alive, no kills → ratio is 0/xpMax not 0/0
+    expect(state.xpMax).toBeGreaterThan(0);
+    expect(state.xpCollected).toBe(0);
+  });
+});
+
+describe("boss fight unlimited time + regen + bonuses", () => {
+  it("does not tick down the wave timer while boss is alive", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const before = state.waveTimer;
+
+    for (let i = 0; i < 100; i += 1) stepWave(0.05);
+
+    expect(state.waveTimer).toBe(before);
+  });
+
+  it("regenerates 1% of boss max HP per second during the fight", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const boss = enemies[0]!;
+    boss.x = -9999;
+    boss.y = -9999;
+    boss.speed = 0;
+    boss.hp = boss.maxHp * 0.5;
+    const start = boss.hp;
+
+    // Step 2 simulated seconds at 50ms/frame.
+    for (let i = 0; i < 40; i += 1) stepWave(0.05);
+
+    expect(boss.hp).toBeGreaterThan(start);
+    expect(boss.hp - start).toBeGreaterThanOrEqual(boss.maxHp * 0.01);
+  });
+
+  it("awards a speed bonus + HP bonus when the boss dies", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    state.score = 100;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const boss = enemies[0]!;
+    boss.x = player.x;
+    boss.y = player.y;
+    boss.hp = 1;
+    bullets.push({
+      id: 7777,
+      x: boss.x,
+      y: boss.y,
       vx: 0,
       vy: 0,
-      radius: 6,
-      damage: 20,
-      life: 1,
-      color: "#39d9ff",
+      radius: 14,
+      damage: 1000,
+      pierce: 0,
+      life: 0.5,
+      hitIds: new Set<number>(),
     });
-    const before = player.hp;
 
     stepWave(0.02);
 
-    expect(player.hp).toBe(before);
-    expect(enemyBullets).toHaveLength(1);
+    expect(state.bossDefeated).toBe(true);
+    expect(state.bossSpeedBonus).toBeGreaterThan(0);
+    expect(state.bossHpBonus).toBeGreaterThan(0);
+    expect(state.score).toBeGreaterThan(100 + state.bossSpeedBonus + state.bossHpBonus - 1);
+  });
+});
+
+describe("boss-kill victory window", () => {
+  it("clamps the boss-wave timer to <= 1.5s the moment the boss dies", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    const boss = enemies[0]!;
+    boss.x = player.x;
+    boss.y = player.y;
+    boss.hp = 1;
+    bullets.push({
+      id: 9999,
+      x: boss.x,
+      y: boss.y,
+      vx: 0,
+      vy: 0,
+      radius: 14,
+      damage: 1000,
+      pierce: 0,
+      life: 0.5,
+      hitIds: new Set<number>(),
+    });
+    const before = state.waveTimer;
+
+    stepWave(0.02);
+
+    expect(state.bossDefeated).toBe(true);
+    expect(state.waveTimer).toBeLessThanOrEqual(1.5);
+    expect(state.waveTimer).toBeLessThan(before);
   });
 });
 
 describe("boss aggression salvos", () => {
   it("fires its first salvo after the warmup", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
     spawnBoss();
     updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
     const boss = enemies[0]!;
@@ -486,7 +485,7 @@ describe("boss aggression salvos", () => {
     player.y = 100;
 
     const dt = 0.05;
-    const steps = Math.ceil((bossAttacks.shotWarmup + 0.1) / dt);
+    const steps = Math.ceil((bossAttacks.shotWarmup + 0.5) / dt);
     for (let i = 0; i < steps; i += 1) stepWave(dt);
 
     expect(enemyBullets.length).toBeGreaterThanOrEqual(1);

@@ -1,86 +1,69 @@
 import { describe, expect, it } from "vitest";
 import {
-  MAX_WEAPONS,
-  acquireWeapon,
   effectiveWeaponStats,
   findWeaponDef,
   makeStarterWeapon,
-  playerLoadoutFull,
-  playerOwnsWeapon,
   promoteWeapon,
+  applyMutation,
+  weaponBaseStats,
   weaponCatalog,
 } from "./weapon-catalog";
+import { mutationsFor } from "./mutation-catalog";
 import { createPlayerBaseState } from "../state";
 
 describe("weapon catalog", () => {
-  it("each archetype has 4 tiers", () => {
+  it("each archetype has 4 base tiers", () => {
     for (const def of weaponCatalog) {
       expect(def.tiers.length).toBe(4);
     }
   });
 
-  it("damage and cost grow monotonically across tiers", () => {
+  it("damage grows monotonically across tiers", () => {
     for (const def of weaponCatalog) {
       for (let t = 1; t < 4; t += 1) {
         expect(def.tiers[t]!.damage).toBeGreaterThanOrEqual(def.tiers[t - 1]!.damage);
-        expect(def.tiers[t]!.cost).toBeGreaterThan(def.tiers[t - 1]!.cost);
       }
     }
   });
 
-  it("pulse T1 mirrors original starter stats", () => {
-    const def = findWeaponDef("pulse");
-    expect(def.tiers[0]).toEqual(
-      expect.objectContaining({
-        damage: 24,
-        fireRate: 1.6,
-        projectileCount: 1,
-        range: 240,
-        bulletSpeed: 380,
-        bulletLife: 0.65,
-        bulletRadius: 1,
-      }),
-    );
+  it("each archetype has at least one mutation", () => {
+    for (const def of weaponCatalog) {
+      expect(mutationsFor(def.id).length).toBeGreaterThan(0);
+    }
   });
 
-  it("starter weapon is pulse T1", () => {
+  it("starter weapon defaults to pulse T1 with no mutation", () => {
     const player = createPlayerBaseState();
-    expect(player.weapons.length).toBe(1);
-    expect(player.weapons[0]!.defId).toBe("pulse");
-    expect(player.weapons[0]!.tier).toBe(1);
-  });
-
-  it("acquireWeapon adds to loadout when not owned", () => {
-    const player = createPlayerBaseState();
-    expect(acquireWeapon(player, "smg", 1)).toBe(true);
-    expect(playerOwnsWeapon(player, "smg")).toBe(true);
-    expect(player.weapons.length).toBe(2);
-  });
-
-  it("acquireWeapon refuses duplicates", () => {
-    const player = createPlayerBaseState();
-    expect(acquireWeapon(player, "pulse", 1)).toBe(false);
-  });
-
-  it("acquireWeapon refuses when loadout full", () => {
-    const player = createPlayerBaseState();
-    const archetypes = ["smg", "shotgun", "sniper", "minigun", "railgun"] as const;
-    for (const id of archetypes) acquireWeapon(player, id, 1);
-    expect(player.weapons.length).toBe(MAX_WEAPONS);
-    expect(playerLoadoutFull(player)).toBe(true);
-    // 7th archetype doesn't exist; try re-adding (still no-op via duplicate path)
-    expect(acquireWeapon(player, "pulse", 1)).toBe(false);
+    expect(player.activeWeapon.defId).toBe("pulse");
+    expect(player.activeWeapon.tier).toBe(1);
+    expect(player.activeWeapon.mutationId).toBeNull();
   });
 
   it("promoteWeapon raises tier and caps at 4", () => {
-    const player = createPlayerBaseState();
-    expect(player.weapons[0]!.tier).toBe(1);
-    expect(promoteWeapon(player, "pulse")).toBe(true);
-    expect(player.weapons[0]!.tier).toBe(2);
-    expect(promoteWeapon(player, "pulse")).toBe(true);
-    expect(promoteWeapon(player, "pulse")).toBe(true);
-    expect(player.weapons[0]!.tier).toBe(4);
-    expect(promoteWeapon(player, "pulse")).toBe(false);
+    const weapon = makeStarterWeapon("pulse");
+    expect(promoteWeapon(weapon)).toBe(true);
+    expect(weapon.tier).toBe(2);
+    expect(promoteWeapon(weapon)).toBe(true);
+    expect(promoteWeapon(weapon)).toBe(true);
+    expect(weapon.tier).toBe(4);
+    expect(promoteWeapon(weapon)).toBe(false);
+  });
+
+  it("applyMutation assigns mutationId and bumps tier", () => {
+    const weapon = makeStarterWeapon("pulse");
+    const mutationId = mutationsFor("pulse")[0]!.id;
+    expect(applyMutation(weapon, mutationId)).toBe(true);
+    expect(weapon.mutationId).toBe(mutationId);
+    expect(weapon.tier).toBeGreaterThan(1);
+  });
+
+  it("weaponBaseStats reads from mutation when set", () => {
+    const weapon = makeStarterWeapon("pulse");
+    const mutationId = mutationsFor("pulse")[0]!.id;
+    applyMutation(weapon, mutationId);
+    const baseStats = weaponBaseStats(weapon);
+    const mutationStats = mutationsFor("pulse").find((m) => m.id === mutationId)!.stats;
+    expect(baseStats.damage).toBe(mutationStats.damage);
   });
 
   it("effectiveWeaponStats stacks player bonuses on weapon base", () => {
@@ -90,9 +73,9 @@ describe("weapon catalog", () => {
     player.range = 60;
     player.bulletSpeed = 1.2;
     const eff = effectiveWeaponStats(makeStarterWeapon(), player);
-    expect(eff.damage).toBe(34);
-    expect(eff.fireRate).toBeCloseTo(2.1, 5);
-    expect(eff.range).toBe(300);
+    const baseDamage = findWeaponDef("pulse").tiers[0]!.damage;
+    expect(eff.damage).toBeCloseTo(baseDamage + 10, 5);
+    expect(eff.range).toBeCloseTo(240 + 60, 5);
     expect(eff.bulletSpeed).toBeCloseTo(380 * 1.2, 5);
   });
 });

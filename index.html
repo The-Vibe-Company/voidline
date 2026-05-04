@@ -19,32 +19,20 @@
         <canvas id="gameCanvas" aria-label="Voidline"></canvas>
       </div>
 
-      <section class="hud" aria-label="HUD de combat">
+      <section class="hud" aria-label="HUD de combat" data-hud-mode="hidden">
         <div class="hud-panel">
-          <span class="hud-label">Wave</span>
-          <strong id="waveValue">1</strong>
+          <span class="hud-label">Mini-vague</span>
+          <strong id="waveValue">1/6</strong>
         </div>
         <div class="hud-panel wide">
-          <span class="hud-label">Temps wave</span>
-          <strong id="waveTimerValue">0:20</strong>
-        </div>
-        <div class="hud-panel wide">
-          <span class="hud-label">Monnaie</span>
-          <strong id="currencyValue">0</strong>
-        </div>
-        <div class="hud-panel">
-          <span class="hud-label">Carry</span>
-          <strong id="carryValue">0</strong>
+          <span class="hud-label">Temps</span>
+          <strong id="waveTimerValue">0:15</strong>
         </div>
         <div class="hud-panel wide">
           <span class="hud-label">Intégrité</span>
           <div class="meter">
             <span id="healthBar"></span>
           </div>
-        </div>
-        <div class="hud-panel">
-          <span class="hud-label">Score</span>
-          <strong id="scoreValue">0</strong>
         </div>
         <div class="hud-panel boss-panel" id="bossPanel" data-active="false" aria-label="Vie du boss">
           <span class="hud-label">Boss</span>
@@ -54,57 +42,31 @@
         </div>
       </section>
 
-      <aside class="stats-panel" aria-label="Stats globales du vaisseau">
-        <span class="hud-label">Stats globales</span>
-        <dl class="stats-grid">
-          <div><dt>Coque</dt><dd id="statHull">100/100</dd></div>
-          <div><dt>Bonus dmg</dt><dd id="statDamage">+0</dd></div>
-          <div><dt>Bonus rate</dt><dd id="statFireRate">+0/s</dd></div>
-          <div><dt>Bonus salve</dt><dd id="statVolley">+0</dd></div>
-          <div><dt>Vitesse</dt><dd id="statSpeed">145</dd></div>
-          <div><dt>Bonus pierce</dt><dd id="statPierce">+0</dd></div>
-          <div><dt>Bonus crit</dt><dd id="statCrit">+0%</dd></div>
-          <div><dt>Calibre</dt><dd id="statCaliber">x1.00</dd></div>
-          <div><dt>Bonus portée</dt><dd id="statRange">+0</dd></div>
-        </dl>
-        <span class="hud-label">Loadout (max 6)</span>
-        <div class="weapon-loadout" id="weaponLoadout"></div>
-      </aside>
-
       <section class="overlay active hangar-overlay" id="hangarOverlay" aria-labelledby="hangarTitle">
         <div class="hangar-stage" data-screen-stage>
           <span class="hangar-backdrop" aria-hidden="true"></span>
-
-          <span class="hangar-crystal-hud" aria-live="polite" aria-label="Cristaux disponibles">
-            <span class="glyph" aria-hidden="true">&#9670;</span>
-            <strong data-account-crystals>0</strong>
-            <span class="lbl">cristaux</span>
-          </span>
 
           <section class="hangar-screen hangar-screen--title" data-screen="title" data-active="true" aria-labelledby="hangarTitle">
             <div class="hangar-brand-block">
               <span class="hangar-brand-pre"><span class="dot" aria-hidden="true"></span> Console de hangar</span>
               <h1 class="hangar-brand-mark" id="hangarTitle">VOIDLINE</h1>
-              <p class="hangar-brand-tagline">Survis les waves, achète des objets, deviens plus fort</p>
+              <p class="hangar-brand-tagline">150 secondes. 6 vagues. 1 boss. Survis.</p>
             </div>
 
-            <div class="hangar-menu" role="menu">
-              <button class="hangar-menu-item primary" id="startButton" type="button" role="menuitem" data-action="play">
-                <span class="marker" aria-hidden="true"></span>
-                <span class="hangar-menu-text">
-                  <span class="label">JOUER</span>
-                  <span class="sub">ESPACE pour lancer</span>
-                </span>
-                <span class="key" aria-hidden="true">ESPACE</span>
-              </button>
-            </div>
+            <button class="hangar-menu-item primary hangar-start-shortcut" id="startButton" type="button" data-action="play">
+              <span class="hangar-menu-text">
+                <span class="label">JOUER</span>
+                <span class="sub">150 s · arme du jour</span>
+              </span>
+              <span class="key" aria-hidden="true">ESPACE</span>
+            </button>
 
             <div class="hangar-meta" id="hangarMeta"></div>
 
             <details class="hangar-records">
-              <summary class="hangar-records-summary" data-records-summary>Records: wave 1 &middot; 0:00</summary>
+              <summary class="hangar-records-summary" data-records-summary>Records: vague 0/6 &middot; 0:00</summary>
               <dl class="hangar-records-grid">
-                <div><dt>Wave</dt><dd id="recordWave">1</dd></div>
+                <div><dt>Mini-vague</dt><dd id="recordWave">0</dd></div>
                 <div><dt>Temps</dt><dd id="recordTime">0:00</dd></div>
                 <div><dt>Score</dt><dd id="recordScore">0</dd></div>
               </dl>
@@ -121,77 +83,7 @@
         </div>
       </section>
 
-      <section class="overlay" id="weaponPickerOverlay" aria-labelledby="weaponPickerTitle">
-        <div class="upgrade-modal weapon-picker-modal" role="dialog" aria-modal="true" aria-labelledby="weaponPickerTitle">
-          <header class="upgrade-header">
-            <p class="eyebrow">Choisis ton arme de départ</p>
-            <h2 id="weaponPickerTitle">Briefing d'équipement</h2>
-            <p class="upgrade-prompt">Une seule arme T1 pour commencer ta run.</p>
-          </header>
-          <div class="upgrade-grid weapon-picker-grid" id="weaponPickerGrid"></div>
-        </div>
-      </section>
-
-      <section class="overlay shop-overlay" id="shopOverlay" aria-labelledby="shopTitle">
-        <div class="shop-modal" role="dialog" aria-modal="true" aria-labelledby="shopTitle">
-          <span class="modal-corner tl" aria-hidden="true"></span>
-          <span class="modal-corner tr" aria-hidden="true"></span>
-          <span class="modal-corner bl" aria-hidden="true"></span>
-          <span class="modal-corner br" aria-hidden="true"></span>
-          <span class="modal-scanline" aria-hidden="true"></span>
-
-          <header class="shop-head">
-            <div class="shop-head-titles">
-              <p class="eyebrow"><span class="eyebrow-glyph" aria-hidden="true">◆</span> Boutique</p>
-              <h2 id="shopTitle">Wave <span id="shopWaveNumber">1</span> terminée</h2>
-              <p class="shop-next" id="shopNextHint">Prochaine&nbsp;: <strong>Wave <span id="shopNextHintWave">2</span></strong></p>
-            </div>
-            <div class="shop-head-currency" aria-live="polite">
-              <span class="shop-coin">
-                <span class="lbl">XP</span>
-                <strong id="shopCurrency">0</strong>
-              </span>
-              <span class="shop-carry">
-                <span class="lbl">Réserve</span>
-                <strong id="shopCarry">0</strong>
-              </span>
-            </div>
-          </header>
-
-          <div class="shop-loadout-bar">
-            <span class="shop-loadout-label">Loadout</span>
-            <div class="weapon-loadout shop-loadout" id="shopWeaponLoadout"></div>
-          </div>
-
-          <div class="shop-grid" id="shopGrid"></div>
-
-          <aside class="shop-stats" aria-label="Stats actuelles">
-            <span class="shop-stats-title">Stats</span>
-            <span class="stat-chip" data-stat="hp"><span>Coque</span><strong id="shopStatHull">100/100</strong></span>
-            <span class="stat-chip" data-stat="damage"><span>Dégâts</span><strong id="shopStatDamage">24</strong></span>
-            <span class="stat-chip" data-stat="fireRate"><span>Cadence</span><strong id="shopStatFireRate">1.6/s</strong></span>
-            <span class="stat-chip" data-stat="projectileCount"><span>Salve</span><strong id="shopStatVolley">1</strong></span>
-            <span class="stat-chip" data-stat="speed"><span>Vitesse</span><strong id="shopStatSpeed">145</strong></span>
-            <span class="stat-chip" data-stat="pierce"><span>Pierce</span><strong id="shopStatPierce">0</strong></span>
-            <span class="stat-chip" data-stat="critChance"><span>Crit</span><strong id="shopStatCrit">0%</strong></span>
-            <span class="stat-chip" data-stat="bulletRadius"><span>Calibre</span><strong id="shopStatCaliber">x1.00</strong></span>
-            <span class="stat-chip" data-stat="bulletSpeed"><span>Vélocité</span><strong id="shopStatBulletSpeed">380</strong></span>
-            <span class="stat-chip" data-stat="range"><span>Portée</span><strong id="shopStatRange">240</strong></span>
-          </aside>
-
-          <footer class="shop-foot">
-            <button class="ghost-action" id="shopRerollButton" type="button">
-              <span class="ico" aria-hidden="true">⟳</span>
-              <span class="lbl">Reroll</span>
-              <span class="cost"><strong id="shopRerollCost">10</strong> XP</span>
-            </button>
-            <button class="primary-action shop-next-button" id="shopNextButton" type="button">
-              <span class="lbl">Wave <span id="shopNextWaveNumber">2</span></span>
-              <span class="arrow" aria-hidden="true">→</span>
-            </button>
-          </footer>
-        </div>
-      </section>
+      <section class="overlay" id="cardPickOverlay" aria-label="Choix de carte" aria-live="polite"></section>
 
       <section class="overlay" id="pauseOverlay">
         <div class="modal compact" role="dialog" aria-modal="true" aria-labelledby="pauseTitle">
@@ -208,7 +100,7 @@
               <p class="eyebrow">Signal perdu</p>
               <h2 id="gameOverTitle">Debrief de run</h2>
               <p class="tagline">
-                Wave atteinte <strong id="finalWave">1</strong> &middot;
+                Mini-vague atteinte <strong id="finalWave">1</strong> &middot;
                 score <strong id="finalScore">0</strong>
               </p>
             </div>

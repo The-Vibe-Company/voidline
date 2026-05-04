@@ -2,8 +2,8 @@ import {
   bindHudEvents,
   renderHangar,
   setControlMode,
+  setStartRunHandler,
   showHangar,
-  showWeaponPicker,
   updateHud,
 } from "./render/hud";
 import { bindInput } from "./game/input";
@@ -13,8 +13,9 @@ import { createVoidlineGame } from "./phaser/game";
 
 initializeAccountProgress();
 setControlMode("keyboard");
+setStartRunHandler((id) => beginRun(id));
 bindHudEvents(
-  () => showWeaponPicker((defId) => beginRun(defId)),
+  () => beginRun(),
   showHangar,
   () => {
     resetAccountProgress();

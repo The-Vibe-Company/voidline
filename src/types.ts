@@ -1,4 +1,4 @@
-export type GameMode = "menu" | "playing" | "shop" | "paused" | "gameover";
+export type GameMode = "menu" | "playing" | "card-pick" | "paused" | "gameover";
 
 export type ControlMode = "keyboard" | "trackpad";
 
@@ -26,7 +26,7 @@ export type WeaponArchetypeId =
   | "minigun"
   | "railgun";
 
-export type WeaponTier = 1 | 2 | 3 | 4;
+export type WeaponTier = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 export interface WeaponTierStats {
   damage: number;
@@ -39,7 +39,6 @@ export interface WeaponTierStats {
   bulletRadius: number;
   spread: number;
   critChance: number;
-  cost: number;
 }
 
 export interface WeaponDef {
@@ -47,12 +46,25 @@ export interface WeaponDef {
   name: string;
   icon: string;
   description: string;
-  tiers: readonly [WeaponTierStats, WeaponTierStats, WeaponTierStats, WeaponTierStats];
+  tiers: readonly [
+    WeaponTierStats,
+    WeaponTierStats,
+    WeaponTierStats,
+    WeaponTierStats,
+  ];
+}
+
+export interface WeaponMutation {
+  id: string;
+  name: string;
+  description: string;
+  stats: WeaponTierStats;
 }
 
 export interface Weapon {
   defId: WeaponArchetypeId;
   tier: WeaponTier;
+  mutationId: string | null;
   fireTimer: number;
   aimAngle: number;
 }
@@ -67,6 +79,8 @@ export interface World {
   dpr: number;
   time: number;
   shake: number;
+  hitstop: number;
+  timescale: number;
 }
 
 export interface Pointer {
@@ -75,11 +89,6 @@ export interface Pointer {
   inside: boolean;
 }
 
-/**
- * Player offensive stats are bonuses applied on top of each equipped weapon's
- * tier stats. Additive bonuses default to 0; multiplicative bonuses
- * (bulletSpeed, bulletLife, bulletRadius) default to 1.
- */
 export interface Player {
   x: number;
   y: number;
@@ -100,9 +109,10 @@ export interface Player {
   pierce: number;
   bulletRadius: number;
   critChance: number;
+  lifesteal: number;
   invuln: number;
   aimAngle: number;
-  weapons: Weapon[];
+  activeWeapon: Weapon;
 }
 
 export interface EnemyType {
@@ -243,62 +253,36 @@ export interface Floater {
 export interface GameState {
   mode: GameMode;
   controlMode: ControlMode;
-  wave: number;
+  miniWaveIndex: number;
+  miniWaveCount: number;
   waveTimer: number;
   waveTotalDuration: number;
   enemiesAlive: number;
   spawnTimer: number;
   spawnsRemaining: number;
-  runCurrency: number;
-  carriedXp: number;
-  pendingCarry: number;
+  picksTaken: number;
   score: number;
-  highestWaveReached: number;
+  kills: number;
+  xpCollected: number;
+  xpMax: number;
+  bossDefeated: boolean;
+  bossFightStartedAt: number;
+  bossKillElapsed: number;
+  bossSpeedBonus: number;
+  bossHpBonus: number;
+  runStartedAt: number;
   runElapsedSeconds: number;
+  dailySeed: string;
+  rngState: number;
+  starterWeaponId: WeaponArchetypeId;
 }
 
-export interface AccountRecords {
-  bestWave: number;
-  bestScore: number;
-  bestTimeSeconds: number;
-}
+export type CardEffectKind =
+  | "stat"
+  | "lifesteal"
+  | "mutation";
 
-export interface AccountProgress {
-  crystals: number;
-  spentCrystals: number;
-  upgradeLevels: Partial<Record<MetaUpgradeId, number>>;
-  records: AccountRecords;
-  lastRunReward: AccountReward | null;
-}
-
-export interface AccountRunSummary {
-  wave: number;
-  elapsedSeconds: number;
-  score: number;
-}
-
-export interface AccountReward {
-  crystalsGained: number;
-  newRecords: string[];
-}
-
-export type MetaUpgradeId =
-  | "meta:max-hp"
-  | "meta:damage"
-  | "meta:fire-rate"
-  | "meta:speed"
-  | "meta:crystal-yield";
-
-export interface MetaUpgrade {
-  id: MetaUpgradeId;
-  name: string;
-  icon: string;
-  description: string;
-  maxLevel: number;
-  costAt: (level: number) => number;
-}
-
-export type UpgradeStat =
+export type CardStat =
   | "fireRate"
   | "fireRateMul"
   | "damage"
@@ -312,26 +296,86 @@ export type UpgradeStat =
   | "bulletSpeed"
   | "range";
 
-export interface UpgradeEffect {
-  stat: UpgradeStat;
+export interface CardStatEffect {
+  kind: "stat";
+  stat: CardStat;
   amount: number;
 }
 
-export interface Upgrade {
-  id: string;
-  name: string;
-  icon: string;
-  description: string;
-  cost: number;
-  effects: readonly UpgradeEffect[];
+export interface CardLifestealEffect {
+  kind: "lifesteal";
+  amount: number;
 }
 
-export type ShopOffer =
-  | { kind: "upgrade"; upgrade: Upgrade; cost: number }
-  | {
-      kind: "weapon";
-      defId: WeaponArchetypeId;
-      tier: WeaponTier;
-      cost: number;
-      action: "acquire" | "promote";
-    };
+export interface CardMutationEffect {
+  kind: "mutation";
+}
+
+export type CardEffect = CardStatEffect | CardLifestealEffect | CardMutationEffect;
+
+export type CardRarity = "common" | "rare" | "mutation";
+
+export interface CardDef {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  rarity: CardRarity;
+  weight: number;
+  effects: readonly CardEffect[];
+}
+
+export interface MutationPreview {
+  weaponName: string;
+  mutationId: string;
+  mutationName: string;
+  description: string;
+}
+
+export interface PromotionPreview {
+  weaponName: string;
+  fromTier: number;
+  toTier: number;
+  deltas: readonly string[];
+}
+
+export interface CardOffer {
+  card: CardDef;
+  mutationPreview?: MutationPreview;
+  promotionPreview?: PromotionPreview;
+}
+
+export interface AccountRecords {
+  bestMiniWave: number;
+  bestScore: number;
+  bestTimeSeconds: number;
+  bossKills: number;
+}
+
+export interface AccountProgress {
+  records: AccountRecords;
+  lastRunReward: AccountReward | null;
+}
+
+export interface AccountRunSummary {
+  miniWaveReached: number;
+  bossDefeated: boolean;
+  elapsedSeconds: number;
+  score: number;
+  kills: number;
+}
+
+export interface AccountReward {
+  newRecords: string[];
+  bossBonus: boolean;
+}
+
+export interface LeaderboardEntry {
+  score: number;
+  miniWave: number;
+  bossDefeated: boolean;
+  starterWeaponId: WeaponArchetypeId;
+  elapsedSeconds: number;
+  date: string;
+  seed: string;
+}

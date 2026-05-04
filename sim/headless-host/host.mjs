@@ -18,16 +18,29 @@ globalThis.localStorage = {
 const stateModule = await import("../../src/state.ts");
 const waveFlow = await import("../../src/game/wave-flow.ts");
 const waveLoop = await import("../../src/game/wave-loop.ts");
-const shop = await import("../../src/game/shop.ts");
 const account = await import("../../src/systems/account.ts");
-const metaCatalog = await import("../../src/game/meta-upgrade-catalog.ts");
 const weaponCatalog = await import("../../src/game/weapon-catalog.ts");
 
-const { state, world, pointer, player, enemies, experienceOrbs, enemyBullets, attackTelegraphs, spawnIndicators, bullets, particles, floaters, counters } = stateModule;
+const {
+  state,
+  world,
+  pointer,
+  player,
+  enemies,
+  experienceOrbs,
+  enemyBullets,
+  attackTelegraphs,
+  spawnIndicators,
+  bullets,
+  particles,
+  floaters,
+  counters,
+} = stateModule;
+
 let rewardAwarded = false;
 
-world.width = world.arenaWidth = 1600;
-world.height = world.arenaHeight = 1100;
+world.width = world.arenaWidth = 1280;
+world.height = world.arenaHeight = 720;
 world.cameraX = 0;
 world.cameraY = 0;
 world.dpr = 1;
@@ -48,89 +61,58 @@ function resetRuntime() {
   Object.assign(state, {
     mode: "menu",
     controlMode: "trackpad",
-    wave: 1,
+    miniWaveIndex: 0,
+    miniWaveCount: 6,
     waveTimer: 0,
     waveTotalDuration: 0,
     enemiesAlive: 0,
     spawnTimer: 0,
     spawnsRemaining: 0,
-    runCurrency: 0,
-    carriedXp: 0,
-    pendingCarry: 0,
+    picksTaken: 0,
     score: 0,
-    highestWaveReached: 1,
+    kills: 0,
+    xpCollected: 0,
+    bossDefeated: false,
+    runStartedAt: 0,
     runElapsedSeconds: 0,
+    dailySeed: "",
+    rngState: 1,
+    starterWeaponId: "pulse",
   });
-  shop.resetShopState();
   rewardAwarded = false;
   pointer.inside = true;
 }
 
-function setMetaLevels(metaLevels = {}) {
-  account.accountProgress.crystals = 0;
-  account.accountProgress.spentCrystals = 0;
-  account.accountProgress.upgradeLevels = {};
-  const allowed = new Map(metaCatalog.metaUpgradeCatalog.map((upgrade) => [upgrade.id, upgrade.maxLevel]));
-  for (const [id, level] of Object.entries(metaLevels ?? {})) {
-    const maxLevel = allowed.get(id);
-    if (maxLevel === undefined) {
-      throw new Error(`Unknown meta upgrade: ${id}`);
-    }
-    const n = Math.max(0, Math.min(maxLevel, Math.floor(Number(level))));
-    if (n > 0) account.accountProgress.upgradeLevels[id] = n;
-  }
+function setMetaLevels() {
+  // No meta levels in the 90s pivot.
 }
 
 function aggregatedPlayerStats() {
-  if (!player.weapons || player.weapons.length === 0) {
-    return {
-      damage: 0,
-      fireRate: 0,
-      range: 0,
-      projectileCount: 0,
-      pierce: 0,
-      critChance: 0,
-    };
-  }
-  let weightedDamage = 0;
-  let totalShotsPerSec = 0;
-  let totalFireRate = 0;
-  let maxRange = 0;
-  let totalProjectiles = 0;
-  let totalPierce = 0;
-  let maxCrit = 0;
-  for (const weapon of player.weapons) {
-    const eff = weaponCatalog.effectiveWeaponStats(weapon, player);
-    const shotsPerSec = eff.fireRate * eff.projectileCount;
-    weightedDamage += eff.damage * shotsPerSec;
-    totalShotsPerSec += shotsPerSec;
-    totalFireRate += eff.fireRate;
-    if (eff.range > maxRange) maxRange = eff.range;
-    totalProjectiles += eff.projectileCount;
-    totalPierce += eff.pierce;
-    if (eff.critChance > maxCrit) maxCrit = eff.critChance;
-  }
-  const avgDamage = totalShotsPerSec > 0 ? weightedDamage / totalShotsPerSec : 0;
+  const eff = weaponCatalog.effectiveWeaponStats(player.activeWeapon, player);
+  const shotsPerSec = eff.fireRate * eff.projectileCount;
   return {
-    damage: avgDamage,
-    fireRate: totalFireRate,
-    range: maxRange,
-    projectileCount: totalProjectiles,
-    pierce: totalPierce,
-    critChance: maxCrit,
+    damage: eff.damage,
+    fireRate: eff.fireRate,
+    range: eff.range,
+    projectileCount: eff.projectileCount,
+    pierce: eff.pierce,
+    critChance: eff.critChance,
+    shotsPerSec,
   };
 }
 
 function snapshot() {
   const agg = aggregatedPlayerStats();
+  const reportedWave = state.miniWaveIndex + 1;
+  const reportedMode = state.mode === "card-pick" ? "shop" : state.mode;
   return {
     schema_version: 1,
-    mode: state.mode,
-    wave: state.wave,
+    mode: reportedMode,
+    wave: reportedWave,
     waveTimer: state.waveTimer,
     runElapsed: state.runElapsedSeconds,
     score: state.score,
-    currency: state.runCurrency,
+    currency: state.xpCollected,
     hp: player.hp,
     maxHp: player.maxHp,
     player: {
@@ -178,10 +160,12 @@ function snapshot() {
       damage: bullet.damage,
       life: bullet.life,
     })),
-    weapons: (player.weapons ?? []).map((weapon) => ({
-      defId: weapon.defId,
-      tier: weapon.tier,
-    })),
+    weapons: [
+      {
+        defId: player.activeWeapon.defId,
+        tier: player.activeWeapon.tier,
+      },
+    ],
     attackTelegraphs: attackTelegraphs.map((tel) => ({
       id: tel.id,
       shape: tel.shape,
@@ -206,27 +190,20 @@ function snapshot() {
 }
 
 function shopState() {
+  const offers = waveFlow.getPendingOffers();
+  const cards = offers
+    ? offers.map((offer, idx) => ({
+        id: `card:${offer.card.id}`,
+        cost: 0,
+        kind: "upgrade",
+        cardIndex: idx,
+      }))
+    : [];
   return {
     schema_version: 1,
-    offers: shop.currentShopOffers().map((offer) => {
-      if (offer.kind === "weapon") {
-        return {
-          id: `weapon:${offer.action}:${offer.defId}:t${offer.tier}`,
-          cost: offer.cost,
-          kind: "weapon",
-          defId: offer.defId,
-          tier: offer.tier,
-          action: offer.action,
-        };
-      }
-      return {
-        id: offer.upgrade.id,
-        cost: offer.cost,
-        kind: "upgrade",
-      };
-    }),
-    rerollCost: shop.currentRerollCost(),
-    currency: state.runCurrency,
+    offers: cards,
+    rerollCost: 9999,
+    currency: state.xpCollected,
   };
 }
 
@@ -236,8 +213,8 @@ async function handle(message) {
     case "init":
       resetRuntime();
       reseed(payload.seed ?? 1);
-      setMetaLevels(payload.metaLevels ?? {});
-      waveFlow.startRun();
+      setMetaLevels();
+      waveFlow.startRun(payload.starter ?? "pulse");
       pointer.inside = true;
       return snapshot();
     case "tick":
@@ -250,35 +227,46 @@ async function handle(message) {
       return snapshot();
     case "shop_state":
       return shopState();
-    case "buy":
-      return { schema_version: 1, ok: shop.tryBuyOffer(Number(payload.idx)) };
+    case "buy": {
+      const idx = Number(payload.idx);
+      const offers = waveFlow.getPendingOffers();
+      if (!offers) return { schema_version: 1, ok: false };
+      if (!Number.isInteger(idx) || idx < 0 || idx >= offers.length) {
+        return { schema_version: 1, ok: false };
+      }
+      waveFlow.applyCardAndAdvance(idx);
+      return { schema_version: 1, ok: true };
+    }
     case "reroll":
-      return { schema_version: 1, ok: shop.tryRerollShop() };
-    case "next_wave":
-      waveFlow.advanceFromShop();
+      return { schema_version: 1, ok: false };
+    case "next_wave": {
+      const offers = waveFlow.getPendingOffers();
+      if (offers) waveFlow.applyCardAndAdvance(0);
       pointer.inside = true;
       return snapshot();
+    }
     case "gameover_summary": {
-      let reward = account.accountProgress.lastRunReward ?? { crystalsGained: 0 };
       if (!rewardAwarded) {
-        reward = account.awardRunCrystals({
-          wave: state.highestWaveReached,
+        account.recordRun({
+          miniWaveReached: state.miniWaveIndex + (state.bossDefeated ? 1 : 0),
+          bossDefeated: state.bossDefeated,
           score: state.score,
           elapsedSeconds: state.runElapsedSeconds,
+          kills: state.kills,
         });
         rewardAwarded = true;
       }
       return {
         schema_version: 1,
-        wave: state.highestWaveReached,
+        wave: state.miniWaveIndex + 1,
         score: state.score,
         elapsed: state.runElapsedSeconds,
-        crystalsGained: reward.crystalsGained,
-        totalCrystals: account.accountProgress.crystals,
+        crystalsGained: 0,
+        totalCrystals: 0,
       };
     }
     case "purchase_meta":
-      return { schema_version: 1, result: account.purchaseMetaUpgrade(String(payload.id)) };
+      return { schema_version: 1, result: { ok: false, reason: "deprecated" } };
     case "reset":
       resetRuntime();
       account.initializeAccountProgress();
