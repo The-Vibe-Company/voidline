@@ -1,0 +1,25 @@
+scripts/vercel-build.mjs
+  c698b0a10bbdaa8e 1-15
+package.json
+  c698b0a10bbdaa8e 10
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.3.4",
+  "base_commit_sha": "56e9f2bee575bf1bb190eb0e29cf4de8a692c96f",
+  "prompts": {
+    "c698b0a10bbdaa8e": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a11d0363-7a7a-4ff4-814b-78768b31afb2",
+        "model": "claude-opus-4-7"
+      },
+      "human_author": "StanGirard",
+      "messages": [],
+      "total_additions": 16,
+      "total_deletions": 0,
+      "accepted_lines": 16,
+      "overriden_lines": 0
+    }
+  }
+}
