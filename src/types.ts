@@ -265,6 +265,7 @@ export interface GameState {
   enemiesAlive: number;
   spawnTimer: number;
   spawnsRemaining: number;
+  openerRemaining: number;
   picksTaken: number;
   score: number;
   kills: number;

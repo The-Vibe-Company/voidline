@@ -51,6 +51,7 @@ export const state: GameState = {
   enemiesAlive: 0,
   spawnTimer: 0,
   spawnsRemaining: 0,
+  openerRemaining: 0,
   picksTaken: 0,
   score: 0,
   kills: 0,
