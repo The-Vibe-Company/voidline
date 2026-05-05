@@ -35,6 +35,7 @@ import {
   findEnemyType,
   isBossMiniWave,
   boss as bossBalance,
+  wave as waveBalance,
   xp as xpBalance,
 } from "./balance";
 import {
@@ -165,24 +166,31 @@ function updateSpawns(dt: number): void {
   const elapsed = state.waveTotalDuration - state.waveTimer;
   const total = Math.max(0.001, state.waveTotalDuration);
   const remainingTime = Math.max(0.05, state.waveTimer);
-  const cadence = remainingTime / state.spawnsRemaining;
-  state.spawnTimer = Math.max(0.18, cadence);
 
   if (isBossMiniWave(state.miniWaveIndex)) {
+    state.spawnTimer = Math.max(0.18, remainingTime / state.spawnsRemaining);
     spawnBoss();
     state.spawnsRemaining = 0;
-  } else {
-    spawnEnemy(pickEnemyKind(state.miniWaveIndex, elapsed / total));
-    state.spawnsRemaining = Math.max(0, state.spawnsRemaining - 1);
+    state.openerRemaining = 0;
+    return;
   }
+
+  if (state.openerRemaining > 0) state.openerRemaining -= 1;
+  if (state.openerRemaining > 0) {
+    state.spawnTimer = waveBalance.openerCadence;
+  } else {
+    state.spawnTimer = Math.max(0.18, remainingTime / state.spawnsRemaining);
+  }
+  spawnEnemy(pickEnemyKind(state.miniWaveIndex, elapsed / total));
+  state.spawnsRemaining = Math.max(0, state.spawnsRemaining - 1);
 }
 
 export function pickEnemyKind(miniWaveIndex: number, progress: number): EnemyKind {
   const rng = getActiveRng();
   const tier = miniWaveIndex;
-  const hunterWeight = tier >= 1 ? Math.min(0.5, 0.2 + tier * 0.06 + progress * 0.08) : 0;
+  const hunterWeight = Math.min(0.5, 0.15 + tier * 0.08 + progress * 0.08);
   const sentinelWeight = tier >= 1 ? Math.min(0.22, tier * 0.05) : 0;
-  const stingerWeight = tier >= 2 ? Math.min(0.22, (tier - 1) * 0.07) : 0;
+  const stingerWeight = tier >= 1 ? Math.min(0.22, 0.06 + (tier - 1) * 0.06) : 0;
   const bruteWeight = tier >= 2 ? Math.min(0.3, (tier - 1) * 0.07) : 0;
   const splitterWeight = tier >= 3 ? Math.min(0.2, (tier - 2) * 0.07) : 0;
   const nonScout =

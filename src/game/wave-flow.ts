@@ -18,6 +18,7 @@ import {
   MINI_WAVE_DURATION,
   isBossMiniWave,
   miniWaveSpawnBudget,
+  wave as waveBalance,
 } from "./balance";
 import { clearRunEntities } from "./wave-loop";
 import { makeStarterWeapon, weaponCatalog } from "./weapon-catalog";
@@ -109,6 +110,9 @@ export function startMiniWave(index: number): void {
   state.waveTimer = MINI_WAVE_DURATION;
   state.spawnsRemaining = miniWaveSpawnBudget(index);
   state.spawnTimer = 0.4;
+  state.openerRemaining = isBossMiniWave(index)
+    ? 0
+    : Math.min(waveBalance.openerCount, state.spawnsRemaining);
   state.mode = "playing";
   player.invuln = 0.8;
   pendingOffers = null;

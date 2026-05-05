@@ -222,12 +222,23 @@ describe("mono-weapon firing", () => {
 });
 
 describe("pickEnemyKind gating by mini-wave index", () => {
-  it("only emits scouts at mini-wave 0", () => {
+  it("emits only scouts and hunters at mini-wave 0", () => {
     const kinds = new Set<string>();
-    for (let i = 0; i < 200; i += 1) kinds.add(pickEnemyKind(0, Math.random()));
+    for (let i = 0; i < 400; i += 1) kinds.add(pickEnemyKind(0, Math.random()));
+    expect(kinds.has("scout")).toBe(true);
+    expect(kinds.has("hunter")).toBe(true);
     expect(kinds.has("brute")).toBe(false);
     expect(kinds.has("sentinel")).toBe(false);
     expect(kinds.has("stinger")).toBe(false);
+    expect(kinds.has("splitter")).toBe(false);
+  });
+
+  it("introduces stinger and sentinel at mini-wave 1", () => {
+    const kinds = new Set<string>();
+    for (let i = 0; i < 800; i += 1) kinds.add(pickEnemyKind(1, Math.random()));
+    expect(kinds.has("stinger")).toBe(true);
+    expect(kinds.has("sentinel")).toBe(true);
+    expect(kinds.has("brute")).toBe(false);
     expect(kinds.has("splitter")).toBe(false);
   });
 
@@ -235,6 +246,57 @@ describe("pickEnemyKind gating by mini-wave index", () => {
     const seen = new Set<string>();
     for (let i = 0; i < 1500; i += 1) seen.add(pickEnemyKind(4, Math.random()));
     expect(seen.has("hunter")).toBe(true);
+  });
+});
+
+describe("opener burst seeding", () => {
+  function stepFor(seconds: number, dt = 0.05): void {
+    const steps = Math.ceil(seconds / dt);
+    for (let i = 0; i < steps; i += 1) stepWave(dt);
+  }
+
+  it("front-loads four enemies on non-boss waves", () => {
+    state.miniWaveIndex = 0;
+    state.spawnsRemaining = 14;
+    state.openerRemaining = 4;
+    state.waveTimer = 25;
+    state.waveTotalDuration = 25;
+    state.spawnTimer = 0;
+    state.mode = "playing";
+
+    stepFor(1.0);
+
+    expect(state.openerRemaining).toBe(0);
+    expect(state.spawnsRemaining).toBe(10);
+  });
+
+  it("produces a deterministic spawn sequence for the same seed", () => {
+    function captureSequence(): string[] {
+      state.miniWaveIndex = 0;
+      state.spawnsRemaining = 14;
+      state.openerRemaining = 4;
+      state.waveTimer = 25;
+      state.waveTotalDuration = 25;
+      state.spawnTimer = 0;
+      state.mode = "playing";
+      spawnIndicators.length = 0;
+      enemies.length = 0;
+      state.enemiesAlive = 0;
+      const kinds: string[] = [];
+      // Step until the opener has fully fired (≤ ~0.7s of opener cadence).
+      stepFor(0.5, 0.05);
+      for (const ind of spawnIndicators) kinds.push(`I:${ind.kind}`);
+      for (const e of enemies) kinds.push(`E:${e.kind}`);
+      return kinds;
+    }
+
+    startRun("pulse");
+    const seqA = captureSequence();
+    startRun("pulse");
+    const seqB = captureSequence();
+
+    expect(seqA).toEqual(seqB);
+    expect(seqA.length).toBeGreaterThanOrEqual(2);
   });
 });
 

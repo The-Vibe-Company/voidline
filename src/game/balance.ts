@@ -48,10 +48,12 @@ export const xp = {
 export const wave = {
   miniWaveDuration: MINI_WAVE_DURATION,
   miniWaveCount: MINI_WAVE_COUNT,
-  spawnBudgetPerWave: [10, 14, 18, 22, 26, 1] as const,
+  spawnBudgetPerWave: [14, 18, 22, 26, 30, 1] as const,
   hpScalePerStep: 0.45,
   speedScalePerStep: 0.06,
   damageScalePerStep: 0.18,
+  openerCount: 4,
+  openerCadence: 0.18,
 };
 
 export const boss = {
