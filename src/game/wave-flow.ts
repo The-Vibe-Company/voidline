@@ -86,6 +86,7 @@ export function startRun(starterWeaponId?: WeaponArchetypeId): void {
   state.xpCollected = 0;
   state.xpMax = 0;
   state.bossDefeated = false;
+  state.bossEnemy = null;
   state.bossFightStartedAt = 0;
   state.bossKillElapsed = 0;
   state.bossSpeedBonus = 0;
@@ -161,6 +162,7 @@ function clearStageEntities(): void {
   particles.length = 0;
   floaters.length = 0;
   state.enemiesAlive = 0;
+  state.bossEnemy = null;
   counters.nextEnemyId = 1;
   counters.nextEnemyBulletId = 1;
   counters.nextSpawnIndicatorId = 1;

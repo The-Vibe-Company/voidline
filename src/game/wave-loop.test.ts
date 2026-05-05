@@ -5,6 +5,7 @@ import {
   counters,
   enemies,
   enemyBullets,
+  particles,
   player,
   resetPlayerToBase,
   spawnIndicators,
@@ -611,5 +612,67 @@ describe("seed scope", () => {
     Math.random = original;
     expect(b.bossFirePattern).toBe(fireA);
     expect(b.bossMovePattern).toBe(moveA);
+  });
+});
+
+describe("particle pressure", () => {
+  it("never grows beyond the hard cap during sustained kills", () => {
+    state.miniWaveIndex = 0;
+    for (let k = 0; k < 50; k += 1) {
+      spawnImmediate("scout");
+      const target = enemies[enemies.length - 1]!;
+      target.x = player.x;
+      target.y = player.y;
+      target.hp = 1;
+      bullets.push({
+        id: 10000 + k,
+        x: target.x,
+        y: target.y,
+        vx: 1,
+        vy: 0,
+        radius: 8,
+        damage: 1000,
+        pierce: 0,
+        life: 0.2,
+        hitIds: null,
+      });
+      stepWave(0.02);
+    }
+    expect(particles.length).toBeLessThanOrEqual(200);
+  });
+});
+
+describe("state.bossEnemy lifecycle", () => {
+  it("is set when the boss materializes and cleared on kill", () => {
+    state.miniWaveIndex = BOSS_MINI_WAVE_INDEX;
+    state.spawnsRemaining = 0;
+    state.waveTimer = 12;
+    state.waveTotalDuration = 12;
+    expect(state.bossEnemy).toBeNull();
+
+    spawnBoss();
+    updateSpawnIndicators(SPAWN_TELEGRAPH_BOSS_DURATION + 0.01);
+    expect(state.bossEnemy).not.toBeNull();
+    expect(state.bossEnemy?.isBoss).toBe(true);
+
+    const boss = enemies[0]!;
+    boss.x = player.x;
+    boss.y = player.y;
+    boss.hp = 1;
+    bullets.push({
+      id: 22222,
+      x: boss.x,
+      y: boss.y,
+      vx: 0,
+      vy: 0,
+      radius: 14,
+      damage: 1000,
+      pierce: 0,
+      life: 0.5,
+      hitIds: null,
+    });
+    stepWave(0.02);
+
+    expect(state.bossEnemy).toBeNull();
   });
 });

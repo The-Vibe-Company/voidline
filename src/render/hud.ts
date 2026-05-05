@@ -1,4 +1,4 @@
-import { enemies, player, state } from "../state";
+import { player, state } from "../state";
 import { clamp } from "../utils";
 import {
   applyCardAndAdvance,
@@ -296,8 +296,7 @@ export function updateHud(): void {
         : "linear-gradient(90deg, #ff5a69, #ffbf47)";
   }
   if (hud.bossPanel && hud.bossHealth) {
-    const bossEnemy =
-      state.mode === "playing" ? enemies.find((e) => e.isBoss) : undefined;
+    const bossEnemy = state.mode === "playing" ? state.bossEnemy : null;
     if (bossEnemy) {
       hud.bossPanel.dataset.active = "true";
       const bossPct = clamp(bossEnemy.hp / Math.max(1, bossEnemy.maxHp), 0, 1);

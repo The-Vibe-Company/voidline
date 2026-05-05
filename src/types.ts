@@ -194,7 +194,7 @@ export interface Bullet {
   damage: number;
   pierce: number;
   life: number;
-  hitIds: Set<number>;
+  hitIds: Set<number> | null;
 }
 
 export interface EnemyBullet {
@@ -272,6 +272,7 @@ export interface GameState {
   xpCollected: number;
   xpMax: number;
   bossDefeated: boolean;
+  bossEnemy: EnemyEntity | null;
   bossFightStartedAt: number;
   bossKillElapsed: number;
   bossSpeedBonus: number;
