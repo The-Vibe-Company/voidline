@@ -86,6 +86,7 @@ export class BattleScene extends Phaser.Scene {
   }
 
   private drawBackground(): void {
+    if ((this.renderFrame & 3) !== 0) return;
     const grid = 64;
     const offsetX = -((world.cameraX - world.time * 8) % grid) - grid;
     const offsetY = -((world.cameraY - world.time * 5) % grid) - grid;

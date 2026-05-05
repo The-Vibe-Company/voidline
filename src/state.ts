@@ -58,6 +58,7 @@ export const state: GameState = {
   xpCollected: 0,
   xpMax: 0,
   bossDefeated: false,
+  bossEnemy: null,
   bossFightStartedAt: 0,
   bossKillElapsed: 0,
   bossSpeedBonus: 0,

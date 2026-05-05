@@ -57,6 +57,7 @@ import type {
   EnemyKind,
   EnemyType,
   ExperienceOrb,
+  Particle,
   SpawnIndicator,
   Weapon,
 } from "../types";
@@ -71,6 +72,17 @@ const BOSS_DASHPULSE_PERIOD = 2.0;
 const BOSS_DASHPULSE_DASH_DURATION = 0.6;
 
 const EDGE_PADDING = 18;
+
+const MAX_PARTICLES = 200;
+const PARTICLE_BURST_SOFT_CAP = 150;
+const MAX_FLOATERS = 24;
+
+function pushParticle(particle: Particle): void {
+  if (particles.length >= MAX_PARTICLES) {
+    particles.shift();
+  }
+  particles.push(particle);
+}
 
 export function stepWave(dt: number): void {
   if (state.mode !== "playing") return;
@@ -328,6 +340,7 @@ function materializeBoss(indicator: SpawnIndicator): void {
   };
   enemies.push(enemy);
   state.enemiesAlive = enemies.length;
+  state.bossEnemy = enemy;
   state.bossFightStartedAt = state.runElapsedSeconds;
   state.xpMax += expectedXpValue(enemy.kind, true);
 }
@@ -755,11 +768,14 @@ function separateEnemies(): void {
   const count = enemies.length;
   for (let i = 0; i < count; i += 1) {
     const a = enemies[i]!;
+    const ar = a.radius;
     for (let j = i + 1; j < count; j += 1) {
       const b = enemies[j]!;
+      const minDist = ar + b.radius;
       const dx = a.x - b.x;
+      if (dx > minDist || dx < -minDist) continue;
       const dy = a.y - b.y;
-      const minDist = a.radius + b.radius;
+      if (dy > minDist || dy < -minDist) continue;
       const distSq = dx * dx + dy * dy;
       if (distSq <= 0 || distSq >= minDist * minDist) continue;
       const dist = Math.sqrt(distSq);
@@ -835,7 +851,7 @@ function fireSalvo(weapon: Weapon, eff: EffectiveWeaponStats): void {
       damage,
       pierce: eff.pierce,
       life: eff.bulletLife,
-      hitIds: new Set<number>(),
+      hitIds: eff.pierce > 0 ? new Set<number>() : null,
     });
   }
 }
@@ -859,31 +875,36 @@ function updateBullets(dt: number): void {
     let removed = false;
     for (let j = enemies.length - 1; j >= 0; j -= 1) {
       const enemy = enemies[j]!;
-      if (bullet.hitIds.has(enemy.id)) continue;
+      if (bullet.hitIds && bullet.hitIds.has(enemy.id)) continue;
       if (!circleHit(bullet, enemy)) continue;
-      bullet.hitIds.add(enemy.id);
+      if (bullet.hitIds) bullet.hitIds.add(enemy.id);
       enemy.hp -= bullet.damage;
       enemy.hit = 0.12;
       const lifestealAmount = player.lifesteal > 0 ? bullet.damage * player.lifesteal : 0;
       if (lifestealAmount > 0) {
         player.hp = Math.min(player.maxHp, player.hp + lifestealAmount);
       }
-      const burstCount = enemy.isBoss ? 6 : 3;
-      for (let p = 0; p < burstCount; p += 1) {
-        const a = Math.random() * Math.PI * 2;
-        particles.push({
-          id: counters.nextParticleId++,
-          x: enemy.x,
-          y: enemy.y,
-          vx: Math.cos(a) * 140,
-          vy: Math.sin(a) * 140,
-          size: 1.8,
-          color: enemy.accent,
-          life: 0.22,
-          maxLife: 0.22,
-        });
+      if (particles.length < PARTICLE_BURST_SOFT_CAP) {
+        const burstCount = enemy.isBoss ? 2 : 1;
+        for (let p = 0; p < burstCount; p += 1) {
+          const a = Math.random() * Math.PI * 2;
+          pushParticle({
+            id: counters.nextParticleId++,
+            x: enemy.x,
+            y: enemy.y,
+            vx: Math.cos(a) * 140,
+            vy: Math.sin(a) * 140,
+            size: 1.8,
+            color: enemy.accent,
+            life: 0.22,
+            maxLife: 0.22,
+          });
+        }
       }
-      spawnFloater(enemy.x, enemy.y - enemy.radius, `${Math.round(bullet.damage)}`, "#d9f6ff");
+      const willKill = enemy.hp <= 0;
+      if (willKill || !isBossMiniWave(state.miniWaveIndex)) {
+        spawnFloater(enemy.x, enemy.y - enemy.radius, `${Math.round(bullet.damage)}`, "#d9f6ff");
+      }
       if (enemy.hp <= 0) {
         killEnemy(j, enemy);
       }
@@ -907,6 +928,7 @@ function killEnemy(index: number, enemy: EnemyEntity): void {
   dropExperience(enemy);
   if (enemy.isBoss) {
     state.bossDefeated = true;
+    state.bossEnemy = null;
     const fightDuration = Math.max(0, state.runElapsedSeconds - state.bossFightStartedAt);
     state.bossKillElapsed = fightDuration;
     state.bossSpeedBonus = Math.max(
@@ -998,11 +1020,11 @@ function dropExperience(enemy: EnemyEntity): void {
 }
 
 function spawnDeathBurst(enemy: EnemyEntity): void {
-  const count = enemy.isBoss ? 60 : 20;
+  const count = enemy.isBoss ? 32 : 14;
   for (let i = 0; i < count; i += 1) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 100 + Math.random() * 280;
-    particles.push({
+    pushParticle({
       id: counters.nextParticleId++,
       x: enemy.x,
       y: enemy.y,
@@ -1046,18 +1068,20 @@ function updateExperience(dt: number): void {
 function collectOrb(orb: ExperienceOrb): void {
   state.xpCollected += orb.value;
   spawnFloater(orb.x, orb.y - 6, `+${orb.value}`, "#72ffb1");
-  for (let p = 0; p < 3; p += 1) {
-    particles.push({
-      id: counters.nextParticleId++,
-      x: orb.x,
-      y: orb.y,
-      vx: (Math.random() - 0.5) * 100,
-      vy: -60 - Math.random() * 50,
-      size: 2.2,
-      color: "#72ffb1",
-      life: 0.36,
-      maxLife: 0.36,
-    });
+  if (particles.length < PARTICLE_BURST_SOFT_CAP) {
+    for (let p = 0; p < 3; p += 1) {
+      pushParticle({
+        id: counters.nextParticleId++,
+        x: orb.x,
+        y: orb.y,
+        vx: (Math.random() - 0.5) * 100,
+        vy: -60 - Math.random() * 50,
+        size: 2.2,
+        color: "#72ffb1",
+        life: 0.36,
+        maxLife: 0.36,
+      });
+    }
   }
 }
 
@@ -1092,7 +1116,7 @@ function updateFloaters(dt: number): void {
 }
 
 function spawnFloater(x: number, y: number, text: string, color: string): void {
-  if (floaters.length > 48) {
+  if (floaters.length >= MAX_FLOATERS) {
     floaters.shift();
   }
   floaters.push({
@@ -1116,5 +1140,6 @@ export function clearRunEntities(): void {
   particles.length = 0;
   floaters.length = 0;
   state.enemiesAlive = 0;
+  state.bossEnemy = null;
   player.activeWeapon.fireTimer = 0;
 }
