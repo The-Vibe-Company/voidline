@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:full": "vercel dev",
     "build": "tsc --noEmit && vite build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && npm run sim:test",
