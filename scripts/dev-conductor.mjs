@@ -62,7 +62,7 @@ async function waitForPort(port, timeoutMs = 60_000) {
   return false;
 }
 
-spawnChild("api", "vercel", ["dev", "--listen", String(API_PORT)]);
+spawnChild("api", "vercel", ["dev", "--yes", "--listen", String(API_PORT)]);
 
 const ok = await waitForPort(API_PORT);
 if (!ok) {
